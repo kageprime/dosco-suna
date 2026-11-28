@@ -217,7 +217,8 @@ export function getOAuthConsentRequest(
 /**
  * Approve or deny a pending OAuth request. `workspaceId` binds the grant: the
  * issued token reaches that workspace only, like a workspace key. Without it
- * the token acts as the person in every workspace (older consent screens).
+ * the token acts as the person in every workspace and may create workspaces
+ * (the consent screen's All my workspaces choice).
  */
 export function submitOAuthConsent(
   input: { requestId: string; approved: boolean; workspaceId?: string },
@@ -373,13 +374,16 @@ export function submitConnectorAppForm(
 }
 
 export interface SecretSetupLinkInfo {
-  /** Signed delivery scope. Absent on older servers. */
-  scope?: 'runtime' | 'connector';
+  /** Signed delivery scope. Absent on older servers. `browser` asks for a
+   *  website login: submit it with `submitBrowserLoginSetupLink`. */
+  scope?: 'runtime' | 'connector' | 'browser';
   project_name: string;
   fields: Array<{
     name: string;
     label: string | null;
     description: string | null;
+    /** `browser` scope: the hosts the login may be typed on. */
+    sites?: string[];
   }>;
   expires_at: string;
   /** The person whose session asked for the values, when that is a member of
@@ -423,6 +427,29 @@ export interface SecretSetupLinkSubmitResult {
    * a person must widen the grant before the agent can read it.
    */
   withheld?: SecretSetupLinkWithheld[];
+}
+
+/** A website login typed into a `browser` setup link. */
+export interface SecretSetupLinkLogin {
+  username: string;
+  password: string;
+}
+
+/**
+ * Submit the website logins a `browser` setup link asks for, keyed by login
+ * name. The sandbox browser types them; the agent never sees them.
+ */
+export function submitBrowserLoginSetupLink(
+  token: string,
+  logins: Record<string, SecretSetupLinkLogin>,
+  options: HostRequestOptions,
+  /** `only_requester`: only the person who asked may use the logins. */
+  audience?: { only_requester?: boolean },
+): Promise<SecretSetupLinkSubmitResult> {
+  return requestJson(`/setup-links/secret/${encodeURIComponent(token)}`, options, {
+    method: 'POST',
+    body: { logins, ...(audience?.only_requester ? { only_requester: true } : {}) },
+  });
 }
 
 export function submitSecretSetupLink(

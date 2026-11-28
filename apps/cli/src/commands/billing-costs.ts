@@ -285,7 +285,14 @@ async function costsBySession(
     })}`,
   );
   if (o.json) {
-    emitJson(page);
+    // `credits`, as the project rows carry them: a program (the kortix_usage tool) reads the unit people see.
+    emitJson({
+      ...page,
+      sessions: page.sessions.map((s) => ({
+        ...s,
+        credits: { total: creditAmount(s.total_cost), llm: creditAmount(s.llm_cost), compute: creditAmount(s.compute_cost) },
+      })),
+    });
     return 0;
   }
   if (page.sessions.length === 0) {

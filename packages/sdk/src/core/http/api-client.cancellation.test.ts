@@ -217,3 +217,22 @@ test('caller cancellation normalizes a stalled error body to ABORTED', async () 
   abort.abort();
   expect(await pending).toMatchObject({ success: false, error: { code: 'ABORTED' } });
 });
+
+test.each([
+  ['Error', 'upstream unreachable: The operation was aborted', false],
+  ['AbortSignal', 'upstream unreachable', true],
+  ['AbortError', 'The operation was aborted', true],
+])('request rejection %s: %s', async (name, message, aborted) => {
+  const reported: unknown[] = [];
+  configureKortix({
+    backendUrl: 'https://api.test/v1',
+    getToken: async () => 'token',
+    fetch: async () => { throw Object.assign(new Error(message), { name }); },
+    onError: (error) => { reported.push(error); },
+  });
+  const result = await backendApi.post('/complete', {});
+  expect(result.success).toBe(false);
+  expect(result.error?.code === 'ABORTED').toBe(aborted);
+  expect(reported).toEqual(aborted ? [] : [result.error]);
+  expect(result.error?.message).toBe(aborted ? 'Request aborted' : message);
+});

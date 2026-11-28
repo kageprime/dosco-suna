@@ -81,6 +81,7 @@ const {
   cancelFreeSubscriptionForUpgrade,
   syncSubscription,
 } = await import('../../billing/services/subscriptions');
+const { resolveFreePriceId } = await import('../../billing/services/tiers');
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -284,12 +285,35 @@ describe('syncSubscription', () => {
     const subscription = createMockStripeSubscription();
     mockRegistry.stripeClient.subscriptions.retrieve = async () => subscription;
     expect(await syncSubscription('acc_test_123')).toEqual({ success: true, message: 'Subscription synced' });
-    expect(updateCreditAccountCalls).toEqual([{
+    expect(updateCreditAccountCalls).toHaveLength(1);
+    expect(updateCreditAccountCalls[0]).toMatchObject({
       accountId: 'acc_test_123',
       data: {
         stripeSubscriptionStatus: subscription.status,
         billingCycleAnchor: new Date(subscription.billing_cycle_anchor * 1000).toISOString(),
       },
-    }]);
+    });
+  });
+
+  // KRTX-1510: the Stripe portal's only plan change is a switch to the $0 Free
+  // price. The portal return re-syncs; the plan must follow the subscription
+  // then, not wait for the customer.subscription.updated webhook.
+  test('a portal switch to the Free price moves the plan to Free and clears the paid amount', async () => {
+    mockRegistry.getCreditAccount = async () =>
+      createMockCreditAccount({ tier: 'credits', planMonthlyUsd: '50', stripeSubscriptionId: 'sub_test_123' });
+    mockRegistry.stripeClient.subscriptions.retrieve = async () => createMockStripeSubscription({
+      items: { data: [{ id: 'si_test_123', quantity: 5000, price: { id: resolveFreePriceId(), unit_amount: 0, currency: 'usd' } }] },
+      metadata: { account_id: 'acc_test_123', plan_key: 'credits', tier_key: 'credits' },
+    });
+
+    await syncSubscription('acc_test_123');
+
+    expect(updateCreditAccountCalls).toHaveLength(1);
+    expect(updateCreditAccountCalls[0].data).toMatchObject({
+      tier: 'free',
+      planMonthlyUsd: null,
+      stripeSubscriptionStatus: 'active',
+    });
+    expect(walletGrants).toEqual([]);
   });
 });

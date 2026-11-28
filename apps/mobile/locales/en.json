@@ -1398,6 +1398,12 @@
     "saving": "Saving…",
     "openError": "Unable to open this artifact",
     "more": "Artifact actions",
-    "unavailable": "Artifacts are not available in this workspace"
+    "unavailable": "Artifacts are not available in this workspace",
+    "moveToFolder": "Move to folder",
+    "folderRoot": "No folder",
+    "movedToFolder": "Moved to {{name}}",
+    "moveFailed": "Could not move the artifact",
+    "emptyFolder": "No artifacts in this folder",
+    "emptyUnfiled": "No unfiled artifacts"
   }
 }

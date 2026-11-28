@@ -117,8 +117,6 @@ export function PlanPanelCard({ sessionId }: { sessionId: string }) {
       title={tI18nComplete.raw('textfa8ed0bdabdd')}
       // Never the promise state — the card does not exist without a plan.
       isEmpty={false}
-      // No `count`. `indicator` stands in its slot with the fraction, which is
-      // what "how big is this card" means for a plan.
       indicator={<PlanProgress done={done} total={total} running={Boolean(current)} />}
       // The live step, always visible — the panel's one advantage over the
       // transcript is that it does not scroll away, and this is the line that
@@ -132,17 +130,16 @@ export function PlanPanelCard({ sessionId }: { sessionId: string }) {
               // `block`, not a bare span: `truncate` needs a block box to
               // clip against, and the header column already caps the width.
               'block truncate text-xs',
-              complete ? 'text-muted-foreground' : 'text-foreground/70',
+              complete ? 'text-muted-foreground' : 'text-foreground',
             )}
           >
             {label}
           </span>
         ) : undefined
       }
-      // `px-4` matches the header's own inset, so a step's glyph sits on the
+      // `px-3` matches the title's inset, so a step's glyph sits on the
       // same left edge as the title above it.
-      contentClassName="px-4 pb-3"
-      defaultExpanded={true}
+      contentClassName="px-3 pb-3"
     >
       <PlanSteps rows={rows} />
     </PanelCard>

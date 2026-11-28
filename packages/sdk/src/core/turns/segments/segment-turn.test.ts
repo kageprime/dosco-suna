@@ -249,3 +249,40 @@ describe('a script\'s own calls', () => {
     expect(ids(segmentTurn([orphan, tool('b', 'bash'), underBash]))).toEqual([['o'], ['b'], ['b1']]);
   });
 });
+
+describe('a colleague start that failed and was retried', () => {
+  const agent = (id: string, status: 'error' | 'completed', input: Record<string, unknown>) =>
+    ({
+      id,
+      type: 'tool',
+      tool: 'agent',
+      callID: `call_${id}`,
+      state: { status, input, ...(status === 'error' ? { error: 'refused' } : { output: 'done', metadata: { sessionId: 'ses_pi_child' } }) },
+    }) as unknown as ToolPart;
+  const ids = (parts: Part[]) =>
+    segmentTurn(parts).flatMap((s) => (s.kind === 'burst' ? s.parts : s.kind === 'standalone' ? [s.part] : [])).map((p) => (p as ToolPart).callID);
+
+  test('the failed start is dropped when a later call starts the same colleague', () => {
+    const spec = { instructions: 'x', description: 'Demand researcher' };
+    const parts = [
+      agent('a', 'error', { name: 'market-scout', session: 'same', description: 'Assess demand', agent: spec }),
+      agent('b', 'completed', { description: 'market-scout research', session: 'same', agent: spec }),
+    ];
+    expect(ids(parts)).toEqual(['call_b']);
+  });
+
+  test('a retry by name drops the failure too', () => {
+    const parts = [agent('a', 'error', { name: 'scout', description: 'One' }), agent('b', 'completed', { name: 'scout', description: 'Two' })];
+    expect(ids(parts)).toEqual(['call_b']);
+  });
+
+  test('a failure nothing retried stays, and so does one retried only by an unrelated colleague', () => {
+    const parts = [agent('a', 'error', { name: 'scout', description: 'One' }), agent('b', 'completed', { name: 'writer', description: 'Two' })];
+    expect(ids(parts)).toEqual(['call_a', 'call_b']);
+  });
+
+  test('a failure after the success stays: the last word on that colleague is the failure', () => {
+    const parts = [agent('b', 'completed', { name: 'scout', description: 'Two' }), agent('a', 'error', { name: 'scout', description: 'One' })];
+    expect(ids(parts)).toEqual(['call_b', 'call_a']);
+  });
+});

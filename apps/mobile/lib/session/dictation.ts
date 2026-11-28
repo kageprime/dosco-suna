@@ -1,47 +1,19 @@
 /**
  * Dictation — pure rules for the composer's voice input.
  *
- * The platform recogniser (`expo-speech-recognition`: `SFSpeechRecognizer` on
- * iOS, `SpeechRecognizer` on Android) streams `result` events. The platforms
- * disagree on what one event holds:
- *
- * - Android (continuous, API 33+) runs a segmented session: partials for the
- *   current segment, then a final for it, then the next segment starts empty.
- * - iOS 18 behaves the same through the library's workaround, and prefixes a
- *   later segment with a space.
- * - iOS < 18 sends cumulative partials and one cumulative final.
- *
- * Keeping the finals and replacing the partial covers all three.
+ * The composer records the microphone (expo-audio) while the user talks. Done
+ * uploads the clip to Kortix (`transcribeDictation` in `@kortix/sdk`), which
+ * transcribes it and bills the workspace credits per minute. The text lands
+ * after what was typed.
  */
 
 /** Bars in the listening waveform, newest on the right. */
 export const DICTATION_BAR_COUNT = 28;
 
-export interface Transcript {
-  /** Final segments, in order. */
-  finals: string[];
-  /** The current segment's partial text. */
-  interim: string;
-}
+/** The longest clip, in seconds, when the server does not say (GET …/dictation `max_seconds`). */
+export const DICTATION_MAX_SECONDS = 600;
 
-export const EMPTY_TRANSCRIPT: Transcript = { finals: [], interim: '' };
-
-export function reduceTranscript(
-  state: Transcript,
-  result: { isFinal: boolean; transcript: string }
-): Transcript {
-  const text = result.transcript.trim();
-  if (!result.isFinal) return { finals: state.finals, interim: text };
-  // iOS ends a session with an empty final: keep the partial it closes.
-  const final = text || state.interim;
-  return { finals: final ? [...state.finals, final] : state.finals, interim: '' };
-}
-
-export function transcriptText(state: Transcript): string {
-  return [...state.finals, state.interim].filter(Boolean).join(' ');
-}
-
-/** The composer text while dictating: what was typed before, then the words. */
+/** The composer text after dictation: what was typed before, then the words. */
 export function dictationDraft(base: string, spoken: string): string {
   const words = spoken.trim();
   if (!words) return base;
@@ -49,13 +21,21 @@ export function dictationDraft(base: string, spoken: string): string {
   return `${base} ${words}`;
 }
 
+/** Below this the microphone hears the room, not a voice (dBFS). */
+const METERING_FLOOR_DB = -55;
+/** At or above this a voice is at full height (dBFS). */
+const METERING_CEILING_DB = -10;
+
 /**
- * The recogniser reports volume from -2 to 10; 0 and below is inaudible.
+ * A waveform bar height (0–1) from the recorder's metering in dBFS: iOS
+ * `averagePower` and Android's max amplitude both report −160 (silence) to 0.
  * The square root lifts quiet speech so the bars move for a normal voice.
  */
-export function levelFromVolume(value: number): number {
-  if (!Number.isFinite(value) || value <= 0) return 0;
-  return Math.sqrt(Math.min(value, 10) / 10);
+export function levelFromMetering(dbfs: number | null | undefined): number {
+  if (typeof dbfs !== 'number' || !Number.isFinite(dbfs)) return 0;
+  const t = (dbfs - METERING_FLOOR_DB) / (METERING_CEILING_DB - METERING_FLOOR_DB);
+  if (t <= 0) return 0;
+  return Math.sqrt(Math.min(t, 1));
 }
 
 export function pushLevel(history: readonly number[], level: number): number[] {
@@ -63,20 +43,39 @@ export function pushLevel(history: readonly number[], level: number): number[] {
   return next.length > DICTATION_BAR_COUNT ? next.slice(next.length - DICTATION_BAR_COUNT) : next;
 }
 
-/** A BCP-47 tag for the recogniser from the device locale ("en_GB" → "en-GB"). */
-export function dictationLocale(raw: string | undefined | null): string {
-  const tag = (raw ?? '').replace(/_/g, '-').split('-u-')[0];
-  const [language, region] = tag.split('-');
-  if (!language || language === 'und') return 'en-US';
-  return region && /^[A-Za-z]{2}$|^\d{3}$/.test(region)
-    ? `${language.toLowerCase()}-${region.toUpperCase()}`
-    : language.toLowerCase();
+export interface DictationFailure {
+  message: string;
+  /** The same clip may succeed if sent again: the toast offers Retry and the clip is kept. */
+  retry: boolean;
+  /** The failure is the wallet: the toast offers Billing. */
+  billing?: boolean;
 }
 
 /**
- * The toast for a recogniser error code, or null when nothing went wrong from
- * the user's view: they cancelled, or said nothing.
+ * The toast for a failed transcription, or null when nothing went wrong from
+ * the user's view (they cancelled). Reads the SDK `ApiError` fields by shape.
  */
+export function dictationFailure(error: unknown): DictationFailure | null {
+  const e = (error ?? {}) as { name?: unknown; status?: unknown; code?: unknown };
+  if (e.name === 'AbortError') return null;
+  const status = typeof e.status === 'number' ? e.status : 0;
+  const code = typeof e.code === 'string' ? e.code : '';
+  if (status === 402 || code === 'insufficient_credits' || code === 'budget_exceeded') {
+    return code === 'budget_exceeded'
+      ? { message: "This workspace reached its spending limit. Dictation is paused until it resets.", retry: false }
+      : { message: 'Out of credits. Top up to keep dictating.', retry: false, billing: true };
+  }
+  if (status === 429 || code === 'dictation_busy') {
+    return { message: 'Dictation is busy. Try again in a moment.', retry: true };
+  }
+  if (code === 'dictation_unavailable') {
+    return { message: 'Dictation is not available on this server.', retry: false };
+  }
+  if (status === 413 || code === 'audio_too_large') {
+    return { message: 'The recording is too long to transcribe.', retry: false };
+  }
+  if (status === 400 || status === 415) {
+    return { message: "Couldn't read the recording. Try dictating again.", retry: false };
 export function dictationErrorMessage(code: string): string | null {
   switch (code) {
     case 'aborted':
@@ -97,5 +96,7 @@ export function dictationErrorMessage(code: string): string | null {
       return 'Dictation stopped because another app took the microphone.';
     default:
       return 'Dictation stopped. Try again.';
+
   }
+  return { message: 'Dictation failed. Check your connection and try again.', retry: true };
 }

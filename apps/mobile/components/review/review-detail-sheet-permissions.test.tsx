@@ -170,7 +170,14 @@ afterEach(() => {
 const footer = (): string[] =>
   tree.root
     .findAllByType('Footer')
-    .flatMap((f: any) => f.findAllByType('Text').map((t: any) => String(t.props.children)));
+    // Left to right; the round ✕ (Dismiss) has no text, only its accessible name.
+    .flatMap((f: any) =>
+      f
+        .findAll((node: any) => node.type === 'Text' || (node.props?.accessibilityLabel && node.props?.onPress))
+        .map((node: any) => String(node.type === 'Text' ? node.props.children : node.props.accessibilityLabel)),
+    )
+    // The button and its host node both carry the label: count it once.
+    .filter((label: string, index: number, all: string[]) => label !== all[index - 1]);
 
 const allow = (...leaves: string[]) => Object.fromEntries(leaves.map((leaf) => [leaf, can(true)]));
 const MANAGER = allow('project.write', 'project.gitops.push', 'project.gitops.merge', 'project.review.act');
@@ -192,7 +199,7 @@ describe('review sheet verdicts', () => {
 
   test('a manager gets Merge, Request changes and Close on a change request', () => {
     renderAs(CHANGE, MANAGER);
-    expect(footer()).toEqual(['Merge', 'Request changes']);
+    expect(footer()).toEqual(['Request changes', 'Merge']);
     expect(rows).toContain('Close change request');
   });
 
@@ -216,7 +223,7 @@ describe('review sheet verdicts', () => {
 
   test('a native output: a manager gets its three verdicts, a member none', () => {
     renderAs(OUTPUT, MANAGER);
-    expect(footer()).toEqual(['Approve', 'Request changes', 'Dismiss']);
+    expect(footer()).toEqual(['Dismiss', 'Request changes', 'Approve']);
     act(() => tree.unmount());
     renderAs(OUTPUT, MEMBER);
     expect(footer()).toEqual([]);
@@ -232,7 +239,7 @@ describe('review sheet verdicts', () => {
 
   test('a connector approval shows Approve and Deny to the viewer the API lets decide it, whatever leaves they hold', () => {
     renderAs(APPROVAL, MEMBER);
-    expect(footer()).toEqual(['Approve', 'Deny']);
+    expect(footer()).toEqual(['Deny', 'Approve']);
   });
 
   // The API sends a call's arguments only to a project manager or the person
@@ -279,7 +286,7 @@ describe('review sheet verdicts', () => {
     expect(texts).toContain('approvals.waitingWho');
     act(() => tree.unmount());
     renderAs({ ...APPROVAL, detail: { actions: [{ id: 'exec-1', canResolve: true }] } }, MEMBER);
-    expect(footer()).toEqual(['Approve', 'Deny']);
+    expect(footer()).toEqual(['Deny', 'Approve']);
     texts = tree.root.findAllByType('Text').map((t: any) => String(t.props.children));
     expect(texts).not.toContain('approvals.waitingWho');
   });
@@ -291,7 +298,7 @@ describe('review sheet verdicts', () => {
     expect(footer()).toEqual(['Request changes']);
     act(() => tree.unmount());
     renderAs(CHANGE, MANAGER);
-    expect(footer()).toEqual(['Resolve conflicts', 'Request changes']);
+    expect(footer()).toEqual(['Request changes', 'Resolve conflicts']);
   });
 
   // The destructive verdicts confirm (KRTX-1720): the tap only queues and

@@ -74,7 +74,7 @@ describe('Platinum CI worker plan', () => {
     expect(JSON.stringify(spec.steps)).toContain('playwright install --with-deps chromium');
     expect(JSON.stringify(spec.steps)).toContain('git init /workspace/suna');
     expect(spec.entrypoint).toContain(
-      "timeout 2400 sh -c 'until pnpm exec supabase start --ignore-health-check; do sleep 30; done'",
+      "timeout 2400 sh -c 'until pnpm exec supabase start --ignore-health-check -x postgrest; do sleep 30; done'",
     );
     expect(spec.entrypoint).not.toContain('docker pull postgres:16-alpine');
     expect(spec.entrypoint).toContain('supabase stop --no-backup');

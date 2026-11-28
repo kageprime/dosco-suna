@@ -210,6 +210,12 @@ export function runtimeBootEpochMs(metadata: RuntimeReadinessMetadata): number |
   return newest;
 }
 
+/** This boot is a wake: its epoch is the wake's provider-running confirmation. */
+export function runtimeBootIsWake(metadata: RuntimeReadinessMetadata): boolean {
+  const epochMs = runtimeBootEpochMs(metadata);
+  return epochMs !== null && epochMs === parseTimestampMs(metadata.providerRunningConfirmedAt);
+}
+
 /**
  * Metadata stamp: the daemon answered `/start`'s probe after this boot's epoch.
  * Written once per boot; every stop strips it (STOPPED_SANDBOX_CLEARED_KEYS)

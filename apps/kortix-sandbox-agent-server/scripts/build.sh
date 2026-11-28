@@ -28,6 +28,11 @@ compile_with_retry() {
   local attempt=1
   local max_attempts=4
   local delay=5
+  # The module list of the bundle, next to the binary: `pnpm worktree start` (scripts/worktree/lib/services.ts,
+  # agentArtifactCurrent) skips this build when the binary is newer than every module in it. Only on a Bun
+  # that has the flag; without the file the worktree always rebuilds.
+  local meta_args=()
+  if bun build --help 2>/dev/null | grep -q -- '--metafile'; then meta_args=(--metafile=dist/kortix-agent.meta.json); fi
 
   while true; do
     # pi's two workers are extra entrypoints: in a compiled binary pi starts them as
@@ -37,7 +42,7 @@ compile_with_retry() {
     # start: exec to the first line of `main()` measured 485 ms cold before, 134-334 ms after, on a
     # Platinum box (2026-11-03). It needs `--format=esm`: the default CJS bytecode fails at runtime
     # on `import.meta` ("import.meta is only valid inside modules").
-    if bun build --compile --bytecode --format=esm --root=. --target="$target" --tsconfig-override ./tsconfig.json --outfile=dist/kortix-agent src/main.ts src/extensions/codemode/worker.ts src/utils/image-resize-worker.ts; then
+    if bun build --compile --bytecode --format=esm --root=. --target="$target" --tsconfig-override ./tsconfig.json ${meta_args[@]+"${meta_args[@]}"} --outfile=dist/kortix-agent src/main.ts src/extensions/codemode/worker.ts src/utils/image-resize-worker.ts; then
       return 0
     fi
 

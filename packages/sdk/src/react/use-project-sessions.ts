@@ -151,13 +151,14 @@ export function useWorkspaceSessions(projectId: string, options?: UseProjectSess
     if (typeof interval !== 'function') return interval ?? false;
     return interval(flattenWorkspaceSessionPages(data));
   };
+  const enabled = options?.enabled ?? true;
   const pollFirstPageOnly = options?.pollFirstPageOnly === true;
   const query = useInfiniteQuery({
     queryKey,
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) => readPage(pageParam),
     getNextPageParam: workspaceSessionsPageParam,
-    enabled: options?.enabled ?? true,
+    enabled,
     refetchOnWindowFocus: options?.refetchOnWindowFocus,
     placeholderData: options?.keepPreviousData ? keepPreviousData : undefined,
     ...contract('inventory'),
@@ -168,7 +169,7 @@ export function useWorkspaceSessions(projectId: string, options?: UseProjectSess
   // is not focused (as `refetchInterval` does), or a failed read, re-arms it.
   const queryClient = useQueryClient();
   const [rearm, setRearm] = useState(0);
-  const pollMs = pollFirstPageOnly && query.isSuccess ? intervalFor(query.data) : false;
+  const pollMs = enabled && pollFirstPageOnly && query.isSuccess ? intervalFor(query.data) : false;
   useEffect(() => {
     if (!pollMs) return;
     let live = true;

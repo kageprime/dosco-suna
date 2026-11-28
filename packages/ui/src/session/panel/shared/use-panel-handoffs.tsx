@@ -4,7 +4,7 @@ import { useClearFocusedToolCall, useFocusedAgent, useFocusedToolCallId, useKort
 import { SubagentPanel } from '../../agents/subagent-view';
 import { DetailSidebarToggle, ToolParts } from '../easy/detail-view';
 import { useSessionBrowserStore } from '../../../internal/stores/session-browser-store';
-import { pathOutput, shouldAutoExpandOutputs, shouldAutoOpenPayoff, stepForCallId } from '../easy/easy-panel-logic';
+import { pathOutput, shouldAutoOpenPayoff, stepForCallId } from '../easy/easy-panel-logic';
 import { StepDetailBody } from '../easy/step-detail-body';
 import { StepIcon } from '../easy/step-icon';
 import { selectPrimaryDeliverable } from './output-priority';
@@ -20,21 +20,6 @@ export function usePanelHandoffs({
   sessionId, projectId, projectSessionId, isRunning, outcome, apps, files, steps, calls,
   detail, handleOpenOutput, openDetail, closeDetail, openTerminal, openAudit, openReminders, openDesktop, openBrowser, openFiles,
 }: Handoffs) {
-  // Auto-expand Outputs the moment a run finishes with something to show —
-  // never on every render of an already-finished (or still-running) run, and
-  // never on a failed one: a pile of half-written files is not a celebration.
-  const wasRunningRef = useRef(isRunning);
-  const [outputsDefaultOpen, setOutputsDefaultOpen] = useState(false);
-  useEffect(() => {
-    if (
-      outcome === 'succeeded' &&
-      shouldAutoExpandOutputs(wasRunningRef.current, isRunning, files.length)
-    ) {
-      setOutputsDefaultOpen(true);
-    }
-    wasRunningRef.current = isRunning;
-  }, [isRunning, files.length, outcome]);
-
   // Payoff (W2): present the primary deliverable exactly once, at the finish,
   // and only when the user hasn't taken the wheel themselves this run.
   //
@@ -254,5 +239,5 @@ export function usePanelHandoffs({
     openFiles,
   ]);
 
-  return { outputsDefaultOpen, pendingQuickView };
+  return { pendingQuickView };
 }

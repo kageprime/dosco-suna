@@ -1,6 +1,6 @@
 import { projectSecrets } from '@kortix/db';
 import { and, eq, inArray, isNull, or } from 'drizzle-orm';
-import type { SecretConsumer, SecretStrategy } from '../../secrets/strategy';
+import type { SecretConsumer, SecretEgressPolicy, SecretStrategy } from '../../secrets/strategy';
 import { recordAuditEvent } from '../../shared/audit';
 import { createFirstInWindow } from '../../shared/audit-dedupe';
 import { db } from '../../shared/db';
@@ -44,6 +44,15 @@ export interface ProjectSecretConsumerRead {
    * shared with someone else (KRTX-1719).
    */
   throwWhenUndecryptable?: boolean;
+  /**
+   * A second policy check on the shared row's `egress_policy`, run BEFORE the
+   * value is decrypted. A row it rejects is audited as
+   * `secret.consumer.denied` with `policy_denied: true` and is skipped. The
+   * browser consumer uses it to spend a login only on its own sites.
+   */
+  admitPolicy?: (policy: SecretEgressPolicy | null) => boolean;
+  /** Extra fields for every audit row this read writes (no secret values). */
+  auditMetadata?: Record<string, unknown>;
 }
 
 export interface ProjectSecretConsumerValue {
@@ -226,6 +235,7 @@ async function loadProjectSecretConsumerRows(
       active: projectSecrets.active,
       strategy: projectSecrets.strategy,
       consumer: projectSecrets.consumer,
+      egressPolicy: projectSecrets.egressPolicy,
       updatedAt: projectSecrets.updatedAt,
     })
     .from(projectSecrets)
@@ -317,19 +327,22 @@ async function resolveOneConsumerSecretRow(
   row: ConsumerCandidateRow,
   policyRow: ConsumerCandidateRow,
 ): Promise<ProjectSecretConsumerValue | null | 'undecryptable'> {
-  const allowed = row.active && secretPolicyAllowsConsumer(policyRow, input.consumer);
-  if (!allowed) {
+  const consumerAllowed = row.active && secretPolicyAllowsConsumer(policyRow, input.consumer);
+  const policyAdmits = !consumerAllowed || !input.admitPolicy || input.admitPolicy(policyRow.egressPolicy ?? null);
+  if (!consumerAllowed || !policyAdmits) {
     await recordSecretConsumerAudit(input, accountId, {
       outcome: 'denied',
       action: 'secret.consumer.denied',
       resourceId: row.secretId,
       metadata: {
+        ...input.auditMetadata,
         identifier: row.identifier,
         name: normalizedName,
         requested_consumer: input.consumer,
         configured_consumer: policyRow.consumer,
         strategy: policyRow.strategy,
         value_source: row.ownerUserId ? 'personal' : 'shared',
+        ...(policyAdmits ? {} : { policy_denied: true }),
       },
     });
     return null;
@@ -357,6 +370,7 @@ async function resolveOneConsumerSecretRow(
       action: 'secret.consumer.used',
       resourceId: row.secretId,
       metadata: {
+        ...input.auditMetadata,
         identifier: row.identifier,
         name: normalizedName,
         consumer: input.consumer,
@@ -389,7 +403,7 @@ async function resolveSelectedRows(
       await recordSecretConsumerAudit(input, accountId, {
         outcome: 'denied',
         action: 'secret.consumer.missing',
-        metadata: { name: normalizedName, consumer: input.consumer },
+        metadata: { ...input.auditMetadata, name: normalizedName, consumer: input.consumer },
       });
     }
     return [];

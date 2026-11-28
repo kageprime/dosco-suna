@@ -39,7 +39,7 @@ import { applyAdminOverride } from './account-write-owner';
 import { invalidateAccountBilling } from './billing-cache';
 import { hasLiveSubscription, billingSnapshotFromAccount } from './billing-state';
 import { calculateNextCreditGrant } from './credit-grant-schedule';
-import { canonicalTier, getTier, planMonthlyUsd } from './tiers';
+import { canonicalTier, getTier, planCreditsUsd, planMonthlyUsd } from './tiers';
 import { currentPeriodStart } from './usage-breakdown';
 
 const DAY_MS = 86_400_000;
@@ -106,8 +106,9 @@ export function compPlanFor(source: CreditRow | null, paying: boolean, now: Date
   const periodDays = bounds ? Math.max(1, (bounds.end.getTime() - bounds.start.getTime()) / DAY_MS) : MAX_COMP_DAYS;
   const remainingDays = Math.max(0, (compedUntil.getTime() - now.getTime()) / DAY_MS);
   const ratio = Math.min(1, remainingDays / periodDays);
-  // Whole cents: the wallet stores USD with cent precision on grants.
-  const grantUsd = Math.floor(monthlyUsd * ratio * 100) / 100;
+  // The plan's credits (bonus included), pro-rated. Whole cents: the wallet
+  // stores USD with cent precision on grants.
+  const grantUsd = Math.floor(planCreditsUsd(monthlyUsd) * ratio * 100) / 100;
   return { tier: 'credits', planMonthlyUsd: monthlyUsd, compedUntil, grantUsd };
 }
 

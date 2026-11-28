@@ -105,7 +105,7 @@ export function EditorSection({
         </div>
         {trailing ? <div className="shrink-0">{trailing}</div> : null}
       </div>
-      <div className="divide-border/60 divide-y">{children}</div>
+      <div className="divide-border divide-y">{children}</div>
     </section>
   );
 }

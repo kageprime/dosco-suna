@@ -503,6 +503,23 @@ describe('palette session search', () => {
     expect(sessionMatchesPaletteQuery(session, 'abc123')).toBe(false);
     expect(sessionMatchesPaletteQuery(session, 'quarterly')).toBe(true);
   });
+
+  // KRTX-1415: palette rows used `branch_name` (equal to the session id) as the
+  // label of an untitled session and ignored a rename. They now carry the
+  // sidebar's title, so the palette finds a session by the label it shows.
+  test('labels a session like the sidebar: rename first, untitled as "New session"', () => {
+    const untitled = {
+      ...session,
+      session_id: '11111111-2222-3333-4444-555555555555',
+      branch_name: '11111111-2222-3333-4444-555555555555',
+      name: null,
+    };
+    const renamed = { ...session, custom_name: 'Launch plan' };
+
+    expect(sessionMatchesPaletteQuery(untitled, 'new session')).toBe(true);
+    expect(sessionMatchesPaletteQuery(untitled, '2222-3333')).toBe(false);
+    expect(sessionMatchesPaletteQuery(renamed, 'launch plan')).toBe(true);
+  });
 });
 
 /**

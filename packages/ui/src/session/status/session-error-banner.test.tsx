@@ -349,3 +349,14 @@ describe('TurnErrorDisplay — a provider key the provider refused', () => {
     expect(html).not.toContain('key was rejected');
   });
 });
+
+describe('TurnErrorDisplay placeholder diagnostics', () => {
+  test('does not offer an unknown-only disclosure', () => {
+    const html = renderToStaticMarkup(
+      <TurnErrorDisplay errorText="The provider usage limit was reached." errorRaw="unknown" defaultDetailsOpen />,
+    );
+    expect(html).toContain('The provider usage limit was reached.');
+    expect(html).not.toContain('aria-expanded');
+    expect(html).not.toContain('>unknown<');
+  });
+});

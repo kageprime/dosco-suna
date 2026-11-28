@@ -13,8 +13,10 @@
  * would send it twice. The echo replaces the seed through the SDK store's
  * ordinary optimistic swap. Pure, so `bun test` runs it.
  */
+import type { SessionLogMessage } from '@kortix/sdk';
 import type { AttachedFile } from './attachments';
 import { optimisticUserParts } from './optimistic-parts';
+import { parseUserMessageBlocks, parseUserMessageText } from './user-message';
 import type { OptimisticMessage } from './session-store';
 import { mintWireMessageId } from './wire-message-id';
 
@@ -59,4 +61,76 @@ export function firstPromptSeed(i: {
  */
 export function seedUndelivered(messageIds: readonly string[], seedId: string): boolean {
   return messageIds.every((id) => id === seedId);
+}
+
+/** The first prompt's seed, as the thread retires it. */
+export interface SeededPrompt {
+  id: string;
+  /** The prompt text as sent. Empty for a files-only prompt. */
+  text: string;
+}
+
+type ThreadMessage = Pick<SessionLogMessage, 'message_id' | 'role' | 'kind' | 'blocks'>;
+
+/**
+ * `text` as the session log stores it, trimmed: the server replaces a NUL and
+ * each lone UTF-16 surrogate with U+FFFD before it writes the log
+ * (apps/api `session-log-ingest.ts`).
+ */
+export function logText(text: string): string {
+  let out = '';
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (c === 0) out += '\uFFFD';
+    else if (c >= 0xd800 && c <= 0xdbff) {
+      const next = text.charCodeAt(i + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) out += text[i] + text[++i];
+      else out += '\uFFFD';
+    } else if (c >= 0xdc00 && c <= 0xdfff) out += '\uFFFD';
+    else out += text[i];
+  }
+  return out.trim();
+}
+
+/**
+ * True when the thread holds the seed's echo: a user turn, not the seed and
+ * not another optimistic send from this device, whose bubble text equals the
+ * seed's. Both sides are parsed as the bubble shows them (the runtime adds
+ * `<file>` tags for uploads) and normalized as the log stores them. A
+ * files-only seed matches a turn with files and no text. The equality keeps a follow-up
+ * queued before the echo from retiring the seed.
+ *
+ * On the session log (v2) the echo arrives as a `log.*` put under the id the
+ * server minted, and no v1 `message.updated` frame retires the seed. The seed
+ * id is never sent to the server, so the log cannot name it either: without
+ * this check the seed stays and renders as a second copy of the first prompt.
+ */
+export function seedEchoed(
+  messages: readonly ThreadMessage[] | undefined,
+  seed: SeededPrompt,
+  isOptimistic: (messageId: string) => boolean
+): boolean {
+  const want = logText(parseUserMessageText(seed.text).text);
+  return (messages ?? []).some((m) => {
+    if (m.role !== 'user' || m.kind !== 'turn' || m.message_id === seed.id || isOptimistic(m.message_id)) return false;
+    const parsed = parseUserMessageBlocks(m.blocks);
+    // A files-only seed needs its files: a synthetic turn parses to no text too.
+    if (!want && parsed.attachments.length === 0) return false;
+    return logText(parsed.content.text) === want;
+  });
+}
+
+/** The seed of each runtime root whose echo has not landed yet. */
+const seededPrompts = new Map<string, SeededPrompt>();
+
+export function rememberSeededPrompt(runtimeSessionId: string, seed: SeededPrompt): void {
+  seededPrompts.set(runtimeSessionId, seed);
+}
+
+export function seededPromptOf(runtimeSessionId: string): SeededPrompt | undefined {
+  return seededPrompts.get(runtimeSessionId);
+}
+
+export function forgetSeededPrompt(runtimeSessionId: string): void {
+  seededPrompts.delete(runtimeSessionId);
 }

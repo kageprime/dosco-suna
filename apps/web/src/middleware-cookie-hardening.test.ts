@@ -8,6 +8,8 @@ import {
   ENVIRONMENT_PROTECTION_USERNAME,
 } from '@/lib/environment-protection';
 import { AUTH_BOUNCE_COOKIE } from '@kortix/ui/internal/lib/onboarding/landing-destination';
+import { SESSION_ENDED_COOKIE } from '@/lib/auth/session-expiry';
+import { KORTIX_SUPABASE_AUTH_COOKIE } from '@/lib/supabase/constants';
 import { middleware } from './middleware';
 
 /**
@@ -77,6 +79,23 @@ describe('kortix_auth_bounce: Secure on production HTTPS', () => {
     const cookie = setCookieFor(response, AUTH_BOUNCE_COOKIE);
     expect(cookie).toBeDefined();
     expect(cookie).not.toContain('Secure');
+  });
+});
+
+describe('kortix_session_ended: Secure and HttpOnly on production HTTPS', () => {
+  test('the bounce of a request that carried a session sets the marker with both flags', async () => {
+    env.NODE_ENV = 'production';
+    const request = new NextRequest(new Request(`https://dev.kortix.com${FOREIGN_PROJECT}`));
+    // An expired session: the bounce needs no Supabase call (KRTX-2111).
+    const session = { access_token: 'synthetic', refresh_token: 'synthetic', expires_at: 1 };
+    request.cookies.set(
+      KORTIX_SUPABASE_AUTH_COOKIE,
+      `base64-${Buffer.from(JSON.stringify(session)).toString('base64url')}`,
+    );
+
+    const cookie = setCookieFor(await middleware(request), SESSION_ENDED_COOKIE);
+    expect(cookie).toContain('Secure');
+    expect(cookie).toContain('HttpOnly');
   });
 });
 

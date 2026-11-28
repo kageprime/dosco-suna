@@ -17,8 +17,8 @@
  *     (`toWorkspaceAction`), never instead of it.
  *
  * One table, imported by apps/api (`iam/actions.ts`), packages/manifest-schema
- * (`constants.ts`) and held equal by a test in the published `@kortix/sdk`
- * (`iam-actions.ts`), which cannot import this private package.
+ * (`constants.ts`) and the published `@kortix/sdk`. The dependency-free
+ * literal lives in the SDK; this private module keeps the server helpers.
  *
  * The naming rule, so a reader can derive any row:
  *   project.create           -> workspace.create
@@ -30,95 +30,8 @@
  * `project.settings.write` already owns `workspace.settings.write`.
  */
 
-export const WORKSPACE_ACTION_BY_LEGACY = {
-  // ── account-scoped (31) ────────────────────────────────────────────────
-  'account.read': 'workspace.account.read',
-  'account.write': 'workspace.account.write',
-  'account.delete': 'workspace.account.delete',
-  'billing.read': 'workspace.billing.read',
-  'billing.write': 'workspace.billing.write',
-  'audit.read': 'workspace.audit.read',
-  'member.read': 'workspace.member.read',
-  'member.invite': 'workspace.member.invite',
-  'member.update': 'workspace.member.update',
-  'member.remove': 'workspace.member.remove',
-  'member.super_admin.grant': 'workspace.member.super_admin.grant',
-  'group.read': 'workspace.group.read',
-  'group.create': 'workspace.group.create',
-  'group.update': 'workspace.group.update',
-  'group.delete': 'workspace.group.delete',
-  'group.members.manage': 'workspace.group.members.manage',
-  'policy.read': 'workspace.policy.read',
-  'policy.create': 'workspace.policy.create',
-  'policy.delete': 'workspace.policy.delete',
-  'role.read': 'workspace.role.read',
-  'role.create': 'workspace.role.create',
-  'role.update': 'workspace.role.update',
-  'role.delete': 'workspace.role.delete',
-  'token.read': 'workspace.token.read',
-  'token.create': 'workspace.token.create',
-  'token.revoke': 'workspace.token.revoke',
-  'token.personal.create': 'workspace.token.personal.create',
-  'token.personal.revoke': 'workspace.token.personal.revoke',
-  'project.create': 'workspace.create',
-  'capture.read_all': 'workspace.capture.read_all',
-  'capture.manage': 'workspace.capture.manage',
-
-  // ── project-scoped (54) ────────────────────────────────────────────────
-  'project.read': 'workspace.read',
-  'project.write': 'workspace.write',
-  'project.delete': 'workspace.delete',
-  'project.session.read': 'workspace.session.read',
-  'project.session.start': 'workspace.session.start',
-  'project.session.stop': 'workspace.session.stop',
-  'project.session.bindings.write': 'workspace.session.bindings.write',
-  'project.members.read': 'workspace.members.read',
-  'project.members.manage': 'workspace.members.manage',
-  'project.trigger.read': 'workspace.trigger.read',
-  'project.trigger.create': 'workspace.trigger.create',
-  'project.trigger.update': 'workspace.trigger.update',
-  'project.trigger.delete': 'workspace.trigger.delete',
-  'project.trigger.fire': 'workspace.trigger.fire',
-  'project.gateway.logs.read': 'workspace.gateway.logs.read',
-  'project.gateway.spend.read': 'workspace.gateway.spend.read',
-  'project.usage.read': 'workspace.usage.read',
-  'project.gateway.budget.set': 'workspace.gateway.budget.set',
-  'project.gateway.keys.manage': 'workspace.gateway.keys.manage',
-  'project.agent.read': 'workspace.agent.read',
-  'project.agent.write': 'workspace.agent.write',
-  'project.skill.read': 'workspace.skill.read',
-  'project.skill.write': 'workspace.skill.write',
-  'project.command.read': 'workspace.command.read',
-  'project.command.write': 'workspace.command.write',
-  'project.file.read': 'workspace.file.read',
-  'project.file.write': 'workspace.file.write',
-  'project.settings.write': 'workspace.settings.write',
-  'project.sandbox.write': 'workspace.sandbox.write',
-  'project.model.read': 'workspace.model.read',
-  'project.model.write': 'workspace.model.write',
-  'project.gitops.read': 'workspace.gitops.read',
-  'project.gitops.push': 'workspace.gitops.push',
-  'project.gitops.merge': 'workspace.gitops.merge',
-  'project.gitops.ref.any': 'workspace.gitops.ref.any',
-  'project.gitops.ref.delete': 'workspace.gitops.ref.delete',
-  'project.secret.read': 'workspace.secret.read',
-  'project.secret.write': 'workspace.secret.write',
-  'project.connector.read': 'workspace.connector.read',
-  'project.connector.connections.manage': 'workspace.connector.connections.manage',
-  'project.connector.write': 'workspace.connector.write',
-  'project.app.read': 'workspace.app.read',
-  'project.app.write': 'workspace.app.write',
-  'project.app.deploy': 'workspace.app.deploy',
-  'project.app.admin': 'workspace.app.admin',
-  'project.review.read': 'workspace.review.read',
-  'project.review.submit': 'workspace.review.submit',
-  'project.review.act': 'workspace.review.act',
-  'project.artifact.read': 'workspace.artifact.read',
-  'project.artifact.write': 'workspace.artifact.write',
-  'project.artifact.manage': 'workspace.artifact.manage',
-  'project.artifact.public': 'workspace.artifact.public',
-  'project.credentials.issue': 'workspace.credentials.issue',
-} as const;
+import { WORKSPACE_ACTION_BY_LEGACY } from '../../sdk/src/iam-actions';
+export { WORKSPACE_ACTION_BY_LEGACY } from '../../sdk/src/iam-actions';
 
 /** A legacy action name, as stored in `kortix.permissions`. */
 export type LegacyIamAction = keyof typeof WORKSPACE_ACTION_BY_LEGACY;

@@ -21,6 +21,7 @@ import { composioConfigured } from '../../connectors/composio';
 import { mintSetupLink, type SecretFieldSpec } from '../../setup-links/token';
 import { mintSecretLink } from '../../setup-links/mint-secret-link';
 import { isValidSecretName } from '../secrets';
+import { normalizeLoginSites } from '../lib/browser-login-sites';
 import { sessionWithheldSecrets, withheldSecretsFix } from '../lib/session-secret-reach';
 import { assertProjectCapability, loadProjectForUser, projectCapabilityAllowed } from '../lib/access';
 import { projectsApp } from '../lib/app';
@@ -55,7 +56,8 @@ export function registerSetupLinksRoutes(): void {
             name: z.string().optional().openapi({ description: 'A single secret name. Alternative to names.' }),
             labels: z.record(z.string(), z.any()).optional().openapi({ description: 'Map of secret name to a label shown to the person.' }),
             descriptions: z.record(z.string(), z.any()).optional().openapi({ description: 'Map of secret name to a help text shown to the person.' }),
-            scope: z.string().optional().openapi({ description: 'Where the secret applies: `runtime` (default) delivers it to the agent as an environment variable; `connector` keeps it server-side for a connector.' }),
+            scope: z.string().optional().openapi({ description: 'Where the secret applies: `runtime` (default) delivers it to the agent as an environment variable; `connector` keeps it server-side for a connector; `browser` asks for a website login (username and password) that the sandbox browser types into the sign-in page, never shown to the agent.' }),
+            sites: z.array(z.string()).optional().openapi({ description: 'With `scope: browser`: the hosts the login may be typed on (1 to 10, exact hosts such as `app.example.com`). Required for `browser`.' }),
             expires_in_minutes: z.number().optional().openapi({ description: 'Link lifetime in minutes.' }),
           }) } } },
       },
@@ -110,14 +112,23 @@ export function registerSetupLinksRoutes(): void {
       }
 
       const requestedScope = normalizeString(body.scope);
-      if (requestedScope && requestedScope !== 'runtime' && requestedScope !== 'connector') {
-        return c.json({ error: 'scope must be "runtime" or "connector"' }, 400);
+      if (requestedScope && requestedScope !== 'runtime' && requestedScope !== 'connector' && requestedScope !== 'browser') {
+        return c.json({ error: 'scope must be "runtime", "connector" or "browser"' }, 400);
       }
       // Omitted scope is runtime, the same default as POST /secrets: a person
       // asked to store a key for the agent to use, so the agent must receive it.
       // A key only a connector consumes stays server-side through an explicit
       // `scope: "connector"`, which connector tooling always sends.
-      const scope = requestedScope === 'connector' ? 'connector' : 'runtime';
+      const scope = requestedScope === 'connector' || requestedScope === 'browser' ? requestedScope : 'runtime';
+      // A website login names the sites it may be typed on. The person sees
+      // them on the form before they type the password.
+      if (scope === 'browser') {
+        const sites = normalizeLoginSites(body.sites);
+        if (!sites.ok) return c.json({ error: sites.error }, 400);
+        for (const field of fields) field.sites = sites.sites;
+      } else if (body.sites !== undefined) {
+        return c.json({ error: 'sites applies only to scope "browser"' }, 400);
+      }
       const sessionId = (c.get('sessionId') as string | undefined) ?? null;
       const { token, expiresAt } = await mintSecretLink(
         projectId,
@@ -131,13 +142,16 @@ export function registerSetupLinksRoutes(): void {
       // Only names the agent itself just requested are judged, against its own
       // grant, so this reveals nothing about which secrets exist.
       const requested = fields.map((f) => f.name);
-      const reach = scope === 'runtime' && sessionId ? await sessionWithheldSecrets(sessionId, requested) : null;
+      // A login is granted by name like a runtime secret: say now when this
+      // agent will not be able to use it.
+      const reach = scope !== 'connector' && sessionId ? await sessionWithheldSecrets(sessionId, requested) : null;
 
       return c.json({
         kind: 'secret',
         url: `${frontendBase()}/secret-intake/${token}`,
         names: requested,
         scope,
+        ...(scope === 'browser' ? { sites: fields[0]?.sites ?? [] } : {}),
         expires_at: new Date(expiresAt).toISOString(),
         ...(reach
           ? {
@@ -151,10 +165,12 @@ export function registerSetupLinksRoutes(): void {
   );
 
   // POST /v1/projects/:projectId/connect-requests
-  // Mint a link the human opens to 1-click connect a Pipedream app (Quick
-  // Connect). Requires manage. The link is durable for its TTL; the public page
-  // mints a FRESH Pipedream connect token each time it's opened so it never
-  // hands out a stale (minutes-old) Pipedream token.
+  // Mint a link the human opens to connect an app in one click. `owner: "me"`
+  // (the default) is the caller's own private account: any person who may use
+  // the workspace. `owner: "project"` is the shared account: connector write
+  // and connections manage. The link is durable for its TTL; the public page
+  // mints a FRESH provider token each time it's opened so it never hands out a
+  // stale (minutes-old) one.
   projectsApp.openapi(
     createRoute({
       method: 'post',
@@ -173,17 +189,38 @@ export function registerSetupLinksRoutes(): void {
       },
       responses: {
         200: json(z.any(), 'A connect link'),
-        ...errors(400, 404, 409, 501),
+        ...errors(400, 403, 404, 409, 501),
       },
     }),
     async (c: any) => {
       const projectId = workspaceIdParam(c);
       const body = await readJsonObject(c);
-      // Floor 'read'; project.connector.write is the real gate (minting a Pipedream
-      // Quick Connect link is a connector operation). Was 'manage' → project.write.
       const loaded = await loadProjectForUser(c, projectId, 'read');
       if (!loaded) return c.json({ error: 'Not found' }, 404);
-      await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_CONNECTOR_WRITE);
+      // WHOSE account the link authorizes is the caller's explicit choice, never
+      // derived from the connector (see projects/lib/connection-access.ts) — the
+      // old `authorizationStrategy==='user'` branch this replaced is what left a
+      // private-only connector with no connect flow anywhere in the product.
+      const owner = parseConnectorConnectOwner(body.owner);
+      if (!owner) return c.json({ error: 'owner must be "me" or "project"' }, 400);
+      if (owner === 'project') {
+        // A link that authorizes the SHARED account is administration: the
+        // gates of `POST …/connectors/:slug/connect` with `owner: "project"`.
+        await assertProjectCapability(c, loaded.userId, loaded.row.accountId, projectId, PROJECT_ACTIONS.PROJECT_CONNECTOR_WRITE);
+        const mayManage = await projectCapabilityAllowed(
+          c,
+          loaded.userId,
+          loaded.row.accountId,
+          projectId,
+          PROJECT_ACTIONS.PROJECT_CONNECTOR_CONNECTIONS_MANAGE,
+        );
+        if (!mayManage) return c.json({ error: 'Forbidden' }, 403);
+      } else if (c.get('authType') === 'service_account') {
+        // `me` authorizes the caller's own private account, which is the rule
+        // of `POST /connections/me`: any person who may use the workspace
+        // (the read floor above). A service account has no account of its own.
+        return c.json({ error: 'A service account has no account of its own to connect' }, 403);
+      }
 
       const slug = normalizeString(body.slug);
       if (!slug) return c.json({ error: 'slug is required' }, 400);
@@ -234,12 +271,6 @@ export function registerSetupLinksRoutes(): void {
         );
       }
       const conn = eligibility;
-      // WHOSE account the link authorizes is the caller's explicit choice, never
-      // derived from the connector (see projects/lib/connection-access.ts) — the
-      // old `authorizationStrategy==='user'` branch this replaced is what left a
-      // private-only connector with no connect flow anywhere in the product.
-      const owner = parseConnectorConnectOwner(body.owner);
-      if (!owner) return c.json({ error: 'owner must be "me" or "project"' }, 400);
       // `me` authorizes the caller themselves and needs no member id beyond the
       // signed-in caller already asserted above (loaded.userId).
       if (owner === 'me' && !loaded.userId) {
@@ -251,20 +282,6 @@ export function registerSetupLinksRoutes(): void {
           409,
         );
       }
-      // Minting a link that authorizes the SHARED account is administration —
-      // the same capability the project-owned connection create (connections.ts) asserts
-      // (PROJECT_CONNECTOR_CONNECTIONS_MANAGE), not just connector.write.
-      if (owner === 'project') {
-        const mayManage = await projectCapabilityAllowed(
-          c,
-          loaded.userId,
-          loaded.row.accountId,
-          projectId,
-          PROJECT_ACTIONS.PROJECT_CONNECTOR_CONNECTIONS_MANAGE,
-        );
-        if (!mayManage) return c.json({ error: 'Forbidden' }, 403);
-      }
-
       // A suggested name for the NEW account ("Dad's Gmail"). The human sees it
       // prefilled in the dialog and may change it; the same rules as any label.
       let label: string | null = null;

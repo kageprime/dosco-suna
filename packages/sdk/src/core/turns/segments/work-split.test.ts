@@ -181,6 +181,12 @@ describe('splitTurnWork', () => {
     expect((split!.final[0] as { part: { id: string } }).part.id).toBe('4');
   });
 
+  test('a note that wakes a colleague stays in view until the colleague reports again, then folds', () => {
+    const s = segments([tool('1', 'bash'), tool('2', 'send_message', { to: 'gtm-writer', message: 'Add a risks section.' }), text('3', 'I asked the writer to add it.')]);
+    expect(splitTurnWork(s, { working: false })!.hoisted.map((seg) => (seg as { part: ToolPart }).part.id)).toEqual(['2']);
+    expect(splitTurnWork(s, { working: false, foldStartedWork: true })!.work.map((seg) => (seg.kind === 'standalone' ? seg.part.id : seg.kind))).toContain('2');
+  });
+
   test('a turn whose only work started an agent has nothing left to fold', () => {
     const s = segments([tool('1', 'agent'), text('2', 'On it.')]);
     expect(splitTurnWork(s, { working: false })).toBeNull();

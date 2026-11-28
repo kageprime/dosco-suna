@@ -1,13 +1,14 @@
 /**
  * useProjectSessionStats — token and cost totals of a project's sessions, for
  * the project detail page. Each session's whole transcript is read from the
- * bound session's runtime (`loadSessionTranscriptMessages`) and summed.
+ * bound session's runtime (`loadSessionExportMessages` with no Kortix session
+ * scope: the runtime only, and a failed read throws) and summed.
  */
 
 import { useQueries } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getSessionCost } from '@kortix/sdk';
-import { loadSessionTranscriptMessages } from '@kortix/sdk/react';
+import { loadSessionExportMessages } from '@kortix/sdk/react';
 import { useSessionRuntime } from '@/components/session/SessionRuntime';
 
 export type SessionStats = {
@@ -25,7 +26,7 @@ const EMPTY_STATS: SessionStats = {
 };
 
 async function fetchSessionStats(sessionId: string): Promise<SessionStats> {
-  const data = await loadSessionTranscriptMessages(sessionId);
+  const data = await loadSessionExportMessages(sessionId);
 
   let input = 0,
     output = 0,

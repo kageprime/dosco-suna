@@ -75,6 +75,11 @@ const desktopBridge = {
   // The tab strip (behind the project's `desktop_tabs` flag) mounted or
   // unmounted: the shell shows its tab menu items only while it is mounted.
   setTabsActive: (active) => ipcRenderer.send('kortix:tabs-active', active === true),
+  // The signed build carries the microphone entitlement and usage string
+  // (build/entitlements.mac.plist, electron-builder.yml). The web app shows
+  // the composer's dictation on macOS only when the shell says so: an older
+  // build has no entitlement, and macOS refuses its microphone silently.
+  microphone: true,
 };
 
 contextBridge.exposeInMainWorld('doscoDesktop', desktopBridge);

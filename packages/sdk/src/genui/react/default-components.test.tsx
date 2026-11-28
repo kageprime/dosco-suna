@@ -55,6 +55,11 @@ describe('defaultGenuiComponents', () => {
     expect(html).not.toContain('<pre>');
   });
 
+  test('a default Map marker links to its OpenStreetMap pin', () => {
+    const html = render('root = Map([m], "places tool")\nm = Marker(48.85, -2.35, "Center")');
+    expect(html).toContain('href="https://www.openstreetmap.org/?mlat=48.85&amp;mlon=-2.35#map=15/48.85/-2.35"');
+  });
+
   test('every block component has a default', () => {
     const names = ['Stack', 'Card', 'Stat', 'StatRow', 'Table', 'Compare', 'RankedList', 'BarChart', 'LineChart', 'PieChart', 'Map', 'Steps', 'Checklist', 'Tabs', 'Accordion', 'Badge', 'Callout', 'Image', 'Link'];
     expect(Object.keys(defaultGenuiComponents).sort()).toEqual([...names].sort());

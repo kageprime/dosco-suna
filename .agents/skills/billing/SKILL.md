@@ -24,7 +24,9 @@ Change the code and the spec together.
   `platform/providers/compute-rates.ts`, mirrored by
   `packages/ui/src/internal/billing/compute-pricing.ts`. Model fee:
   `LLM_PLATFORM_FEE_PERCENT`. Residential proxy: Platinum's charge, passed
-  through (`billing/services/residential-proxy-charges.ts`). Storage:
+  through (`billing/services/residential-proxy-charges.ts`). Dictation:
+  `DICTATION_CREDITS_PER_MINUTE` in `tiers.ts` (1 credit a minute, every plan).
+  Storage:
   `STORAGE_RATES_USD_PER_GIB_HOUR` in `compute-rates.ts`, Platinum's volume
   and box disk prices × `PLATINUM_MARKUP` (`billing/services/storage-charges.ts`,
   `box-disk-charges.ts`).

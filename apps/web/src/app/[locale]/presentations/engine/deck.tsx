@@ -333,7 +333,7 @@ export function Deck({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-            className="border-border bg-card/95 absolute inset-x-0 bottom-0 z-40 max-h-[46vh] overflow-y-auto border-t shadow-lg backdrop-blur-md"
+            className="border-border bg-card/95 absolute inset-x-0 bottom-0 z-40 max-h-[46vh] overflow-y-auto border-t shadow-md backdrop-blur-md"
           >
             <div className="mx-auto w-full max-w-4xl px-6 py-6 sm:px-8">
               <div className="mb-4 flex items-center justify-between gap-4">

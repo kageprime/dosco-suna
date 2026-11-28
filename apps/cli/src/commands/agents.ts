@@ -202,6 +202,55 @@ function renderAgent(
   return `  ${pad(agent.name, width)}   ${C.dim}${where}${C.reset}   ${modelText}${tail}\n`;
 }
 
+/** GET /projects/:id/model-access: the explicit denials PUT /model-defaults enforces. */
+type ModelAccess = { disabledProviders?: string[]; disabledModels?: string[] };
+
+/** What `ls` says when no agent is pinned. "Pin one" only when the caller can
+ *  run a model: otherwise PUT /model-defaults refuses every id with 409
+ *  model_not_servable (a free-tier account with no provider, KRTX-1665), so
+ *  name what unlocks one, as the web picker does. Runnable = a picker gateway
+ *  model whose provider is connected, or a Claude subscription model on a
+ *  connected Claude account, that /model-access does not deny. The picker's
+ *  `enabled` also folds in display-only hiding, which PUT ignores, so it is
+ *  not used. An unreadable picker fails open to "Pin one". */
+async function noPinsHint(ctx: ProjectCtx): Promise<string> {
+  let runnable = true;
+  try {
+    const base = `/workspaces/${ctx.projectId}`;
+    const [picker, access] = await Promise.all([
+      // The part of GET /projects/:id/model-picker a pin can name.
+      ctx.client.get<{
+        models?: Record<string, { available?: boolean }>;
+        claudeSubscription?: { models?: Array<{ id: string; connected?: boolean }> };
+      }>(`${base}/model-picker`),
+      // Unreadable (an API without the route): no known denials, fail open.
+      ctx.client
+        .get<ModelAccess>(`${base}/model-access`)
+        .catch((): ModelAccess => ({})),
+    ]);
+    // The API's modelAccessAllows on a wire id: denied by its provider or itself.
+    const allowed = (id: string): boolean => {
+      const provider = id.includes('/') ? id.slice(0, id.indexOf('/')) : 'kortix';
+      return !access.disabledProviders?.includes(provider) && !access.disabledModels?.includes(id);
+    };
+    runnable =
+      Object.entries(picker.models ?? {}).some(
+        ([id, model]) => model.available !== false && allowed(id),
+      ) ||
+      (picker.claudeSubscription?.models ?? []).some(
+        (model) => model.connected && allowed(model.id),
+      );
+  } catch {
+    // fail open
+  }
+  const next = runnable
+    ? `  ${C.dim}Pin one: ${C.reset}${C.cyan}kortix agents model <agent> <model-id>${C.reset}\n\n`
+    : `  ${C.dim}No model can be pinned yet: this workspace serves none you can run. Connect one with ${C.reset}` +
+      `${C.cyan}kortix providers set <provider>${C.reset}${C.dim} or ${C.reset}${C.cyan}kortix providers login <provider>${C.reset}` +
+      `${C.dim}, or upgrade to a paid plan.${C.reset}\n\n`;
+  return `  ${C.dim}No per-agent model pins — every agent follows the default.${C.reset}\n${next}`;
+}
+
 async function agentsLs(ctx: ProjectCtx, json: boolean): Promise<number> {
   const d = await ctx.client.get<ModelDefaultsResponse>(
     `/workspaces/${ctx.projectId}/model-defaults`,
@@ -248,10 +297,7 @@ async function agentsLs(ctx: ProjectCtx, json: boolean): Promise<number> {
   if (agents === null) {
     const entries = Object.entries(pins).sort((a, b) => a[0].localeCompare(b[0]));
     if (entries.length === 0) {
-      process.stdout.write(
-        `  ${C.dim}No per-agent model pins — every agent follows the default.${C.reset}\n` +
-          `  ${C.dim}Pin one: ${C.reset}${C.cyan}kortix agents model <agent> <model-id>${C.reset}\n\n`,
-      );
+      process.stdout.write(await noPinsHint(ctx));
       return 0;
     }
     const width = Math.max(...entries.map(([name]) => name.length), 5);
@@ -288,10 +334,7 @@ async function agentsLs(ctx: ProjectCtx, json: boolean): Promise<number> {
       `  ${C.dim}Clear one: ${C.reset}${C.cyan}kortix agents model <agent> --clear${C.reset}\n\n`,
     );
   } else if (Object.keys(pins).length === 0) {
-    process.stdout.write(
-      `  ${C.dim}No per-agent model pins — every agent follows the default.${C.reset}\n` +
-        `  ${C.dim}Pin one: ${C.reset}${C.cyan}kortix agents model <agent> <model-id>${C.reset}\n\n`,
-    );
+    process.stdout.write(await noPinsHint(ctx));
   }
   return 0;
 }
@@ -422,30 +465,31 @@ async function agentsScope(
     const block = cfg.block ?? {};
     const assigned = (block as { policy_sets?: Record<string, string> }).policy_sets ?? {};
     const permissions = block.kortix_permissions ?? block.kortix_cli;
+    // An omitted grant grants nothing (kortix.yaml: "Omitted means none"); say so, never `all`.
     if (opts.json) {
       emitJson({
         agent: cfg.agent,
-        secrets: block.secrets ?? 'all',
+        secrets: block.secrets ?? 'none',
         connectors: block.connectors ?? [],
         connectors_required: block.connectors_required ?? [],
         apps: block.apps ?? 'none',
         policy_sets: assigned,
-        skills: block.skills ?? 'all',
-        kortix_permissions: permissions ?? 'all',
+        skills: block.skills ?? 'none',
+        kortix_permissions: permissions ?? 'none',
         /** @deprecated Same value as kortix_permissions; kept for scripts written before the rename. */
-        kortix_cli: permissions ?? 'all',
+        kortix_cli: permissions ?? 'none',
       });
       return 0;
     }
     process.stdout.write(
       `\n  ${C.bold}${cfg.agent}${C.reset}\n` +
-        `  ${C.dim}${pad('secrets', 20)}${C.reset} ${renderGrantSet(block.secrets, 'all (default)')}\n` +
+        `  ${C.dim}${pad('secrets', 20)}${C.reset} ${renderGrantSet(block.secrets, 'none (default)')}\n` +
         `  ${C.dim}${pad('connectors', 20)}${C.reset} ${renderGrantSet(block.connectors, 'none (default)')}\n` +
         `  ${C.dim}${pad('required connectors', 20)}${C.reset} ${block.connectors_required?.join(', ') || 'none'}\n` +
         `  ${C.dim}${pad('apps', 20)}${C.reset} ${renderGrantSet(block.apps, 'none (default)')}\n` +
         `  ${C.dim}${pad('policy sets', 20)}${C.reset} ${renderPolicySets(assigned, 'base rules (default)')}\n` +
-        `  ${C.dim}${pad('skills', 20)}${C.reset} ${renderGrantSet(block.skills, 'all (default)')}\n` +
-        `  ${C.dim}${pad('kortix permissions', 20)}${C.reset} ${renderGrantSet(permissions, 'all (default)')}\n\n`,
+        `  ${C.dim}${pad('skills', 20)}${C.reset} ${renderGrantSet(block.skills, 'none (default)')}\n` +
+        `  ${C.dim}${pad('kortix permissions', 20)}${C.reset} ${renderGrantSet(permissions, 'none (default)')}\n\n`,
     );
     if (!opts.show) {
       process.stdout.write(

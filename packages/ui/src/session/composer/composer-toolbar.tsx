@@ -131,6 +131,13 @@ export interface ComposerToolbarProps {
   attachmentUnsupported?: string | null;
   /** The host's voice call, offered in Send's place on an empty composer. See `SendStopControl`. */
   call?: ComposerCall;
+  /** The microphone (`DictationControl`), drawn right before Send. */
+  dictation?: React.ReactNode;
+  /**
+   * A dictation take is running: its Done button is the primary action, so
+   * Send steps aside. Stop stays while a turn runs.
+   */
+  dictationActive?: boolean;
   onSubmit: () => void;
 }
 
@@ -175,6 +182,8 @@ export function ComposerToolbar({
   attachmentFailed = false,
   attachmentUnsupported = null,
   call,
+  dictation,
+  dictationActive = false,
   onSubmit,
 }: ComposerToolbarProps) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
@@ -259,7 +268,9 @@ export function ComposerToolbar({
 
         {toolbarSlot}
 
-        <SendStopControl
+        {dictation}
+
+        {(!dictationActive || isBusy) && <SendStopControl
           isSending={isSending}
           isBusy={isBusy}
           onStop={onStop}
@@ -280,7 +291,7 @@ export function ComposerToolbar({
           attachmentUnsupported={attachmentUnsupported}
           call={call}
           onSubmit={onSubmit}
-        />
+        />}
       </div>
     </div>
   );

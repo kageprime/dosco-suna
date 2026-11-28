@@ -69,7 +69,12 @@ export async function forwardToSandbox(
   // `promptSource`: the queued row's source, when the API forwards its prompt
   // (`postPrompt`). The turn record keeps it (`beginSandboxTurn`). No HTTP
   // edge sets it.
-  opts: { originMode?: boolean; record?: SandboxRecord; promptSource?: string } = {},
+  //
+  // `promptAuthor`: the name of the person who wrote the prompt the API
+  // forwards (`postPrompt`, KRTX-5121). The turn start writes it as the body's
+  // `author` and drops any `author` a client sent (`addMemoryTurnLayers`). No
+  // HTTP edge sets it.
+  opts: { originMode?: boolean; record?: SandboxRecord; promptSource?: string; promptAuthor?: string | null } = {},
 ): Promise<Response> {
   let requestBody = body;
 
@@ -362,6 +367,7 @@ export async function forwardToSandbox(
       promptDedupeKey,
       turnIdentity,
       turnStartEnvSync,
+      promptAuthor: opts.promptAuthor ?? null,
       turn: createTurnLifecycle(sandboxId, turnIdentity, opts.promptSource),
     },
     requestBody,

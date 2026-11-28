@@ -22,6 +22,8 @@ export interface SessionAsk {
   surface_session_id: string;
   /** The title of `surface_session_id`, when it has one. */
   session_title: string | null;
+  /** The agent of `surface_session_id`: the agent that asks. Null when unknown; absent from an older API. */
+  agent_name?: string | null;
   /** The runtime's request id; for an approval, the execution id `resolveApproval` takes. */
   request_id: string;
   /** One line: the question, the command, the connector action. */

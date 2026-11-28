@@ -11,6 +11,7 @@ export function ProjectNavRow({
   active,
   label,
   className,
+  itemClassName,
   children,
   ...link
 }: ComponentProps<typeof HoverPrefetchLink> & {
@@ -18,12 +19,14 @@ export function ProjectNavRow({
   label: string;
   /** Added to the row button's classes. */
   className?: string;
+  /** Added to the list item's classes (spacing around the row). */
+  itemClassName?: string;
   children: ReactNode;
 }) {
   const isMobile = useIsMobile();
   const { setOpenMobile } = useSidebar();
   return (
-    <SidebarMenuItem>
+    <SidebarMenuItem className={itemClassName}>
       <SidebarMenuButton
         asChild
         isActive={active}

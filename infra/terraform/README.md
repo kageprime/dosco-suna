@@ -15,9 +15,7 @@ table is the source of truth for which root it drives.
 | `environments/dev-us-east-2` | `deploy-dev.yml` -> `terraform-dev-api` | a dev deploy whose diff touches `environments/dev-us-east-2/**`, `environments/dev-web-us-east-2/**` or `modules/**` | `us-east-2` | `kortix-gha-tf-apply-dev` |
 | `environments/dev-web-us-east-2` | `deploy-dev.yml` -> `terraform-dev` | same trigger, applied after `environments/dev-us-east-2` | `us-east-2` | `kortix-gha-tf-apply-dev` |
 | `environments/staging-eu-west-2` | `deploy-staging.yml` -> `terraform-staging` | every staging deploy | `eu-west-2` | `kortix-gha-tf-apply-staging` |
-| `environments/staging-web-eu-west-2` | `deploy-staging.yml` -> `terraform-staging-web` | every staging deploy | `eu-west-2` | `kortix-gha-tf-apply-staging` |
 | `environments/prod` | `deploy-prod.yml` -> `terraform-prod-api` | every production release | `eu-west-2` | `kortix-gha-tf-apply-prod` |
-| `environments/prod-web` | `deploy-prod.yml` -> `terraform-prod` | every production release, after `environments/prod` | `eu-west-2` | `kortix-gha-tf-apply-prod` |
 | `compliance-monitoring` | `terraform-apply-global.yml` | push to `dev` touching the root | `eu-west-2`, `us-east-2` (alert hub `eu-west-2` since 2026-10-12) | `kortix-gha-tf-apply-global` |
 | `security-baseline` | `terraform-apply-global.yml` | push to `dev` touching the root | all 17 regions (alert hub `eu-west-2` since 2026-10-12) | `kortix-gha-tf-apply-global` |
 
@@ -29,7 +27,7 @@ in the same region (`backend.tf`, same key as before the move):
 
 | State bucket | Roots | Defined in |
 | --- | --- | --- |
-| `kortix-terraform-state-eu-west-2-935064898258` | `environments/prod`, `environments/prod-web`, `environments/staging-eu-west-2`, `environments/staging-web-eu-west-2`, `security-baseline`, `compliance-monitoring` | `security-baseline/terraform-state-euw2.tf` |
+| `kortix-terraform-state-eu-west-2-935064898258` | `environments/prod`, `environments/staging-eu-west-2`, `security-baseline`, `compliance-monitoring` | `security-baseline/terraform-state-euw2.tf` |
 | `kortix-terraform-state-us-east-2-935064898258` | `environments/dev-us-east-2`, `environments/dev-web-us-east-2` | `security-baseline/terraform-state-use2.tf` |
 | `kortix-terraform-state-us-east-1-935064898258` | external: `kortix-ai/kortix-vps-demo-infra` (key `vps-demo/terraform.tfstate`) | `security-baseline/terraform-state-use1.tf` |
 
@@ -53,6 +51,12 @@ resources) and removed from the repository. Their stacks moved to the
 `-us-east-2` and `-eu-west-2` roots above. The us-east-2 prod shadow root
 `prod-us-east-2-shadow` was removed the same day; it had not run since
 2026-08.
+
+The eu-west-2 roots `staging-web-eu-west-2` and `prod-web` ran a second copy
+of the staging and production frontend on ECS Fargate (`staging-fe-ecs` and
+`prod-fe-ecs.kortix.com`) beside Vercel. They served no users and were
+destroyed and removed from the repository in 2026-11. Staging and production
+serve the frontend from Vercel only; dev keeps `environments/dev-web-us-east-2`.
 
 ## `api_image` is the only input CI supplies
 

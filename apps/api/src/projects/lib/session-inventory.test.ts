@@ -55,6 +55,19 @@ function row(
 const subject = { userId: VIEWER_ID, groupIds: [] };
 
 describe('selectSessionRowsForViewer', () => {
+  test('normal project inventory hides a deleted session even with account oversight', () => {
+    for (const accountSessionOversight of [false, true]) {
+      const selected = selectSessionRowsForViewer({
+        rows: [row('live'), row('removed', { metadata: { deletedAt: '2026-11-26T10:00:00.000Z' } })],
+        scope: 'project', canManageProject: true, subject,
+        grantsBySession: new Map(), callerSessionId: null,
+        boundCredentialSessionId: null, runtimeStatusBySession: new Map(),
+        hiddenSpaceIds: new Set(), accountSessionOversight,
+      });
+      expect(selected.items.map((item) => item.row.sessionId)).toEqual(['live']);
+    }
+  });
+
   test('account session oversight widens the manager inventory to other members\' private sessions', () => {
     const privateOther = row('private-other', { createdBy: OTHER_ID });
     const restrictedOther = row('restricted-other', { createdBy: OTHER_ID, visibility: 'restricted' });
@@ -93,7 +106,7 @@ describe('selectSessionRowsForViewer', () => {
     expect(selected.items).toEqual([]);
   });
 
-  test('manager project scope hides inaccessible rows and keeps accessible unavailable and soft-deleted rows', () => {
+  test('manager project scope hides inaccessible rows and keeps accessible unavailable rows, not soft-deleted rows', () => {
     const privateOther = row('private-other', { createdBy: OTHER_ID });
     const stoppedWithoutRuntime = row('stopped-lost', { status: 'stopped' });
     const deleted = row('deleted', {
@@ -119,43 +132,10 @@ describe('selectSessionRowsForViewer', () => {
     expect(selected.authorized).toBe(true);
     expect(selected.items.map((item) => item.row.sessionId)).toEqual([
       'stopped-lost',
-      'deleted',
     ]);
     expect(selected.items[0]).toMatchObject({
       canAccess: true,
       runtimeStatus: null,
-    });
-    expect(selected.items[1]).toMatchObject({
-      canAccess: true,
-      deletedAt: '2026-07-20T10:00:00.000Z',
-      deletedBy: VIEWER_ID,
-    });
-  });
-
-  test('manager project scope keeps a soft-deleted session for audit', () => {
-    const deletedReal = row('deleted-real', {
-      status: 'completed',
-      metadata: { deletedAt: '2026-07-20T10:00:00.000Z', deletedBy: VIEWER_ID },
-    });
-    const live = row('live', { status: 'stopped' });
-
-    const selected = selectSessionRowsForViewer({
-      hiddenSpaceIds: new Set(),
-      rows: [deletedReal, live],
-      scope: 'project',
-      canManageProject: true,
-      subject,
-      grantsBySession: new Map(),
-      callerSessionId: null,
-      boundCredentialSessionId: null,
-      runtimeStatusBySession: new Map(),
-    });
-
-    expect(selected.authorized).toBe(true);
-    expect(selected.items.map((item) => item.row.sessionId)).toEqual(['deleted-real', 'live']);
-    expect(selected.items[0]).toMatchObject({
-      deletedAt: '2026-07-20T10:00:00.000Z',
-      deletedBy: VIEWER_ID,
     });
   });
 

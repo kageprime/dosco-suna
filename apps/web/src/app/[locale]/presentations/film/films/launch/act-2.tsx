@@ -147,7 +147,7 @@ export function Session() {
       <div className="relative mt-10 h-80 w-3xl">
         {f < 112 ? (
           <div
-            className="border-border bg-popover absolute inset-x-0 top-16 flex items-end gap-3 rounded-2xl border px-5 py-4 shadow-2xl"
+            className="border-border bg-popover absolute inset-x-0 top-16 flex items-end gap-3 rounded-2xl border px-5 py-4 shadow-md"
             style={composer}
           >
             <p className="text-foreground min-h-12 flex-1 text-lg">

@@ -28,7 +28,7 @@ export const CHARS_PER_TOKEN = 4;
 /** Tokens counted for one inline image or file part. */
 export const IMAGE_PART_TOKENS = 1_000;
 
-const BINARY_KEYS = new Set(['image_url', 'input_image', 'image', 'file', 'input_audio', 'file_data']);
+import { isBinaryPart } from '../pipeline/image-window';
 
 /** An inline file (`data:` URL). Its bytes are not prompt text. */
 function isBinaryString(value: string): boolean {
@@ -61,12 +61,12 @@ export function estimatePromptTokens(body: Record<string, unknown>): number {
     if (typeof value === 'object') {
       const record = value as Record<string, unknown>;
       const type = record.type;
-      if (typeof type === 'string' && BINARY_KEYS.has(type)) {
+      if (typeof type === 'string' && isBinaryPart(type)) {
         images += 1;
         return;
       }
       for (const [key, item] of Object.entries(record)) {
-        if (BINARY_KEYS.has(key) && item && typeof item === 'object') {
+        if (isBinaryPart(key) && item && typeof item === 'object') {
           images += 1;
           continue;
         }

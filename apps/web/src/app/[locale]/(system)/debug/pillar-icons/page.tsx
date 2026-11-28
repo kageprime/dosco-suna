@@ -240,7 +240,7 @@ export default function PillarIconsDebugPage() {
         </div>
       </div>
 
-      <div className="bg-popover text-popover-foreground fixed bottom-4 left-1/2 z-50 flex w-[min(100%-2rem,64rem)] -translate-x-1/2 flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border p-3 shadow-lg">
+      <div className="bg-popover text-popover-foreground fixed bottom-4 left-1/2 z-50 flex w-[min(100%-2rem,64rem)] -translate-x-1/2 flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border p-3 shadow-md">
         <Segmented label="surface" value={s.surface} options={['glyph', 'tile'] as const} onChange={set('surface')} />
         <Segmented label="ramp" value={s.ramp} options={Object.keys(RAMPS) as RampName[]} onChange={set('ramp')} />
         <Segmented label="size" value={s.size} options={[24, 32, 40] as const} onChange={set('size')} />

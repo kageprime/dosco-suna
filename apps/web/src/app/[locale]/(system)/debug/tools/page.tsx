@@ -1689,7 +1689,7 @@ export default function DebugToolsPage() {
 
   return (
     <div className="bg-background text-foreground min-h-screen w-full">
-      <div className="border-border/60 bg-background/80 sticky top-0 z-10 flex items-center justify-between border-b px-6 py-3 backdrop-blur">
+      <div className="border-border bg-background/80 sticky top-0 z-10 flex items-center justify-between border-b px-6 py-3 backdrop-blur">
         <div>
           <h1 className="text-base font-semibold">
             {tHardcodedUi.raw('appDebugToolsPage.line268JsxTextToolRenderers')}
@@ -1950,7 +1950,7 @@ export default function DebugToolsPage() {
                     <div className="text-muted-foreground mb-1 font-mono text-xs">
                       {row.label}
                     </div>
-                    <div className="border-border/40 bg-card/30 rounded-md border px-4 py-3">
+                    <div className="border-border bg-card/30 rounded-md border px-4 py-3">
                       {(row.group ? showRowCalls(row.group) : [blockOf(row.node)]).map((call) => (
                         <ToolPartRenderer key={call.id} call={call} sessionId="debug" disableNavigation />
                       ))}

@@ -32,26 +32,26 @@ Radius, borders, elevation, glass, selection and the other surface effects. Valu
 
 ## Elevation
 
-Web defines no shadow tokens. `shadow-*` renders the stock Tailwind ladder (`elevation.source`). No custom ladder exists (E2 in `decisions.md`). The meaning below is the rule.
+Web has three shadow steps: `shadow-xs`, `shadow-sm`, `shadow-md`. They are the smooth layered stacks of shadow-plugin 2.1.1 (MIT, shadow.floriankiem.com), copied as values into `packages/ui/src/styles/theme.css`; the plugin is not installed and no `smooth-shadow-*` class is needed for them. `shadow-lg`, `shadow-xl` and `shadow-2xl` do not exist: the theme sets them to `initial`, so the class emits nothing.
 
 | Step | Use |
 | --- | --- |
 | none, border only | **Panels, rows, tables, cards. Anything in page flow is flat.** |
-| `shadow-xs` | Chips, slider thumbs, the raised segmented chip (`tabs.tsx`, D4j). |
+| `shadow-xs` | Dropdowns, selects, popovers, hover cards (`FLOATING_PANEL_SURFACE` in `menu-recipe.ts`). Chips, slider thumbs, the raised segmented chip (`tabs.tsx`, D4j). |
 | `shadow-sm` | Sticky bars. |
-| `shadow-md` | Dropdowns, selects, popovers. |
-| `shadow-lg` | Modals, sheets, toasts. |
-| `shadow-xl` | Command palette, floating windows. |
+| `shadow-md` | Modals, sheets, the command palette. |
 
-**Rule.** Elevation means "floats above the page". If it sits in flow, give it a border. — *Why:* shadow on a flat card is decoration, and "pop" is not a requirement. — *Where:* app, marketing. Large marketing previews may use `shadow-2xl`. — *When silent:* border only.
+**Rule.** Elevation means "floats above the page". If it sits in flow, give it a border. — *Why:* shadow on a flat card is decoration, and "pop" is not a requirement. — *Where:* app, marketing. — *When silent:* border only.
 
-**Rule.** Pair an overlay shadow with a hairline border: `bg-popover border shadow-md`. — *Why:* in dark mode a drop shadow is invisible on black, so the hairline draws the edge. — *Where:* app. — *When silent:* both.
+**Rule.** Pair an overlay shadow with the hairline border: `bg-popover border shadow-xs`. — *Why:* in dark mode a drop shadow is invisible on black, so the hairline draws the edge. — *Where:* app. — *When silent:* both.
+
+**Rule.** Use no step above `md`, and add no new shadow class. — *Why:* three steps are the whole ladder (Jay, 2026-11-25). — *Where:* app, marketing. — *When silent:* `shadow-md`.
 
 **Rule.** Never write `dark:shadow-*` or `shadow-[…]` when a step fits. — *Why:* steps keep depth consistent across themes. `command.tsx` ships one bracket shadow today; treat it as debt. — *Where:* app. — *When silent:* the step above or below.
 
 ## Borders
 
-**Rule.** Draw every border at 1px with `border-border`. — *Why:* `--border-width` in `globals.css` is 1.5px but has no effect: `.border` compiles to 1px. Do not rely on it. — *Where:* app, marketing, deck, image. — *When silent:* `border` + `border-border`. Color rules are in `color.md`.
+**Rule.** Draw every border with the bare `border` class (or `border-t|b|x|…`, `divide-*`): the global border, 0.8px in `border-border`. Write no explicit width (`border-[1px]`, `1px solid`). For emphasis (a selectable row, a linked card) use `border-strong`; the chat composer takes the global border (Jay, 2026-11-26): 1px in the full `--border` color. — *Why:* one line weight and one color read as one system; the global border is `--border` mixed 17.5% toward `--background`, so the strong border is the only heavier line (Jay, 2026-11-25). A browser draws a border in whole device pixels, rounded down, never less than one: on a 2x screen 0.8px draws as 0.5px and 1px as 1px; on a 1x screen both draw as 1px. — *Where:* app, marketing, deck, image. — *When silent:* `border`. Both are defined in `packages/ui/src/styles/theme.css` (`--default-border-width`, `--color-border`, `@utility border-strong`). Color rules are in `color.md`.
 
 **Rule.** Raise the segmented chip, do not outline it twice: it is `bg-popover` with `ring-1 ring-border` and `shadow-xs`. It is "raised, not bordered" (`tabs.tsx`, #8286). — *Why:* the chip reads as the selected thing in both themes. — *Where:* app. — *When silent:* copy `tabs.tsx`. Underline tabs stay for primary section tabs. A vertical rail is never segmented.
 

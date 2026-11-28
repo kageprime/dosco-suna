@@ -16,7 +16,7 @@
 // `window.__TAURI__` bridge shape (see preload.js) so the web app's desktop
 // bridge (apps/web/src/lib/desktop.ts) runs UNCHANGED.
 
-const { app, BrowserWindow, Menu, dialog, shell, ipcMain, nativeImage, nativeTheme, safeStorage, clipboard, globalShortcut } = require('electron');
+const { app, BrowserWindow, Menu, dialog, shell, ipcMain, nativeImage, nativeTheme, safeStorage, clipboard, globalShortcut, session } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { setupAutoUpdates, checkForUpdatesInteractive } = require('./updater');
@@ -50,6 +50,7 @@ const {
 const { setupComputer } = require('./computer-tray');
 const { setAttentionBadge } = require('./attention-badge');
 const { setupQuickEntry } = require('./quick-entry');
+const { installMediaPermissionPolicy } = require('./media-permission');
 const { attachContextMenu } = require('./context-menu');
 const { SHORTCUTS, shortcutLabel } = require('./quick-entry-rules');
 
@@ -1344,6 +1345,13 @@ if (!gotLock) {
     }
 
     applyUserAgent();
+    // Browser permissions: the app's own page gets what it uses, the microphone
+    // included; previews and popups only harmless ones. See media-permission.js.
+    installMediaPermissionPolicy(session.defaultSession, {
+      appWebContents: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null),
+      appUrl: () => instanceStore.appUrl(),
+      onDenied: (url, permission) => console.warn('[permissions] refused', { url, permission }),
+    });
     computerShell = setupComputer({
       channel: CHANNEL,
       appUrl: () => instanceStore.appUrl(),

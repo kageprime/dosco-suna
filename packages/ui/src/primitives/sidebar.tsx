@@ -124,6 +124,7 @@ function SidebarProvider({
   // Edge-peek flyout state — hover intent lives in a plain controller so the
   // open/close delays are testable without React or wall-clock timers.
   const [peek, setPeek] = React.useState(false);
+  const [rail, setRail] = React.useState(false);
   const peekController = React.useMemo(() => createPeekController(setPeek), []);
   React.useEffect(() => () => peekController.cancel(), [peekController]);
   React.useEffect(() => {
@@ -227,8 +228,11 @@ function SidebarProvider({
       width: width ?? SIDEBAR_WIDTH_PX,
       setWidth,
       previewWidth,
+      rail,
+      setRail,
     }),
     [
+      rail,
       state,
       open,
       setOpen,

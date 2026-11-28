@@ -11,6 +11,7 @@
  */
 import { AlarmIcon as AlarmGlyph } from 'phosphor-react-native/src/icons/Alarm';
 import { ArchiveIcon as ArchiveGlyph } from 'phosphor-react-native/src/icons/Archive';
+import { ArrowBendUpLeftIcon as ArrowBendUpLeftGlyph } from 'phosphor-react-native/src/icons/ArrowBendUpLeft';
 import { ArrowClockwiseIcon as ArrowClockwiseGlyph } from 'phosphor-react-native/src/icons/ArrowClockwise';
 import { ArrowCounterClockwiseIcon as ArrowCounterClockwiseGlyph } from 'phosphor-react-native/src/icons/ArrowCounterClockwise';
 import { ArrowDownIcon as ArrowDownGlyph } from 'phosphor-react-native/src/icons/ArrowDown';
@@ -99,6 +100,7 @@ import { FingerprintIcon as FingerprintGlyph } from 'phosphor-react-native/src/i
 import { FolderIcon as FolderGlyph } from 'phosphor-react-native/src/icons/Folder';
 import { FolderOpenIcon as FolderOpenGlyph } from 'phosphor-react-native/src/icons/FolderOpen';
 import { FolderPlusIcon as FolderPlusGlyph } from 'phosphor-react-native/src/icons/FolderPlus';
+import { FolderSimpleDashedIcon as FolderSimpleDashedGlyph } from 'phosphor-react-native/src/icons/FolderSimpleDashed';
 import { FunnelIcon as FunnelGlyph } from 'phosphor-react-native/src/icons/Funnel';
 import { GearSixIcon as GearSixGlyph } from 'phosphor-react-native/src/icons/GearSix';
 import { GitBranchIcon as GitBranchGlyph } from 'phosphor-react-native/src/icons/GitBranch';
@@ -120,7 +122,6 @@ import { KeyIcon as KeyGlyph } from 'phosphor-react-native/src/icons/Key';
 import { LifebuoyIcon as LifebuoyGlyph } from 'phosphor-react-native/src/icons/Lifebuoy';
 import { LightbulbIcon as LightbulbGlyph } from 'phosphor-react-native/src/icons/Lightbulb';
 import { LightningIcon as LightningGlyph } from 'phosphor-react-native/src/icons/Lightning';
-import { LinkBreakIcon as LinkBreakGlyph } from 'phosphor-react-native/src/icons/LinkBreak';
 import { ListChecksIcon as ListChecksGlyph } from 'phosphor-react-native/src/icons/ListChecks';
 import { ListIcon as ListGlyph } from 'phosphor-react-native/src/icons/List';
 import { LockIcon as LockGlyph } from 'phosphor-react-native/src/icons/Lock';
@@ -197,6 +198,7 @@ import { withAppWeight, withFixedWeight } from './bind';
 
 export const AlarmIcon = withAppWeight(AlarmGlyph, 'AlarmIcon');
 export const ArchiveIcon = withAppWeight(ArchiveGlyph, 'ArchiveIcon');
+export const ArrowBendUpLeftIcon = withAppWeight(ArrowBendUpLeftGlyph, 'ArrowBendUpLeftIcon');
 export const ArrowClockwiseIcon = withAppWeight(ArrowClockwiseGlyph, 'ArrowClockwiseIcon');
 export const ArrowCounterClockwiseIcon = withAppWeight(ArrowCounterClockwiseGlyph, 'ArrowCounterClockwiseIcon');
 export const ArrowDownIcon = withAppWeight(ArrowDownGlyph, 'ArrowDownIcon');
@@ -289,6 +291,7 @@ export const FingerprintIcon = withAppWeight(FingerprintGlyph, 'FingerprintIcon'
 export const FolderIcon = withAppWeight(FolderGlyph, 'FolderIcon');
 export const FolderOpenIcon = withAppWeight(FolderOpenGlyph, 'FolderOpenIcon');
 export const FolderPlusIcon = withAppWeight(FolderPlusGlyph, 'FolderPlusIcon');
+export const FolderSimpleDashedIcon = withAppWeight(FolderSimpleDashedGlyph, 'FolderSimpleDashedIcon');
 // Stacked-folders glyph drawn by hand; Phosphor's Folders is a different shape.
 export { KortixFoldersIcon as FoldersIcon } from './folders';
 export const FunnelIcon = withAppWeight(FunnelGlyph, 'FunnelIcon');
@@ -312,7 +315,6 @@ export const KeyIcon = withAppWeight(KeyGlyph, 'KeyIcon');
 export const LifebuoyIcon = withAppWeight(LifebuoyGlyph, 'LifebuoyIcon');
 export const LightbulbIcon = withAppWeight(LightbulbGlyph, 'LightbulbIcon');
 export const LightningIcon = withAppWeight(LightningGlyph, 'LightningIcon');
-export const LinkBreakIcon = withAppWeight(LinkBreakGlyph, 'LinkBreakIcon');
 export const ListChecksIcon = withAppWeight(ListChecksGlyph, 'ListChecksIcon');
 export const ListIcon = withAppWeight(ListGlyph, 'ListIcon');
 export const LockIcon = withAppWeight(LockGlyph, 'LockIcon');

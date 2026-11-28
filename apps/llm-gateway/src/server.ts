@@ -174,6 +174,7 @@ export function buildServer(
       refreshCredential: api.refreshCredential,
       claudeCredentials: api.claudeCredentials,
       claudeRefused: api.claudeRefused,
+      claudeForbidden: api.claudeForbidden,
       assertBillingActive: api.assertBillingActive,
       assertBudget: api.assertBudget,
       recordUsage: api.recordUsage,

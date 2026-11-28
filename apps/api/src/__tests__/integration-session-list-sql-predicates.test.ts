@@ -292,11 +292,11 @@ describe('scenario B: 1,500 tombstones newer than the owner’s live sessions', 
     expect(second.nextCursor).toBeNull();
   });
 
-  test('the manager inventory still lists the tombstones', async () => {
+  test('the manager inventory excludes tombstones before paging', async () => {
     const { ids, requests } = await walk({ project: PROJECT_B, viewer: OWNER, manager: true, scope: 'project', limit: 200 });
-    expect(ids.filter((id) => id.startsWith('deleted-'))).toHaveLength(1500);
+    expect(ids.filter((id) => id.startsWith('deleted-'))).toHaveLength(0);
     expect(ids.filter((id) => id.startsWith('live-'))).toHaveLength(60);
-    expect(requests).toBe(8);
+    expect(requests).toBe(1);
   });
 
   test('the visible page walks idx_project_sessions_project_live in list order, with no sort, with and without a generic plan', async () => {
@@ -446,7 +446,7 @@ describe('the page WHERE agrees with the JS fold on every rule', () => {
         for (const agentPrincipal of [false, true]) {
           for (const accountSessionOversight of [false, true]) {
            for (const hiddenSpaceIds of hiddenSets) {
-            const viewer = { scope: 'project' as const, viewerId, boundCredentialSessionId: bound, agentPrincipal, canManageProject: false, accountSessionOversight, hiddenSpaceIds };
+            const viewer = { scope: 'project' as const, allowDeleted: true, viewerId, boundCredentialSessionId: bound, agentPrincipal, canManageProject: false, accountSessionOversight, hiddenSpaceIds };
             const fromSql = await db
               .select({ sessionId: projectSessions.sessionId })
               .from(projectSessions)
@@ -490,7 +490,7 @@ describe('the page WHERE agrees with the JS fold on every rule', () => {
         .select({ sessionId: projectSessions.sessionId })
         .from(projectSessions)
         .where(and(eq(projectSessions.projectId, PROJECT_RULES), sessionListViewerSql({
-          scope: 'project', viewerId, boundCredentialSessionId: null, agentPrincipal: false, canManageProject: false, accountSessionOversight: false,
+          scope: 'project', allowDeleted: true, viewerId, boundCredentialSessionId: null, agentPrincipal: false, canManageProject: false, accountSessionOversight: false,
           hiddenSpaceIds: new Set(),
         })))).map((row) => short(row.sessionId));
     const memberA = await readIds(MEMBER_A);

@@ -35,6 +35,12 @@ export interface RuntimePromptInput {
    * router routes only to them (harness/pi/front-space.ts).
    */
   spaceAgents?: unknown
+  /**
+   * The person who wrote this prompt (`author`, KRTX-5121): the API sets it,
+   * its proxy drops a client's value. The model reads the name above the
+   * message (harness/pi/prompt-author.ts). Absent when no person wrote it.
+   */
+  author?: unknown
 }
 
 /** The HTTP answer a verb produced; the route sends it as it is. */

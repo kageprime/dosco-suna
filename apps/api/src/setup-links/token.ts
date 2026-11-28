@@ -37,11 +37,16 @@ export interface SecretFieldSpec {
   name: string;
   label?: string;
   description?: string;
+  /** `browser` scope only: the hosts this website login may be typed on. The
+   *  form shows them; the submit stores them as the login's site list. */
+  sites?: string[];
 }
 
 import type { ConnectorConnectOwner } from '../projects/lib/connection-access';
 
-export type SecretScope = 'runtime' | 'connector';
+/** `runtime`: an env var. `connector`: server-side for a connector.
+ *  `browser`: a website login (`projects/lib/browser-logins.ts`). */
+export type SecretScope = 'runtime' | 'connector' | 'browser';
 
 interface BasePayload {
   exp: number;

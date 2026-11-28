@@ -13,7 +13,6 @@ import { useProjectRow } from './use-project-row';
 const GRADUATED_FEATURE_FLAG_KEYS: ReadonlySet<FeatureFlagKey> = new Set([
   'review_center',
   'agent_tunnel',
-  'session_transcript_history',
   'teams',
   'config_releases',
   'apps',
@@ -25,6 +24,7 @@ const GRADUATED_FEATURE_FLAG_KEYS: ReadonlySet<FeatureFlagKey> = new Set([
   'connectors_api_discover',
   'notification_center',
   'pooled_provider_secrets',
+  'secrets_egress',
 ]);
 
 /** What {@link useFeatureFlag} tells a caller about one flag. */
@@ -50,13 +50,17 @@ export function resolveFeatureFlag(
  * The keys {@link useFeatureFlags} carries. `FEATURE_FLAG_KEYS` — every flag a
  * surface can gate on — plus the graduated keys the API still resolves per
  * project: `volumes`, `drives` and `artifacts` each read whether the platform
- * stores Files (Platinum), and `session_log` the API sends `true`.
+ * stores Files (Platinum), `workspace_volume` whether new sessions get a
+ * /workspace volume, `chrome` whether the platform serves Kortix in Chrome,
+ * and `session_log` the API sends `true`.
  */
 const SERVED_FLAG_MAP_KEYS: readonly FeatureFlagKey[] = [
   ...FEATURE_FLAG_KEYS,
   'volumes',
   'drives',
   'artifacts',
+  'workspace_volume',
+  'chrome',
   'session_log',
 ];
 
@@ -102,9 +106,9 @@ export function useFeatureFlags(projectId: string | null | undefined): {
  * A disabled feature's surface must be invisible, not merely inert.
  *
  * The one exception is a graduated key (`review_center`, `agent_tunnel`,
- * `session_transcript_history`, `teams`, `config_releases`, `apps`,
+ * `teams`, `config_releases`, `apps`,
  * `llm_gateway`, `pi_harness`, `genui`, `agentmail_email`, `connectors_v2`, `connectors_api_discover`,
- * `notification_center`, `pooled_provider_secrets`): it reports `enabled: true` for every project, because the
+ * `notification_center`, `pooled_provider_secrets`, `secrets_egress`): it reports `enabled: true` for every project, because the
  * feature no longer has an off state.
  */
 export function useFeatureFlag(

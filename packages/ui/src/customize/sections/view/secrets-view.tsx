@@ -128,7 +128,6 @@ import {
   contract,
   qk,
   refreshProjectProviderState,
-  useFeatureFlag,
   useProjectAccountId,
   useProjectConfig,
 } from '@kortix/sdk/react';
@@ -162,7 +161,6 @@ import {
   secretDeliveryPresentation,
   secretDeliverySyncWarning,
   secretDeliveryTarget,
-  secretExposure,
   secretExposureOptions,
   secretUsageIsAssigned,
   shouldWarnMissingAgentGrant,
@@ -264,11 +262,6 @@ export function SecretsView({
   const queryClient = useQueryClient();
   const { navigate } = useSettingsNav();
   const queryKey = useMemo(() => qk.project.secrets(projectId), [projectId]);
-  // Network-Enforced Secrets (`secrets_egress`) is experimental and off by
-  // default. When off, the picker offers only Environment variable and
-  // Disabled — a new secret loads its real value into the sandbox.
-  const egressEnabled = useFeatureFlag(projectId, 'secrets_egress').enabled;
-
   const secretsQuery = useQuery({
     queryKey,
     queryFn: () => listProjectSecrets(projectId),
@@ -297,11 +290,6 @@ export function SecretsView({
   );
   const viewerId = useUiViewerId() ?? null;
   const tSharing = useI18nTranslations('accessSharing');
-
-  // A legacy/enforced row keeps its "Enforce at the network" badge even with the
-  // flag off, so the legend must still explain that value when one exists.
-  const hasEnforcedRow = allRows.some((r) => secretExposure(r.strategy, r.consumer) === 'enforced');
-  const showEnforced = egressEnabled || hasEnforcedRow;
 
   const missingRequired = allRows.filter((r) => r.requirement === 'required' && !r.configured);
 
@@ -418,7 +406,7 @@ export function SecretsView({
           </InputGroupSearch>
         ) : undefined
       }
-      titleAddon={<SecretsAccessInfo showEnforced={showEnforced} />}
+      titleAddon={<SecretsAccessInfo />}
       action={
         showContent && canManage ? (
           <NewEntityMenu
@@ -572,7 +560,6 @@ export function SecretsView({
         row={dialogRow}
         connectors={connectorsQuery.data?.connectors ?? []}
         connectorsLoading={connectorsQuery.isLoading}
-        egressEnabled={egressEnabled}
         onSaved={refreshSecretsAndProviders}
       />
     </SplitSheetContent>
@@ -592,7 +579,7 @@ export function SecretsView({
  * that render each row's badge and each option in the dialog's picker.
  * Restating them here in JSX is how the legend and the badge start disagreeing.
  */
-function SecretsAccessInfo({ showEnforced }: { showEnforced: boolean }) {
+function SecretsAccessInfo() {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
   const heading = tI18nComplete.raw('text0d8c9f89b826');
   return (
@@ -614,7 +601,7 @@ function SecretsAccessInfo({ showEnforced }: { showEnforced: boolean }) {
       >
         <p className="text-foreground text-sm font-medium">{heading}</p>
         <dl className="space-y-2.5">
-          {secretDeliveryLegend(showEnforced, tI18nComplete).map((mode) => (
+          {secretDeliveryLegend(tI18nComplete).map((mode) => (
             <div key={mode.key} className="space-y-1">
               <dt>
                 <Badge variant={mode.tone} size="sm" className="normal-case">
@@ -642,23 +629,16 @@ function SecretsAccessInfo({ showEnforced }: { showEnforced: boolean }) {
             show a badge with no matching option, and that reads as a bug
             unless the page says who set it. */}
         <p className="text-muted-foreground border-border border-t pt-3 text-xs text-pretty">
-          {showEnforced
-            ? tI18nComplete.raw('text8aa824e472ff')
-            : tI18nComplete.raw('texte5a718af362a')}{' '}
-          {tI18nComplete.raw('texte1673f438808')}
-          {showEnforced ? (
-            <>
-              {' '}
-              <span className="text-foreground">
-                {tI18nComplete.raw('text82ff5452a98d')}
-              </span>{' '}
-              {tI18nComplete.raw('text49e63b9b35ec')} <code className="font-mono">secrets</code>{' '}
-              {tI18nComplete.raw('text582967534d0f')}{' '}
-              <code className="font-mono">kortix.yaml</code>;{' '}
-              <code className="font-mono">secrets: "*"</code>{' '}
-              {tI18nComplete.raw('text17313fb7bf82')}
-            </>
-          ) : null}{' '}
+          {tI18nComplete.raw('text8aa824e472ff')}{' '}
+          {tI18nComplete.raw('texte1673f438808')}{' '}
+          <span className="text-foreground">
+            {tI18nComplete.raw('text82ff5452a98d')}
+          </span>{' '}
+          {tI18nComplete.raw('text49e63b9b35ec')} <code className="font-mono">secrets</code>{' '}
+          {tI18nComplete.raw('text582967534d0f')}{' '}
+          <code className="font-mono">kortix.yaml</code>;{' '}
+          <code className="font-mono">secrets: "*"</code>{' '}
+          {tI18nComplete.raw('text17313fb7bf82')}{' '}
           {tI18nComplete.raw('text52c3509531f1')}{' '}
           <span className="text-foreground">{tI18nComplete.raw('textad26af1426b3')}</span>{' '}
           {tI18nComplete.raw('textbbdce4215935')}{' '}
@@ -1073,7 +1053,6 @@ export function ProjectSecretDialog({
     ...contract('config'),
     enabled: open,
   });
-  const egressEnabled = useFeatureFlag(projectId, 'secrets_egress').enabled;
   return (
     <SecretDialog
       key={row?.identifier ?? 'new'}
@@ -1083,7 +1062,6 @@ export function ProjectSecretDialog({
       row={row}
       connectors={connectorsQuery.data?.connectors ?? []}
       connectorsLoading={connectorsQuery.isLoading}
-      egressEnabled={egressEnabled}
       onSaved={() => {
         queryClient.invalidateQueries({ queryKey: qk.project.secrets(projectId) });
         refreshProjectProviderState(queryClient, projectId);
@@ -1100,7 +1078,6 @@ function SecretDialog({
   row,
   connectors,
   connectorsLoading,
-  egressEnabled,
   onSaved,
   presentation = 'modal',
   onSavingChange,
@@ -1116,7 +1093,6 @@ function SecretDialog({
   onSavingChange?: (saving: boolean) => void;
   connectors: Awaited<ReturnType<typeof listConnectors>>['connectors'];
   connectorsLoading: boolean;
-  egressEnabled: boolean;
   onSaved: () => void;
 }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
@@ -1462,11 +1438,7 @@ function SecretDialog({
   const connectorOnlyDelivery = secretDeliveryPresentation('broker', 'connector', { tI18nComplete });
   const bindingIdentifier = (row?.identifier ?? identifier).trim() || key.trim().toUpperCase();
   const connectorOptions = connectorBindingOptions(connectors, bindingIdentifier, tI18nComplete);
-  // Offer "Enforce at the network" only when the experimental flag is on, or
-  // when this row is already enforced (so a legacy secret stays readable and
-  // can be moved off enforcement even after the flag is switched back off).
-  const rowIsEnforced = row ? secretExposure(row.strategy, row.consumer) === 'enforced' : false;
-  const exposureOptions = secretExposureOptions(egressEnabled || rowIsEnforced, tI18nComplete);
+  const exposureOptions = secretExposureOptions(tI18nComplete);
   const echoNotice = enforcedEchoNotice(hosts, tI18nComplete);
   const legacyDetail = legacyInjectionDetail(legacyInject ? currentPolicy : null, tI18nComplete);
   // The dialog keeps the row it opened with, so a completed grant clears its own

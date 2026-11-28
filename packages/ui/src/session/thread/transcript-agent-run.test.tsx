@@ -33,13 +33,14 @@ const subagentNotice = (n: number) =>
     `<task_result>\nReport ${n}: synthetic result.\n</task_result>`,
   ].join('\n');
 
+// A teammate's finish: its idle notice. A plain message from a launched agent is progress, not its report.
 const peerReport = peerMessagePromptText({
-  kind: 'message',
+  kind: 'idle_notice',
   from: 'metrics-checker',
   fromShortId: child(2).slice(0, 8),
   messageId: 'm_2',
   summary: '5 of 6 numbers match',
-  text: 'Checked all 6 numbers; one corrected.',
+  text: 'metrics-checker finished its turn and is idle.\n\nIts last answer: Checked all 6 numbers; one corrected.',
 });
 
 const assistantInfo = (id: string, parent: string, created: number, completed: number) => ({
@@ -108,7 +109,8 @@ describe('agent run fold (KRTX-4732)', () => {
   test('the fixture is one run of three agents, anchored on the answer', () => {
     expect([...layout.absorbed]).toEqual(['r1', 'r2']);
     expect(run.agents).toBe(3);
-    expect([...layout.settledLaunches]).toEqual(['launch']);
+    // r1's relay has no delivered result in this fixture, so it hands the reviewer nothing and waits on nothing.
+    expect([...layout.settledLaunches].sort()).toEqual(['launch', 'r1']);
   });
 
   test('the anchor reads as one row over the final answer; intermediate replies stay folded', () => {

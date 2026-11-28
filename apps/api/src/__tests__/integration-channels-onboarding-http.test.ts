@@ -66,8 +66,8 @@ const base = `/v1/projects/${PROJECT}`;
 const channelsMeta = async () =>
   ((await db.select({ m: projects.metadata }).from(projects).where(eq(projects.projectId, PROJECT)))[0]!.m as any)?.channels;
 
-const ON = { experimental: { chat: true } };
-const OFF = { experimental: { chat: false } };
+const ON = { experimental: { channels: true } };
+const OFF = { experimental: { channels: false } };
 
 /**
  * PATCH the flag, then run the toggle effect once more and await it, with the
@@ -76,7 +76,7 @@ const OFF = { experimental: { chat: false } };
  * awaits it too (`toggleEffectsSettled`), so nothing writes after an assertion.
  */
 async function toggle(projectId: string, enabled: boolean, between?: () => Promise<unknown>) {
-  const res = await req('PATCH', `/v1/projects/${projectId}/features`, keys[`manager:${projectId}`]!, { feature: 'chat', enabled });
+  const res = await req('PATCH', `/v1/projects/${projectId}/features`, keys[`manager:${projectId}`]!, { feature: 'channels', enabled });
   expect(res.status).toBe(200);
   await between?.();
   const [row] = await db.select().from(projects).where(eq(projects.projectId, projectId));
@@ -92,7 +92,7 @@ const introMarks = async (projectId: string) =>
 beforeAll(async () => {
   await db.insert(accounts).values({ accountId: ACCOUNT, name: 'channels-onboarding' });
   await db.insert(projects).values([
-    { splitPending: true, projectId: PROJECT, accountId: ACCOUNT, name: 'Northwind', repoUrl: 'https://example.test/n.git', metadata: { experimental: { chat: true } } },
+    { splitPending: true, projectId: PROJECT, accountId: ACCOUNT, name: 'Northwind', repoUrl: 'https://example.test/n.git', metadata: { experimental: { channels: true } } },
     { splitPending: true, projectId: OFF_PROJECT, accountId: ACCOUNT, name: 'Acme', repoUrl: 'https://example.test/a.git' },
     { splitPending: true, projectId: FIRST_PROJECT, accountId: ACCOUNT, name: 'Globex', repoUrl: 'https://example.test/g.git' },
   ]);
@@ -125,11 +125,11 @@ afterAll(async () => {
 
 describe('only a project admin turns Channels on or off', () => {
   test('a member gets 403 naming project.settings.write, and the flag stays on', async () => {
-    const res = await req('PATCH', `${base}/features`, keys.priya, { feature: 'chat', enabled: false });
+    const res = await req('PATCH', `${base}/features`, keys.priya, { feature: 'channels', enabled: false });
     expect(res.status).toBe(403);
     expect(JSON.stringify(await res.json())).toContain('(workspace.settings.write)');
     const [row] = await db.select({ m: projects.metadata }).from(projects).where(eq(projects.projectId, PROJECT));
-    expect((row!.m as any).experimental.chat).toBe(true);
+    expect((row!.m as any).experimental.channels).toBe(true);
   });
 });
 
@@ -192,7 +192,7 @@ describe('turning Channels on again', () => {
     // Turn on without the route, so this effect is the only one: the flag write as `writeProjectFeatureFlag` does it.
     const [row] = await db
       .update(projects)
-      .set({ metadata: { experimental: { chat: true } }, updatedAt: sql`date_trunc('milliseconds', now())` })
+      .set({ metadata: { experimental: { channels: true } }, updatedAt: sql`date_trunc('milliseconds', now())` })
       .where(eq(projects.projectId, PROJECT))
       .returning();
     // The first marks INSERT for this project fails once (a sequence survives the rollback).

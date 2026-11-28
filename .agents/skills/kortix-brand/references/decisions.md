@@ -10,6 +10,24 @@ Ids: `D1` to `D8` and `D4a` to `D4k` come from the 2026-10-01 brand-kit build. `
 
 ---
 
+## 2026-11-24
+
+### D45 Every agent writes direct, concise, warm and professional answers
+- **Date:** 2026-11-24
+- **Decision:** Every agent's system prompt, root and subagent, carries a `## How you write` section, placed before "Act before you ask". It asks for the answer first, short sentences, a warm and professional tone, plain words matched to the reader, specific numbers and dates, formatting only when it helps, no filler opener ("Great question", "Certainly"), no recap, no closing offer ("Let me know if…"), and no AI tics (em dashes, "It's not X, it's Y", "delve", "seamless", "robust", "leverage"). It forbids writing the result of a step the agent did not run. The agent's own instructions, a loaded skill or the person's request on voice, length or format win over it. My Kortix keeps its D31 voice, emoji and humor included.
+- **Why:** team request, 2026-11-24: answers should be "direct and concise", in a "warm and professional tone", easy for people to read, "not an ai slop, but actual high quality content". Only My Kortix (D31) and the router had voice rules; Worker, custom workspace agents and subagents had none. An A/B run on two hosted models (`deepseek-v4.1-flash`, `glm-5.3-flash`) cut answer length by 25 to 44 %, em dashes from 45 to 0, 64 to 9 and 45 to 9, and bold by about 70 %. The "did not run" rule came from the same run: without it, "lead with the result" made one model invent a check's output.
+- **Where:** `HOW_YOU_WRITE` in `apps/kortix-sandbox-agent-server/src/harness/pi/runtime.ts`, the harness README ("How agents write"), [voice-and-tone.md](verbal/voice-and-tone.md) section 2.
+- **Supersedes:** nothing. D31 stands for My Kortix.
+- **Source:** the `agent-writing-voice` branch.
+
+### D44 The home hero subhead names the category, then what it does and what you own
+- **Date:** 2026-11-24
+- **Decision:** The home hero subhead is: "The operating system for the AI-native company. Connect every data source, orchestrate agents, and keep their skills, memory and connectors in one git repo you own. Open source, any model, in our cloud or yours." The title stays "The CompanyOS". The README tagline follows: "The open-source CompanyOS: the operating system for the AI-native company.", with the subhead's second sentence as its lead line. The GitHub About reads "Kortix CompanyOS – the open-source operating system for the AI-native company." plus the same sentence and "Any model, in our cloud or yours." The positioning line ("The cloud-native agent harness for companies") leaves the hero and the README and stays the line for the docs index, the Guide and the Developers intros.
+- **Why:** founder, 2026-11-24: "The Operating System For the AI Native Company & then say like – connect all data sources across the company, orchestrate agents", then "store skills, memory connectors, agent, and store everything in one repo or one place … maybe we keep it as a git repo", then "go update the github readme &/or even github page itself description". Draft lines the founder gave and the kit does not allow stay out: the 80/20 agent-to-human split (an unmeasured productivity metric, `claims.md`), "basically free to run" (no price references) and "the most sophisticated system" (the one sanctioned superlative is "the leading open-source alternative").
+- **Where:** `apps/web/src/features/marketing/landing-hero/sand-band-hero.tsx`, `README.md`, the GitHub About of `kortix-ai/CompanyOS`, [positioning.md](verbal/positioning.md) section 1.
+- **Supersedes:** D37 (the subhead sentence). D35's positioning line stands for every surface except the home hero subhead.
+- **Source:** the `hero-subhead` branch.
+
 ## 2026-11-21
 
 ### D43 Wallpapers carry color: ten gradients and a custom one replace the monochrome set

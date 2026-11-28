@@ -203,7 +203,13 @@
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
-  --color-border: var(--border);
+  /* Two borders. `border-border` (the default on every element) is the
+     global hairline: the --border token mixed 17.5% toward the canvas
+     (82.5%: 10% more contrast than the old 75%, 2026-11-26).
+     `border-strong` (below) is the emphasis border: --border itself, 1px.
+     A theme sets --border only; both follow it. */
+  --color-border: color-mix(in oklab, var(--border) 82.5%, var(--background));
+  --color-border-strong: var(--border);
   /* Interaction overlays — translucent ink, not solid surfaces, so a hover or
      selection tint blends over whatever substrate is behind it (canvas,
      surface-1, an image). Used by Card's proximity highlight + selected fill. */
@@ -258,19 +264,25 @@
   /* Bare `rounded` (4px at the default --radius). */
   --radius: calc(var(--radius) - 6px);
   /* Line width of `border`, `border-t|x|…` and `divide-*` with no value
-     (1px unless a host sets --border-width). Heavier strokes in the components
-     are multiples of it: border-[length:calc(var(--border-width,1px)*1.5)]. */
-  --default-border-width: var(--border-width, 1px);
+     (0.8px unless a host sets --border-width; a browser draws it as the
+     nearest whole device pixel at or below it, never less than one). Heavier
+     strokes in the components are multiples of a 1px base, not of this:
+     border-[length:calc(var(--border-width,1px)*1.5)]. */
+  --default-border-width: var(--border-width, 0.8px);
   /* Elevation. Tailwind's default shadow values, read through a variable so a
      host can flatten or deepen every shadow-* step. The fallback keeps
      --tw-shadow-color, so shadow-black/20 still tints the default. */
+  /* xs, sm and md are the smooth stacks of shadow-plugin 2.1.1 (Florian Kiem,
+     MIT; shadow.floriankiem.com), copied as values: several faint layers
+     instead of one dark one. 2xs stays Tailwind's default. lg, xl and 2xl are
+     removed (`initial`): shadow-lg, shadow-xl and shadow-2xl emit nothing. */
   --shadow-2xs: var(--shadow-2xs, 0 1px var(--tw-shadow-color, rgb(0 0 0 / 0.05)));
-  --shadow-xs: var(--shadow-xs, 0 1px 2px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.05)));
-  --shadow-sm: var(--shadow-sm, 0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 1px 2px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1)));
-  --shadow-md: var(--shadow-md, 0 4px 6px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 2px 4px -2px var(--tw-shadow-color, rgb(0 0 0 / 0.1)));
-  --shadow-lg: var(--shadow-lg, 0 10px 15px -3px var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 4px 6px -4px var(--tw-shadow-color, rgb(0 0 0 / 0.1)));
-  --shadow-xl: var(--shadow-xl, 0 20px 25px -5px var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 8px 10px -6px var(--tw-shadow-color, rgb(0 0 0 / 0.1)));
-  --shadow-2xl: var(--shadow-2xl, 0 25px 50px -12px var(--tw-shadow-color, rgb(0 0 0 / 0.25)));
+  --shadow-xs: var(--shadow-xs, 0 0 4px 0 color-mix(in srgb, var(--tw-shadow-color, black) 4%, transparent));
+  --shadow-sm: var(--shadow-sm, 0 18px 47px 0 color-mix(in srgb, var(--tw-shadow-color, black) 3%, transparent), 0 7.5px 19px 0 color-mix(in srgb, var(--tw-shadow-color, black) 2%, transparent), 0 4px 10.5px 0 color-mix(in srgb, var(--tw-shadow-color, black) 2%, transparent), 0 2.3px 5.8px 0 color-mix(in srgb, var(--tw-shadow-color, black) 1%, transparent), 0 1.2px 3.1px 0 color-mix(in srgb, var(--tw-shadow-color, black) 1%, transparent), 0 0.5px 1.3px 0 color-mix(in srgb, var(--tw-shadow-color, black) 1%, transparent));
+  --shadow-md: var(--shadow-md, 0 17.54px 23.39px 0 color-mix(in srgb, var(--tw-shadow-color, black) 4%, transparent), 0 9.4px 12.5px 0 color-mix(in srgb, var(--tw-shadow-color, black) 3%, transparent), 0 5.25px 7px 0 color-mix(in srgb, var(--tw-shadow-color, black) 2%, transparent), 0 2.79px 3.72px -2px color-mix(in srgb, var(--tw-shadow-color, black) 1%, transparent), 0 1.16px 1.5px 0 color-mix(in srgb, var(--tw-shadow-color, black) 1%, transparent));
+  --shadow-lg: initial;
+  --shadow-xl: initial;
+  --shadow-2xl: initial;
   /* @generated kortix-brand:start theme — edit .agents/skills/kortix-brand/references/visual/visual-system.json, then run generate-tokens.ts */
   /* Type scale. Roles and surfaces are in references/visual/typography.md. */
   --text-xs: var(--text-xs, 0.8125rem);
@@ -691,6 +703,16 @@
   }
 }
 
+/* ─── Strong border — the emphasis border: 1px (the global line is 0.8px),
+   in the full --border color (the global hairline is 25% lighter). Use
+   alone, without `border`: className="border-strong". A host can set
+   --border-strong-width. */
+@utility border-strong {
+  border-style: var(--tw-border-style);
+  border-width: var(--border-strong-width, 1px);
+  border-color: var(--border);
+}
+
 /* ─── Smooth shadow ring — five soft layers plus a 1px ring in the border token.
    Use on a floating card instead of border + shadow-*: className="smooth-shadow-ring" */
 @utility smooth-shadow-ring {
@@ -716,24 +738,12 @@
     0 0 0 1px color-mix(in oklab, var(--border) 60%, transparent);
 }
 
-/* The `ring-lg` preset of the same plugin: deeper layers for a card that
-   floats over the page in a corner (the promo card). */
-@utility smooth-shadow-ring-lg {
-  box-shadow:
-    0 25px 50px oklch(0 0 0 / 0.05),
-    0 12px 24px oklch(0 0 0 / 0.04),
-    0 6px 12px oklch(0 0 0 / 0.03),
-    0 3px 6px oklch(0 0 0 / 0.02),
-    0 1.5px 3px oklch(0 0 0 / 0.02),
-    0 0 0 1px color-mix(in oklab, var(--border) 60%, transparent);
-}
-
 /* ─── Liquid glass — frosted tinted surface (tokens: --liquid-glass-*) ─────
    Theme-aware: light drop-shadow, dark inset rim. Specular lives on
    background-image so this does not steal ::before from hit-area.
    Use: className="liquid-glass rounded-full" */
 @utility liquid-glass {
-  border: 1px solid var(--border);
+  border: var(--border-width, 0.8px) solid color-mix(in oklab, var(--border) 75%, var(--background));
   background-color: var(--liquid-glass-bg);
   background-image: var(--liquid-glass-highlight);
   -webkit-backdrop-filter: blur(var(--liquid-glass-blur)) saturate(var(--liquid-glass-saturate));

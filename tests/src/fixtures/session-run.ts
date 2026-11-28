@@ -2,7 +2,7 @@
  * Helpers for flows that boot a real session runtime and run turns on it.
  *
  * They speak the Kortix session routes — `POST /start`, `POST /prompts`,
- * `GET /turn`, `GET /transcript`, `GET /events` — so one flow body runs
+ * `GET /turn`, `GET /log`, `GET /events` — so one flow body runs
  * unchanged on any harness (`harnessFlow` in core/flow.ts). Two calls
  * still go to the session runtime behind the preview proxy, because no Kortix
  * route exists for them yet: the abort the web Stop button sends
@@ -244,41 +244,91 @@ export async function sendPrompt(
   return promptId;
 }
 
-/** One row of `GET /transcript` (apps/api `session-transcript-compact.ts`). */
+/**
+ * One conversation row, read from the stored session log (`GET …/log`, `SessionLogPage`). The
+ * v1 transcript route this used to read was removed (session-log plan P8.3); the row keeps the
+ * shape the flows assert on.
+ */
 export interface TranscriptMessage {
   id: string | null;
   parent_id: string | null;
   role: string;
   created: string | null;
   completed: string | null;
+  /** The message's non-synthetic text blocks, one per line. */
   text: string;
-  /** The message's tool calls: name and final state (`completed`, `error`, …). */
+  /** The message's tool calls: name and final state (`completed`, `error`, `running`, `pending`). */
   tools?: Array<{ tool: string; status: string | null }>;
+  /** `name` is the log's error code; an aborted turn's `aborted` reads as `MessageAbortedError`. */
   error: { name?: string; message?: string } | null;
 }
 
 export interface Transcript {
   available: boolean;
-  source: 'live' | 'mirror' | 'none';
+  source: 'log' | 'none';
   reason: string | null;
+  /** The thread the page read (the root thread). */
   runtime_session_id: string | null;
+  /** The page reaches the thread's first message (`has_more: false`). */
+  complete: boolean;
   messages: TranscriptMessage[];
 }
 
+/** One `SessionLogPage` message, as far as the rows above read it. */
+interface LogPageMessage {
+  message_id: string;
+  role: string;
+  kind: string;
+  status: string;
+  error: { code: string; message: string } | null;
+  created_at: string | null;
+  completed_at: string | null;
+  parent_message_id: string | null;
+  blocks: Array<{ type: string; text?: string; synthetic?: boolean; name?: string; status?: string }>;
+}
+
+function transcriptRow(m: LogPageMessage): TranscriptMessage {
+  const text = m.blocks
+    .filter((b) => b.type === 'text' && !b.synthetic && typeof b.text === 'string' && b.text)
+    .map((b) => b.text as string)
+    .join('\n');
+  return {
+    id: m.message_id,
+    parent_id: m.parent_message_id,
+    role: m.role,
+    created: m.created_at,
+    completed: m.completed_at,
+    text,
+    tools: m.blocks
+      .filter((b) => b.type === 'tool_call')
+      .map((b) => ({ tool: b.name ?? 'tool', status: b.status === 'complete' ? 'completed' : (b.status ?? null) })),
+    error: m.error ? { name: m.error.code === 'aborted' ? 'MessageAbortedError' : m.error.code, message: m.error.message } : null,
+  };
+}
+
+/** The newest 200 messages of the session's root thread, from its stored log. Postgres only: no box is woken. */
 export async function readTranscript(
   ctx: FlowContext,
   projectId: string,
   sessionId: string,
+  options: { as?: Parameters<FlowContext['client']['as']>[0] } = {},
 ): Promise<Transcript> {
   const r = await ctx.client
-    .as(ctx.P.OWNER)
-    .get('/v1/projects/:projectId/sessions/:sessionId/transcript', {
+    .as(options.as ?? ctx.P.OWNER)
+    .get('/v1/projects/:projectId/sessions/:sessionId/log', {
       params: { projectId, sessionId },
       query: { limit: '200' },
     });
+  // A session whose box has journaled nothing yet has no log (`session_log_missing`).
+  if (r.statusCode === 404 && r.json<{ code?: string }>()?.code === 'session_log_missing') {
+    return { available: false, source: 'none', reason: 'nothing is saved for this session yet', runtime_session_id: null, complete: false, messages: [] };
+  }
   r.status(200);
-  const body = r.json<Transcript>();
-  return { ...body, messages: Array.isArray(body?.messages) ? body.messages : [] };
+  const page = r.json<{ thread_id: string | null; has_more?: boolean; messages?: LogPageMessage[] }>();
+  const messages = (Array.isArray(page?.messages) ? page.messages : [])
+    .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.kind !== 'context')
+    .map(transcriptRow);
+  return { available: true, source: 'log', reason: null, runtime_session_id: page?.thread_id ?? null, complete: page?.has_more === false, messages };
 }
 
 /** The error names a runtime stamps on an ABORTED turn: the "Interrupted" marker. */
@@ -329,7 +379,7 @@ class TerminalTurnError extends Error {
 }
 
 /**
- * Poll `GET /transcript` until an assistant message contains `marker`.
+ * Poll the stored session log (`GET …/log`) until an assistant message contains `marker`.
  *
  * Fails at once when an assistant message ends on a non-abort error that is
  * not in `knownErrorIds` (errors that predate this wait).

@@ -38,21 +38,35 @@ export function llmPriceMarkup(): number {
   return raw;
 }
 
-// ─── Credits-only billing ────────────────────────────────────────────────────
-// One credit = $0.01. A paid account picks any monthly amount; every member
-// spends from one shared wallet; plans differ only in credit volume. Free gets
-// $5 (500 credits) a month and every self-serve feature. See tier-facts.ts for
-// the legacy plan keys.
+/**
+ * Dictation (speech-to-text in the composer): 1 credit ($0.01) per minute of
+ * audio, billed per second, on every plan including Free. The price is flat:
+ * it does not follow the upstream's. On 2026-11-24 the managed Whisper cost
+ * Kortix $0.15 per audio hour, so one minute sold at $0.01 covers it 4×.
+ */
+export const DICTATION_CREDITS_PER_MINUTE = 1;
 
-/** Smallest and largest self-serve monthly amount, in whole dollars. */
+/** What `seconds` of dictated audio costs, in USD (1 credit = $0.01). */
+export function dictationPriceUsd(seconds: number): number {
+  if (!Number.isFinite(seconds) || seconds <= 0) return 0;
+  return Number(((seconds / 60) * DICTATION_CREDITS_PER_MINUTE * 0.01).toFixed(10));
+}
+
+// ─── Credits-only billing ────────────────────────────────────────────────────
+// One credit = $0.01 of usage. A paid account picks a monthly amount; every
+// member spends from one shared wallet; plans differ only in credit volume, and
+// a larger plan buys more credits per dollar (PLAN_BONUS_STEPS). Free gets $5
+// (500 credits) a month and every self-serve feature. Top-ups buy at the flat
+// rate. See tier-facts.ts for the legacy plan keys.
+
+/** Smallest and largest self-serve monthly amount, in whole dollars. Sales above it. */
 export const PLAN_MIN_MONTHLY_USD = 50;
-export const PLAN_MAX_MONTHLY_USD = 50_000;
+export const PLAN_MAX_MONTHLY_USD = 10_000;
 
 /**
  * The tier ladder the product offers: named monthly amounts of the one credits
- * plan, same rate at every step. `popular` marks the most common paid amount
- * at or above the minimum. The API accepts any whole amount in range; the
- * ladder is what the UI sells.
+ * plan. `popular` marks the most common paid amount. The API accepts any whole
+ * amount in range; the ladder is what the UI sells.
  */
 export const PLAN_PRESETS = [
   { monthlyUsd: 50 },
@@ -71,35 +85,36 @@ export const PLAN_PRESETS = [
   { monthlyUsd: 5_000 },
   { monthlyUsd: 7_500 },
   { monthlyUsd: 10_000 },
-  { monthlyUsd: 12_500 },
-  { monthlyUsd: 15_000 },
-  { monthlyUsd: 20_000 },
-  { monthlyUsd: 25_000 },
-  { monthlyUsd: 30_000 },
-  { monthlyUsd: 35_000 },
-  { monthlyUsd: 40_000 },
-  { monthlyUsd: 45_000 },
-  { monthlyUsd: 50_000 },
 ] as const;
 
 /**
- * Top-up bonus: a one-time or auto top-up adds a few percent of extra credits,
- * a little more at each step, flat from $1,000. Bonus credits never expire,
- * like the top-up itself, and a refund or dispute takes them back with it.
- * Monthly plan tiers carry no bonus: 1 credit = $0.01 there, at every tier.
+ * Plan volume bonus: a monthly plan of at least `minUsd` grants `percent` more
+ * credits than it bills, so a larger plan buys more credits per dollar. Largest
+ * step first. Top-ups carry no bonus: the plan is the volume discount.
  */
-export const TOP_UP_BONUS_STEPS = [
-  { minUsd: 1_000, percent: 5 },
-  { minUsd: 500, percent: 4 },
-  { minUsd: 250, percent: 3 },
-  { minUsd: 100, percent: 2 },
-  { minUsd: 50, percent: 1 },
+export const PLAN_BONUS_STEPS = [
+  { minUsd: 7_500, percent: 30 },
+  { minUsd: 3_000, percent: 25 },
+  { minUsd: 1_000, percent: 20 },
+  { minUsd: 500, percent: 15 },
+  { minUsd: 200, percent: 10 },
+  { minUsd: 100, percent: 5 },
 ] as const;
 
-/** Bonus credits (USD) a top-up of `amountUsd` adds. 0 below $50. */
-export function topUpBonusUsd(amountUsd: number): number {
-  const step = TOP_UP_BONUS_STEPS.find((s) => amountUsd >= s.minUsd);
-  return step ? Math.round(amountUsd * step.percent) / 100 : 0;
+/** Bonus percent a monthly plan of `monthlyUsd` earns. 0 below $100. */
+export function planBonusPercent(monthlyUsd: number): number {
+  return PLAN_BONUS_STEPS.find((s) => monthlyUsd >= s.minUsd)?.percent ?? 0;
+}
+
+/**
+ * THE grant rule: the credits (USD) one month of a `monthlyUsd` plan grants —
+ * the amount billed plus its volume bonus. Every plan grant (activation,
+ * renewal, raise, comp, store renewal) and every display of a plan's monthly
+ * credits goes through it. `plan_monthly_usd` stays the amount billed.
+ */
+export function planCreditsUsd(monthlyUsd: number): number {
+  if (!(monthlyUsd > 0)) return 0;
+  return Math.round(monthlyUsd * (100 + planBonusPercent(monthlyUsd))) / 100;
 }
 
 const GIB = 1024 ** 3;
@@ -140,8 +155,8 @@ const ALL_ENTERPRISE: TierEntitlements = {
 
 /**
  * `monthlyCredits` is the FIXED allowance. `credits` has none: its allowance is
- * the account's chosen amount (`credit_accounts.plan_monthly_usd`), resolved
- * from the subscription by `monthlyCreditsForSubscription`.
+ * `planCreditsUsd` of the account's chosen amount (`credit_accounts.plan_monthly_usd`),
+ * resolved from the subscription by `monthlyUsdForSubscription`.
  */
 const TIERS: Record<string, TierConfig> = {
   none: {
@@ -374,17 +389,18 @@ export function planForSubscription(subscription: {
 }
 
 /**
- * THE allowance rule: the credits (USD) one month of this subscription grants.
- * Σ items: monthly credits per unit × quantity. Discounts do not reduce it —
- * the allowance is what the plan lists, as the seat rule always was.
+ * THE plan amount rule: the monthly amount (USD) this subscription bills for
+ * the plan, before the volume bonus (`planCreditsUsd` turns it into credits).
+ * Σ items: monthly USD per unit × quantity. Discounts do not reduce it — the
+ * amount is what the plan lists, as the seat rule always was.
  *
- *   - "Kortix credits": $0.01 × quantity.
+ *   - "Kortix credits": $0.01 × quantity (quantity = the amount in cents).
  *   - A legacy price: its row in LEGACY_PRICE_MONTHLY_USD.
  *   - Any other price (a legacy machine subscription): its list price per month.
  *
  * Pure — testable without Stripe or a DB.
  */
-export function monthlyCreditsForSubscription(subscription: {
+export function monthlyUsdForSubscription(subscription: {
   items: { data: SubscriptionItemLike[] };
 }): number {
   let cents = 0;
@@ -428,7 +444,7 @@ const LEGACY_TIER_MONTHLY_USD: Record<string, number> = {
   tier_150_1200: 1200,
 };
 
-/** The monthly allowance (USD) an account's plan grants. */
+/** The monthly amount (USD) an account's plan bills, before the volume bonus. */
 export function planMonthlyUsd(row: {
   tier?: string | null;
   planMonthlyUsd?: string | number | null;
@@ -442,7 +458,7 @@ export function planMonthlyUsd(row: {
 }
 
 /**
- * The monthly allowance of a PAID account billed by `subscription`. The
+ * The monthly amount (USD) of a PAID account billed by `subscription`. The
  * subscription's list price decides, except for a comped account: support
  * assigns a paid plan to an account that stays on a $0 price, and that account
  * keeps its stored (or legacy) monthly amount.
@@ -451,7 +467,7 @@ export function paidMonthlyUsd(
   subscription: { items: { data: SubscriptionItemLike[] } },
   row: Parameters<typeof planMonthlyUsd>[0] | null | undefined,
 ): number {
-  const fromSubscription = monthlyCreditsForSubscription(subscription);
+  const fromSubscription = monthlyUsdForSubscription(subscription);
   return fromSubscription > 0 || !row ? fromSubscription : planMonthlyUsd(row);
 }
 

@@ -446,7 +446,7 @@ function CreateAuditWebhookDialog({
                       className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${
                         actionPrefix === preset.prefix
                           ? 'border-primary bg-primary/[0.08] text-foreground'
-                          : 'border-border/60 text-muted-foreground hover:bg-muted/40'
+                          : 'border-border text-muted-foreground hover:bg-muted/40'
                       }`}
                       disabled={mutation.isPending}
                     >

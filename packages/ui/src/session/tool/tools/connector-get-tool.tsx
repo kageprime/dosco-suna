@@ -53,7 +53,7 @@ export function ConnectorGetTool({ call, defaultOpen, forceOpen }: ToolProps) {
             </div>
           )}
           {data.notes && (
-            <div className="text-muted-foreground border-border/30 mt-2 border-t pt-2 text-xs whitespace-pre-wrap">
+            <div className="text-muted-foreground border-border mt-2 border-t pt-2 text-xs whitespace-pre-wrap">
               {data.notes}
             </div>
           )}

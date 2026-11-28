@@ -1,71 +1,79 @@
 /**
- * useDictation — the composer's voice input. The platform speech
- * recogniser (`expo-speech-recognition`) writes the words into the text field
- * as they are spoken; the user edits and sends as normal. No backend.
+ * useDictation — the composer's voice input, transcribed by Kortix.
  *
- * - `start()` asks for the microphone and speech permissions, then listens.
- *   Words are appended to what was typed before (`dictationDraft`).
- * - `finish()` keeps the words. `cancel()` puts the text back as it was.
- * - `levels` is the input volume history for the waveform, on the UI thread.
+ * - `start()` asks for the microphone once, then records an m4a clip
+ *   (expo-audio). The waveform reads the recorder's metering on a timer into a
+ *   shared value, so the composer never re-renders per sample.
+ * - `finish()` stops, uploads the clip (`transcribeDictation`, billed 1 credit
+ *   per minute from the workspace credits) and writes the text after what was
+ *   typed (`dictationDraft`). The clip stays on disk until the upload
+ *   succeeds: a retryable failure offers Retry with the same clip.
+ * - `cancel()` drops the clip; nothing is uploaded or charged.
+ * - Recording stops by itself at the server's `max_seconds` and is uploaded.
  *
- * OTA safety: `runtimeVersion` is a fixed string, so an OTA update can reach a
- * binary built before this native module, and Expo Go never has it. The
- * package calls `requireNativeModule` at import and throws when the module is
- * missing, so it is required only after `requireOptionalNativeModule` finds
- * it. Without the module `available` is false and the mic button is hidden.
+ * `available` is true only when the server says it serves dictation for the
+ * project (`getDictationInfo`): a self-host without managed models, or an API
+ * older than the route, hides the mic.
  */
 import * as React from 'react';
-import { Linking, Platform } from 'react-native';
-import { requireOptionalNativeModule } from 'expo';
+import { Linking } from 'react-native';
+import { router } from 'expo-router';
+import * as FileSystem from 'expo-file-system/legacy';
+import {
+  AudioQuality,
+  IOSOutputFormat,
+  getRecordingPermissionsAsync,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+  type RecordingOptions,
+} from 'expo-audio';
+import { useQuery } from '@tanstack/react-query';
 import { useSharedValue, type SharedValue } from 'react-native-reanimated';
+import { getDictationInfo, transcribeDictation } from '@kortix/sdk';
 
 import { useToast } from '@/components/kortix/toast-provider';
 import { haptics } from '@/lib/haptics';
 import { log } from '@/lib/logger';
 import {
   DICTATION_BAR_COUNT,
-  EMPTY_TRANSCRIPT,
+  DICTATION_MAX_SECONDS,
   dictationDraft,
-  dictationErrorMessage,
-  dictationLocale,
-  levelFromVolume,
+  dictationFailure,
+  levelFromMetering,
   pushLevel,
-  reduceTranscript,
-  transcriptText,
-  type Transcript,
 } from '@/lib/session/dictation';
 import { resetAudioMode } from '@/lib/sounds';
 
-type SpeechModule = typeof import('expo-speech-recognition').ExpoSpeechRecognitionModule;
+/** One waveform bar per sample. */
+const METER_INTERVAL_MS = 80;
 
-const NATIVE_MODULE_PRESENT = requireOptionalNativeModule('ExpoSpeechRecognition') != null;
-
-function speechModule(): SpeechModule | null {
-  if (!NATIVE_MODULE_PRESENT) return null;
-  return (require('expo-speech-recognition') as typeof import('expo-speech-recognition'))
-    .ExpoSpeechRecognitionModule;
-}
-
-/** After `stop()`, the recogniser's final result and `end` normally arrive within ~300 ms. */
-const FINISH_TIMEOUT_MS = 2000;
-
-/** How often the recogniser reports the input volume: one waveform bar per sample. */
-const VOLUME_INTERVAL_MS = 80;
+/** Mono AAC in an m4a: ~480 KB a minute, well under the 25 MB clip cap at 10 minutes. */
+const RECORDING: RecordingOptions = {
+  extension: '.m4a',
+  sampleRate: 44100,
+  numberOfChannels: 1,
+  bitRate: 64000,
+  isMeteringEnabled: true,
+  android: { outputFormat: 'mpeg4', audioEncoder: 'aac' },
+  ios: {
+    outputFormat: IOSOutputFormat.MPEG4AAC,
+    audioQuality: AudioQuality.HIGH,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  },
+  web: { mimeType: 'audio/webm', bitsPerSecond: 64000 },
+};
 
 export type DictationState = 'idle' | 'starting' | 'listening' | 'stopping';
 
 const SILENT_LEVELS = Array.from({ length: DICTATION_BAR_COUNT }, () => 0);
 
-function deviceLocale(): string {
-  try {
-    return dictationLocale(Intl.DateTimeFormat().resolvedOptions().locale);
-  } catch {
-    return 'en-US';
-  }
-}
+export const dictationInfoKey = (projectId: string) => ['dictation-info', projectId] as const;
 
 export interface Dictation {
-  /** This binary has the recogniser. In a dev build without it the button still shows and explains. */
+  /** The server serves dictation for this project: the composer shows the mic. */
   available: boolean;
   state: DictationState;
   /** `state !== 'idle'`: the control row shows the listening bar. */
@@ -76,209 +84,243 @@ export interface Dictation {
   cancel: () => void;
 }
 
+function removeClip(uri: string | null | undefined) {
+  if (!uri) return;
+  FileSystem.deleteAsync(uri, { idempotent: true }).catch((error) =>
+    log.warn('[dictation] could not delete the clip', error)
+  );
+}
+
+/** Leave the record category, so the next sound plays through the speaker again. */
+function endRecordingAudioMode() {
+  setAudioModeAsync({ allowsRecording: false }).catch(() => {});
+  resetAudioMode();
+}
+
 export function useDictation({
   value,
   onChangeText,
+  projectId,
 }: {
   value: string;
   onChangeText: (text: string) => void;
+  /** The workspace the words are billed to. Without one there is no mic. */
+  projectId?: string;
 }): Dictation {
   const toast = useToast();
+  const recorder = useAudioRecorder(RECORDING);
   const [state, setState] = React.useState<DictationState>('idle');
   const levels = useSharedValue<number[]>(SILENT_LEVELS);
+
+  const info = useQuery({
+    queryKey: dictationInfoKey(projectId ?? ''),
+    queryFn: () => getDictationInfo(projectId!),
+    enabled: !!projectId,
+    // The price and availability change with a deploy, not per visit.
+    staleTime: 10 * 60_000,
+    retry: false,
+  });
+  const maxSeconds = info.data?.max_seconds ?? DICTATION_MAX_SECONDS;
 
   // The session reads the latest props without restarting on every keystroke.
   const valueRef = React.useRef(value);
   valueRef.current = value;
   const onChangeRef = React.useRef(onChangeText);
   onChangeRef.current = onChangeText;
+  const projectRef = React.useRef(projectId);
+  projectRef.current = projectId;
 
   const session = React.useRef<{
-    base: string;
-    transcript: Transcript;
-    cancelled: boolean;
-    lang: string;
-    retriedLang: boolean;
-    /** `language-not-supported` arrived: the next `end` restarts in English. */
-    restartInEnglish: boolean;
-    subscriptions: { remove: () => void }[];
-    finishTimer: ReturnType<typeof setTimeout> | null;
+    meter: ReturnType<typeof setInterval> | null;
+    upload: AbortController | null;
+    /** The recorded clip, kept until its upload succeeds or the user cancels. */
+    uri: string | null;
   } | null>(null);
 
   const teardown = React.useCallback(() => {
     const s = session.current;
     if (!s) return;
-    s.subscriptions.forEach((sub) => sub.remove());
-    if (s.finishTimer) clearTimeout(s.finishTimer);
+    if (s.meter) clearInterval(s.meter);
     session.current = null;
     levels.value = SILENT_LEVELS;
-    resetAudioMode();
     setState('idle');
   }, [levels]);
 
-  const begin = React.useCallback((module: SpeechModule, lang: string) => {
+  const upload = React.useCallback(
+    async (uri: string) => {
+      const pid = projectRef.current;
+      const s = session.current ?? { meter: null, upload: null, uri };
+      session.current = s;
+      s.uri = uri;
+      if (!pid) {
+        teardown();
+        return;
+      }
+      setState('stopping');
+      const abort = new AbortController();
+      s.upload = abort;
+      try {
+        const result = await transcribeDictation(
+          pid,
+          { uri, name: 'dictation.m4a', type: 'audio/mp4' },
+          { surface: 'mobile', signal: abort.signal }
+        );
+        if (session.current !== s) return; // cancelled meanwhile
+        removeClip(uri);
+        teardown();
+        if (result.text) {
+          haptics.success();
+          onChangeRef.current(dictationDraft(valueRef.current, result.text));
+        } else {
+          toast.info("Didn't catch that.");
+        }
+      } catch (error) {
+        if (session.current !== s) return;
+        teardown();
+        const failure = dictationFailure(error);
+        if (!failure) {
+          removeClip(uri);
+          return;
+        }
+        log.warn('[dictation] transcription failed', error);
+        haptics.error();
+        if (failure.retry) {
+          toast.error(failure.message, { action: { label: 'Retry', onPress: () => void upload(uri) } });
+        } else {
+          removeClip(uri);
+          toast.error(
+            failure.message,
+            failure.billing ? { action: { label: 'Billing', onPress: () => router.push('/billing') } } : undefined
+          );
+        }
+      }
+    },
+    [teardown, toast]
+  );
+
+  const finish = React.useCallback(async () => {
     const s = session.current;
-    if (!s) return;
-    s.lang = lang;
-    module.start({
-      lang,
-      interimResults: true,
-      // Listens until the user taps Done; on Android 13+ it also mutes the start beep.
-      continuous: true,
-      addsPunctuation: true,
-      // Apple's server recogniser stops after about a minute; on-device has no limit.
-      requiresOnDeviceRecognition: Platform.OS === 'ios' && module.supportsOnDeviceRecognition(),
-      iosTaskHint: 'dictation',
-      volumeChangeEventOptions: { enabled: true, intervalMillis: VOLUME_INTERVAL_MS },
-    });
-  }, []);
+    if (!s || s.upload || !s.meter) return;
+    haptics.selection();
+    clearInterval(s.meter);
+    s.meter = null;
+    setState('stopping');
+    let uri: string | null = null;
+    try {
+      await recorder.stop();
+      uri = recorder.uri ?? recorder.getStatus().url;
+    } catch (error) {
+      log.warn('[dictation] stop failed', error);
+    }
+    endRecordingAudioMode();
+    if (session.current !== s) {
+      removeClip(uri); // cancelled while stopping
+      return;
+    }
+    if (!uri) {
+      teardown();
+      toast.error('Dictation stopped. Try again.');
+      return;
+    }
+    await upload(uri);
+  }, [recorder, teardown, toast, upload]);
 
   const start = React.useCallback(async () => {
-    if (session.current) return;
-    const module = speechModule();
-    if (!module) {
-      toast.info('Dictation needs a new app build', {
-        description: 'Expo Go and older builds do not include speech recognition.',
-      });
-      return;
-    }
-    if (!module.isRecognitionAvailable()) {
-      toast.error('Speech recognition is not available on this device.');
-      return;
-    }
-
+    if (session.current || !projectRef.current) return;
     haptics.tap();
-    setState('starting');
-    const s = {
-      base: valueRef.current,
-      transcript: EMPTY_TRANSCRIPT,
-      cancelled: false,
-      lang: deviceLocale(),
-      retriedLang: false,
-      restartInEnglish: false,
-      subscriptions: [] as { remove: () => void }[],
-      finishTimer: null as ReturnType<typeof setTimeout> | null,
-    };
+    const s = { meter: null as ReturnType<typeof setInterval> | null, upload: null, uri: null };
     session.current = s;
+    setState('starting');
 
-    let permission;
+    let granted = false;
     try {
-      permission = await module.getPermissionsAsync();
-      if (!permission.granted && permission.canAskAgain) {
-        permission = await module.requestPermissionsAsync();
-      }
+      let permission = await getRecordingPermissionsAsync();
+      if (!permission.granted && permission.canAskAgain) permission = await requestRecordingPermissionsAsync();
+      granted = permission.granted;
     } catch (error) {
       log.warn('[dictation] permission check failed', error);
-      permission = null;
     }
     if (session.current !== s) return; // cancelled while the prompt was up
-    if (!permission?.granted) {
+    if (!granted) {
       teardown();
       toast.error('Dosco cannot use the microphone', {
         description: 'Allow microphone and speech recognition in Settings.',
+
         action: { label: 'Settings', onPress: () => void Linking.openSettings() },
       });
       return;
     }
 
-    s.subscriptions.push(
-      module.addListener('start', () => {
-        if (session.current === s) setState((prev) => (prev === 'starting' ? 'listening' : prev));
-      }),
-      module.addListener('result', (event) => {
-        if (session.current !== s || s.cancelled) return;
-        s.transcript = reduceTranscript(s.transcript, {
-          isFinal: event.isFinal,
-          transcript: event.results[0]?.transcript ?? '',
-        });
-        onChangeRef.current(dictationDraft(s.base, transcriptText(s.transcript)));
-      }),
-      module.addListener('volumechange', (event) => {
-        if (session.current !== s) return;
-        levels.value = pushLevel(levels.value, levelFromVolume(event.value));
-      }),
-      module.addListener('error', (event) => {
-        if (session.current !== s) return;
-        // The device locale may have no recogniser; English always does.
-        if (event.error === 'language-not-supported' && !s.retriedLang && s.lang !== 'en-US') {
-          s.retriedLang = true;
-          s.restartInEnglish = true;
-          return;
-        }
-        log.warn('[dictation] error', event.error, event.message);
-        const message = s.cancelled ? null : dictationErrorMessage(event.error);
-        if (message) {
-          haptics.error();
-          toast.error(message);
-        }
-      }),
-      module.addListener('end', () => {
-        if (session.current !== s) return;
-        if (s.restartInEnglish) {
-          s.restartInEnglish = false;
-          try {
-            begin(module, 'en-US');
-            return;
-          } catch (error) {
-            log.warn('[dictation] English restart failed', error);
-          }
-        }
-        teardown();
-      })
-    );
-
     try {
-      begin(module, s.lang);
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      if (session.current !== s) {
+        endRecordingAudioMode();
+        return;
+      }
+      recorder.record();
     } catch (error) {
-      log.warn('[dictation] start failed', error);
+      log.warn('[dictation] recording failed to start', error);
+      endRecordingAudioMode();
       teardown();
-      toast.error('Dictation stopped. Try again.');
+      toast.error('The microphone is in use by another app.');
+      return;
     }
-  }, [begin, levels, teardown, toast]);
-
-  const finish = React.useCallback(() => {
-    const s = session.current;
-    const module = speechModule();
-    if (!s || !module) return;
-    haptics.selection();
-    setState('stopping');
-    module.stop();
-    // `end` normally tears down; this covers a recogniser that never sends it.
-    s.finishTimer = setTimeout(() => {
+    setState('listening');
+    s.meter = setInterval(() => {
       if (session.current !== s) return;
-      module.abort();
-      teardown();
-    }, FINISH_TIMEOUT_MS);
-  }, [teardown]);
+      const status = recorder.getStatus();
+      levels.value = pushLevel(levels.value, levelFromMetering(status.metering));
+      if (status.durationMillis >= maxSeconds * 1000) void finish();
+    }, METER_INTERVAL_MS);
+  }, [finish, levels, maxSeconds, recorder, teardown, toast]);
 
   const cancel = React.useCallback(() => {
     const s = session.current;
     if (!s) return;
     haptics.selection();
-    s.cancelled = true;
-    onChangeRef.current(s.base);
-    speechModule()?.abort();
+    s.upload?.abort();
+    const recording = !!s.meter;
     teardown();
-  }, [teardown]);
+    if (recording) {
+      recorder
+        .stop()
+        .then(() => removeClip(recorder.uri))
+        .catch(() => {})
+        .finally(endRecordingAudioMode);
+    } else {
+      removeClip(s.uri);
+    }
+  }, [recorder, teardown]);
 
-  // Leaving the screen mid-dictation stops the microphone.
+  // Leaving the screen mid-dictation stops the microphone and drops the clip.
   React.useEffect(
     () => () => {
-      if (!session.current) return;
-      session.current.cancelled = true;
-      speechModule()?.abort();
-      teardown();
+      const s = session.current;
+      if (!s) return;
+      s.upload?.abort();
+      if (s.meter) {
+        clearInterval(s.meter);
+        // The recorder may already be released with the screen.
+        try {
+          void recorder.stop().catch(() => {});
+        } catch {
+          // released
+        }
+        endRecordingAudioMode();
+      }
+      session.current = null;
     },
-    [teardown]
+    [recorder]
   );
 
   return {
-    available: NATIVE_MODULE_PRESENT || __DEV__,
+    available: !!projectId && info.data?.available === true,
     state,
     active: state !== 'idle',
     levels,
     start: () => void start(),
-    finish,
+    finish: () => void finish(),
     cancel,
   };
 }

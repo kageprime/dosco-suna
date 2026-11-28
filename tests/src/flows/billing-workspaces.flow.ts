@@ -134,7 +134,7 @@ flow(
       expectEqual(state.plan_comp, { until, source: 'workspace_split' }, 'plan_comp');
       expectEqual(state.credits.expires_at, until, 'credits.expires_at is the comp end');
       expectEqual(state.plan?.family, 'credits', 'plan.family');
-      expectEqual(state.tier.monthly_credits, 300, 'tier.monthly_credits');
+      expectEqual(state.tier.monthly_credits, 330, 'tier.monthly_credits includes the 10% plan bonus');
       expectEqual(state.model_access?.managed, true, 'managed models come with the comped plan');
     });
 

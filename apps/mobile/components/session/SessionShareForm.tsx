@@ -3,9 +3,9 @@
  * (`SessionActionsSheet`): the sheet pushes it in place of the options
  * (`sheet-push`), with `SheetBackButton` in the title row to go back.
  *
- * On top, `SessionPublicShareRows` (KRTX-248): Share link · Share transcript ·
- * Stop sharing link, through the system share sheet. Below them, the in-team
- * visibility form ("In your team").
+ * On top, `SessionTranscriptShareRow` (KRTX-248): Share transcript, through
+ * the system share sheet. Below it, the in-team visibility form ("In your
+ * team").
  *
  * Ported from web's ShareSessionModal + SharingPicker:
  * PUT /projects/:id/sessions/:sid/sharing with
@@ -23,10 +23,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { ParticipantAvatar } from '@/components/session/ParticipantAvatar';
 import { KortixLoader } from '@/components/kortix/kortix-loader';
-import {
-  SessionPublicShareRows,
-  type PublicShareConfirmKind,
-} from '@/components/session/SessionPublicShareRows';
+import { SessionTranscriptShareRow } from '@/components/session/SessionTranscriptShareRow';
 import { SettingsGroup, SettingsRow } from '@/components/kortix/settings-list';
 import { useToast } from '@/components/kortix/toast-provider';
 import { Button } from '@/components/ui/button';
@@ -54,11 +51,9 @@ interface SessionShareFormProps {
   session: ProjectSession;
   /** The sharing was saved. */
   onDone: () => void;
-  /** Push the public link's confirm view in place of this one. */
-  onConfirmPublicLink: (kind: PublicShareConfirmKind) => void;
 }
 
-export function SessionShareForm({ projectId, session, onDone, onConfirmPublicLink }: SessionShareFormProps) {
+export function SessionShareForm({ projectId, session, onDone }: SessionShareFormProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -123,7 +118,7 @@ export function SessionShareForm({ projectId, session, onDone, onConfirmPublicLi
 
   return (
     <View className="gap-4 px-4">
-      <SessionPublicShareRows projectId={projectId} session={session} onConfirm={onConfirmPublicLink} />
+      <SessionTranscriptShareRow projectId={projectId} session={session} />
       <SettingsGroup title="In your team">
         {MODE_OPTIONS.map((option) => (
           <SettingsRow

@@ -42,7 +42,7 @@ describe('mounted session loss', () => {
       tree?.update(createElement(Surface));
     });
     expect(replace).toHaveBeenCalledWith(
-      '/auth?redirect=%2Fworkspaces%2Fsynthetic-project%3Ftab%3Daudit%26filter%3Drename',
+      '/auth?redirect=%2Fworkspaces%2Fsynthetic-project%3Ftab%3Daudit%26filter%3Drename&reason=session_ended',
     );
   });
 

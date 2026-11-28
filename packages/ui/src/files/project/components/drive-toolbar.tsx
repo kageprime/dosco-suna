@@ -70,7 +70,7 @@ import { Download } from '../../../internal/icons/download';
  * every other project surface.
  */
 export const DRIVE_ACTION_ROW_CLASS =
-  'border-border/60 flex h-11 shrink-0 items-center gap-1 border-b px-4';
+  'border-border flex h-11 shrink-0 items-center gap-1 border-b px-4';
 
 /**
  * The action row itself: the host's `leading` chrome, then the actions as one
@@ -215,7 +215,7 @@ export function DrivePathBar({
   const isRow = as === 'row';
   if (isRow && !isEditing && visibleSegments.length === 0) return null;
 
-  const rowClass = isRow ? 'border-border/60 h-9 w-full shrink-0 border-b px-2' : 'min-w-0 flex-1';
+  const rowClass = isRow ? 'border-border h-9 w-full shrink-0 border-b px-2' : 'min-w-0 flex-1';
 
   if (isEditing) {
     return (

@@ -51,7 +51,8 @@ export function SidebarMoreGroup({ projectId, footer }: { projectId: string; /**
       </SidebarMenu>
       <DisclosureContent className="flex min-h-0 flex-1 flex-col" contentClassName="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pt-1">
         <SidebarMenu>
-          <ProjectNavItems projectId={projectId} />
+          {/* Review is the first row of the Spaces list above, not a second row here. */}
+          <ProjectNavItems projectId={projectId} review={false} />
         </SidebarMenu>
         <ProjectSessionList projectId={projectId} secondary />
         {footer}

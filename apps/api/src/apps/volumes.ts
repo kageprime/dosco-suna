@@ -279,7 +279,7 @@ export async function createAppVolume(input: {
     group: input.group ?? 'app',
     machineId: null,
     sizeGb: input.sizeGb,
-    retentionDays: input.retentionDays ?? 5,
+    retentionDays: volumeRetentionDays(input.retentionDays ?? 5),
   });
 }
 

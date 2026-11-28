@@ -1498,13 +1498,14 @@ flow(
 
     try {
       const agent = ctx.client.withBearer(secretKey, "SESSION_TOKEN");
+      const bind = (body: Parameters<typeof agent.post>[1]) => agent.post(
+        "/v1/workspaces/:projectId/channels/slack/bind-thread",
+        body,
+        { params: { projectId: p.id } },
+      );
 
       await ctx.step("the session token binds a thread to a SIBLING session → 403, and no mapping is written", async () => {
-        const r = await agent.post(
-          "/v1/workspaces/:projectId/channels/slack/bind-thread",
-          { session_id: sibling, channel: "CKE2E", thread_ts: "1700000000.000200", workspace_id: team },
-          { params: { projectId: p.id } },
-        );
+        const r = await bind({ session_id: sibling, channel: "CKE2E", thread_ts: "1700000000.000200", workspace_id: team });
         r.status(403);
         const rows = await withDb(ctx, async (db) =>
           (await db.query("SELECT 1 FROM kortix.chat_threads WHERE platform = 'slack' AND workspace_id = $1", [team])).rowCount,
@@ -1514,11 +1515,7 @@ flow(
 
       await ctx.step("a workspace the project's install never proved → 400 SLACK_WORKSPACE_NOT_CONNECTED, and no mapping is written", async () => {
         const foreignTeam = `${team}X`;
-        const r = await agent.post(
-          "/v1/workspaces/:projectId/channels/slack/bind-thread",
-          { session_id: own, channel: "CKE2E", thread_ts: "1700000000.000250", workspace_id: foreignTeam },
-          { params: { projectId: p.id } },
-        );
+        const r = await bind({ session_id: own, channel: "CKE2E", thread_ts: "1700000000.000250", workspace_id: foreignTeam });
         r.status(400).body().has("$.code", "SLACK_WORKSPACE_NOT_CONNECTED");
         const rows = await withDb(ctx, async (db) =>
           (await db.query("SELECT 1 FROM kortix.chat_threads WHERE platform = 'slack' AND workspace_id = $1", [foreignTeam]))
@@ -1528,20 +1525,12 @@ flow(
       });
 
       await ctx.step("a thread in a channel another workspace's settings row names binds: channels are settings, not ownership → 200", async () => {
-        const r = await agent.post(
-          "/v1/workspaces/:projectId/channels/slack/bind-thread",
-          { session_id: own, channel: "CKE2EOTHER", thread_ts: "1700000000.000260", workspace_id: team },
-          { params: { projectId: p.id } },
-        );
+        const r = await bind({ session_id: own, channel: "CKE2EOTHER", thread_ts: "1700000000.000260", workspace_id: team });
         r.status(200).body().has("$.bound", true).has("$.session_id", own);
       });
 
       await ctx.step("the session token binds a thread to ITS OWN session → 200, and the mapping names that session", async () => {
-        const r = await agent.post(
-          "/v1/workspaces/:projectId/channels/slack/bind-thread",
-          { session_id: own, channel: "CKE2E", thread_ts: "1700000000.000300", workspace_id: team },
-          { params: { projectId: p.id } },
-        );
+        const r = await bind({ session_id: own, channel: "CKE2E", thread_ts: "1700000000.000300", workspace_id: team });
         r.status(200).body().has("$.bound", true);
         const sessionId = await withDb(ctx, async (db) =>
           (
@@ -1555,11 +1544,7 @@ flow(
       });
 
       await ctx.step("the same session binds a second thread; both replies resolve to its project and session", async () => {
-        const r = await agent.post(
-          "/v1/workspaces/:projectId/channels/slack/bind-thread",
-          { session_id: own, channel: "CKE2E", thread_ts: "1700000000.000301", workspace_id: team },
-          { params: { projectId: p.id } },
-        );
+        const r = await bind({ session_id: own, channel: "CKE2E", thread_ts: "1700000000.000301", workspace_id: team });
         r.status(200).body().has("$.bound", true).has("$.session_id", own);
         await withDb(ctx, async (db) => {
           const rows = (await db.query(
@@ -1573,11 +1558,7 @@ flow(
       });
 
       await ctx.step("the session token binds the same thread again → 200, bound to the same session (idempotent)", async () => {
-        const r = await agent.post(
-          "/v1/workspaces/:projectId/channels/slack/bind-thread",
-          { session_id: own, channel: "CKE2E", thread_ts: "1700000000.000300", workspace_id: team },
-          { params: { projectId: p.id } },
-        );
+        const r = await bind({ session_id: own, channel: "CKE2E", thread_ts: "1700000000.000300", workspace_id: team });
         r.status(200).body().has("$.bound", true).has("$.session_id", own);
       });
 
@@ -1589,11 +1570,7 @@ flow(
             [p.id, team, sibling],
           );
         });
-        const r = await agent.post(
-          "/v1/workspaces/:projectId/channels/slack/bind-thread",
-          { session_id: own, channel: "CKE2E", thread_ts: "1700000000.000400", workspace_id: team },
-          { params: { projectId: p.id } },
-        );
+        const r = await bind({ session_id: own, channel: "CKE2E", thread_ts: "1700000000.000400", workspace_id: team });
         r.status(409).body().has("$.code", "THREAD_BOUND_TO_ANOTHER_SESSION").has("$.bound", false);
         const owner = await withDb(ctx, async (db) =>
           (
@@ -1607,11 +1584,7 @@ flow(
       });
 
       await ctx.step("force moves the sibling's thread (same creator) → 200 with rebound_from, and the mapping names this session", async () => {
-        const r = await agent.post(
-          "/v1/workspaces/:projectId/channels/slack/bind-thread",
-          { session_id: own, channel: "CKE2E", thread_ts: "1700000000.000400", workspace_id: team, force: true },
-          { params: { projectId: p.id } },
-        );
+        const r = await bind({ session_id: own, channel: "CKE2E", thread_ts: "1700000000.000400", workspace_id: team, force: true });
         r.status(200).body().has("$.bound", true).has("$.session_id", own).has("$.rebound_from", sibling);
         const owner = await withDb(ctx, async (db) =>
           (
@@ -1632,11 +1605,7 @@ flow(
             [p.id, team, foreign],
           );
         });
-        const r = await agent.post(
-          "/v1/workspaces/:projectId/channels/slack/bind-thread",
-          { session_id: own, channel: "CKE2E", thread_ts: "1700000000.000500", workspace_id: team, force: true },
-          { params: { projectId: p.id } },
-        );
+        const r = await bind({ session_id: own, channel: "CKE2E", thread_ts: "1700000000.000500", workspace_id: team, force: true });
         r.status(403).body().has("$.code", "THREAD_OWNED_BY_ANOTHER_USER");
         const owner = await withDb(ctx, async (db) =>
           (
@@ -1656,11 +1625,7 @@ flow(
             [team, other.id],
           );
         });
-        const r = await agent.post(
-          "/v1/workspaces/:projectId/channels/slack/bind-thread",
-          { session_id: own, channel: "CKE2E", thread_ts: "1700000000.000600", workspace_id: team },
-          { params: { projectId: p.id } },
-        );
+        const r = await bind({ session_id: own, channel: "CKE2E", thread_ts: "1700000000.000600", workspace_id: team });
         r.status(400).body().has("$.bound", false);
         const rows = await withDb(ctx, async (db) =>
           (

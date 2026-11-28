@@ -1,9 +1,8 @@
 /**
- * The internal-only feature flag (`workspace_volume`, stateless sandboxes) is
- * written by a platform operator only: `PATCH /v1/projects/:id/features`
- * answers 403 `feature_operator_only` to a project owner. Flows that need one
- * on (or cleared) go through the operator route as the run-scoped platform
- * admin.
+ * An internal-only feature flag (`catalogHidden`; none today) is written by a
+ * platform operator only: `PATCH /v1/projects/:id/features` answers 403
+ * `feature_operator_only` to a project owner. Flows that need a flag set as
+ * the operator go through the operator route as the run-scoped platform admin.
  */
 import type { FeatureFlagKey } from "@kortix/api-contract";
 import type { FlowContext } from "../core/types";

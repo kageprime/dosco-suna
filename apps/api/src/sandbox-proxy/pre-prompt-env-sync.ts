@@ -35,7 +35,7 @@
  * `routes/preview.ts` re-exports the public names, so every existing import
  * path keeps working.
  */
-import { claudeSubscriptionRequiredBody } from '../llm-gateway/resolution/claude-agent';
+import { claudeSubscriptionRequiredBody, type ClaudeSubscriptionMissing } from '../llm-gateway/resolution/claude-agent';
 import type { ProviderName } from '../platform/providers';
 import type { bindSessionTurnIdentity } from '../projects/lib/on-behalf-of';
 import type { syncSandboxEnvForPrompt } from '../projects/lib/sandbox-env-sync';
@@ -197,8 +197,8 @@ export interface PrePromptEnvSyncDeps {
   bindTurnIdentity: typeof bindSessionTurnIdentity;
   generateTitle: typeof generateSessionTitleFromFirstPrompt;
   /**
-   * The Claude subscription model ref this turn needs a login for that the
-   * person lacks, or null. `promptModel` null: the session's own model.
+   * The Claude subscription model ref this turn needs an account for that it
+   * cannot use, and why, or null. `promptModel` null: the session's own model.
    */
   claudeSubscriptionMissing?: (input: {
     accountId: string;
@@ -206,7 +206,7 @@ export interface PrePromptEnvSyncDeps {
     sessionId: string;
     userId: string;
     promptModel: string | null;
-  }) => Promise<string | null>;
+  }) => Promise<ClaudeSubscriptionMissing | null>;
 }
 
 /**

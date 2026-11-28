@@ -126,6 +126,48 @@ describe('AgentsPage access line', () => {
   });
 });
 
+// KRTX-4810: the list shows each agent's role, so a helper My Kortix created
+// reads as a subagent at a glance and a promoted one shows as primary.
+describe('AgentsPage role badge', () => {
+  const agentWithMode = (name: string, mode?: string) => ({
+    name,
+    path: `agents/${name}.md`,
+    ...(mode ? { mode } : {}),
+    description: `${name} does its job.`,
+    scope: { env: [], connectors: [], kortix_permissions: [], kortix_cli: [] },
+  });
+
+  const render = (agents: ReturnType<typeof agentWithMode>[]) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(qk.project.detail('synthetic-project'), {
+      account_id: 'synthetic-account',
+      config: { default_agent: 'lead', agents },
+    });
+    return renderToStaticMarkup(
+      <QueryClientProvider client={client}>
+        <AgentsPage projectId="synthetic-project" />
+      </QueryClientProvider>,
+    );
+  };
+
+  test('each card names its role: primary, subagent, all', () => {
+    const markup = render([
+      agentWithMode('lead', 'primary'),
+      agentWithMode('helper', 'subagent'),
+      agentWithMode('both-ways', 'all'),
+    ]);
+    expect(markup).toContain('>Primary</span>');
+    expect(markup).toContain('>Subagent</span>');
+    expect(markup).toContain('>All</span>');
+  });
+
+  test('an undeclared mode reads as primary — the runtime\'s own assumption', () => {
+    const markup = render([agentWithMode('undeclared')]);
+    expect(markup).toContain('>Primary</span>');
+    expect(markup).not.toContain('>Subagent</span>');
+  });
+});
+
 // Settings audit 2026-11-14, finding 08: the name a person typed survives.
 describe('AgentsPage agent names', () => {
   test('a titled agent shows its title; an untitled one keeps the derived name', () => {

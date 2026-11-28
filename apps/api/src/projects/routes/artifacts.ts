@@ -13,6 +13,7 @@
 // access to its folder in Files. A private artifact the caller may not view
 // answers 404, never 403.
 // A Kortix that stores no Drive answers 403 `feature_disabled` on every route.
+import { registerArtifactFolderRoutes } from './artifact-folders';
 import { createRoute, z } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -71,6 +72,7 @@ const Files = z.record(z.string(), FileInputSchema);
 const SpaceSlug = z.string().regex(SPACE_SLUG_RE, 'a space slug: lowercase letters, digits, "-" or "_", at most 63 characters');
 const AgentName = z.string().regex(BINDING_AGENT_RE, 'an agent name');
 const BindingFields = {
+  folder_id: z.string().uuid().nullable().optional(),
   space: SpaceSlug.nullable().optional().openapi({ description: 'The space it is grouped in. Null: project-wide (or the space of `agent`).' }),
   agent: AgentName.nullable().optional().openapi({ description: 'The owning agent. Default on publish and share from a session: that session\'s agent.' }),
 };
@@ -126,6 +128,7 @@ const ArtifactSchema = z.object({
   web_url: z.string(),
   public_url: z.string().nullable().openapi({ description: 'Anyone-with-the-link page, when public.' }),
   public_content_url: z.string().nullable().openapi({ description: 'The raw page without Kortix chrome, when public.' }),
+  folder_id: z.string().nullable(),
   space: z.string().nullable().openapi({ description: 'The space it is grouped in, or null. Grouping only.' }),
   agent: z.string().nullable().openapi({ description: 'The owning agent, or null. Grouping only.' }),
   created_at: z.string(),
@@ -187,6 +190,7 @@ async function serialize(rows: ArtifactRow[], viewer: Viewer) {
       web_url: `${frontendBase()}/workspaces/${row.projectId}/artifacts/${row.artifactId}`,
       public_url: isPublic ? `${frontendBase()}/share/artifact/${row.artifactId}` : null,
       public_content_url: isPublic ? artifactPublicContentUrl(row.artifactId) : null,
+      folder_id: row.galleryFolderId,
       space: row.space,
       agent: row.agent,
       created_at: row.createdAt.toISOString(),
@@ -247,6 +251,7 @@ async function detail(row: ArtifactRow, viewer: Viewer, at?: string) {
 const PUBLISH_LIMIT = bodyLimit({ maxSize: 48 * 1024 * 1024, onError: (c) => c.json({ error: 'One publish carries at most 32 MB', code: 'publish_too_large' }, 413) });
 
 export function registerArtifactRoutes(): void {
+  registerArtifactFolderRoutes();
   projectsApp.openapi(createRoute({
     method: 'get', path: '/{workspaceId}/artifacts/types', tags: ['artifacts'],
     summary: 'The artifact types, their format and a starter',
@@ -273,6 +278,7 @@ export function registerArtifactRoutes(): void {
     request: {
       params: ProjectParams,
       query: z.object({
+        folder_id: z.union([z.literal('root'), z.string().uuid()]).optional(),
         scope: z.enum(['all', 'mine', 'shared', 'pinned']).optional(),
         type: TypeEnum.optional(),
         q: z.string().max(200).optional(),
@@ -291,7 +297,7 @@ export function registerArtifactRoutes(): void {
     // One `agent` validates as a string, a repeated one as an array.
     const agents = q.agent === undefined ? [] : [q.agent].flat();
     const rows = await listArtifacts(projectId, access.viewer, {
-      scope: q.scope ?? 'all', type: q.type, q: q.q, limit: q.limit ?? 100,
+      folder_id: q.folder_id, scope: q.scope ?? 'all', type: q.type, q: q.q, limit: q.limit ?? 100,
       space: q.space, agents, unbound: q.unbound !== undefined,
     });
     return c.json({ artifacts: await serialize(rows, access.viewer) }, 200);
@@ -400,7 +406,7 @@ export function registerArtifactRoutes(): void {
       updated = await updateArtifactMeta(loaded.row, c.req.valid('json'));
     } catch (err) {
       // 403 `private_channel`: a private channel's artifact stays private.
-      if (err instanceof ArtifactError && err.status === 403) return c.json({ error: err.message, code: err.code }, 403);
+      if (err instanceof ArtifactError && (err.status === 400 || err.status === 403 || err.status === 404)) return c.json({ error: err.message, code: err.code }, err.status);
       throw err;
     }
     const [out] = await serialize([updated], loaded.viewer);

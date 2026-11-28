@@ -5,7 +5,7 @@ import {
   deleteProjectSecrets,
   readSecret,
   upsertSecret,
-} from '../install-store';
+} from '../core/install-secrets';
 
 export const SLACK_BOT_TOKEN = 'SLACK_BOT_TOKEN';
 export const SLACK_SIGNING_SECRET = 'SLACK_SIGNING_SECRET';

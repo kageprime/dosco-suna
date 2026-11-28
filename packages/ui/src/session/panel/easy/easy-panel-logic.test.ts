@@ -25,7 +25,6 @@ import {
   runtimeSandboxHealth,
   sandboxRecents,
   shouldArmLoadTimeout,
-  shouldAutoExpandOutputs,
   shouldAutoOpenPayoff,
   shouldKeepProbingPort,
   stepForCallId,
@@ -555,28 +554,6 @@ describe('preview timing constants', () => {
     // The probe cadence has to fit the continuity window several times over, or
     // "continuously unreachable" would rest on a single sample.
     expect(PREVIEW_UNREACHABLE_WINDOW_MS / PREVIEW_PROBE_INTERVAL_MS).toBeGreaterThanOrEqual(5);
-  });
-});
-
-describe('shouldAutoExpandOutputs', () => {
-  it('opens exactly on the running -> idle transition when there is content', () => {
-    expect(shouldAutoExpandOutputs(true, false, 1)).toBe(true);
-  });
-
-  it('does not open while still running', () => {
-    expect(shouldAutoExpandOutputs(true, true, 3)).toBe(false);
-  });
-
-  it('does not open on every render once already idle (no transition this tick)', () => {
-    expect(shouldAutoExpandOutputs(false, false, 3)).toBe(false);
-  });
-
-  it('does not open when a run finishes with nothing to show', () => {
-    expect(shouldAutoExpandOutputs(true, false, 0)).toBe(false);
-  });
-
-  it('does not open when a run is just starting (idle -> running)', () => {
-    expect(shouldAutoExpandOutputs(false, true, 3)).toBe(false);
   });
 });
 

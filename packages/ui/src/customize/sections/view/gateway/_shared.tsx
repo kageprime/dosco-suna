@@ -76,7 +76,7 @@ export function Panel({
 }) {
   return (
     <section className="bg-popover overflow-hidden rounded-md border">
-      <div className="border-border/60 flex items-start justify-between gap-3 border-b px-4 py-3">
+      <div className="border-border flex items-start justify-between gap-3 border-b px-4 py-3">
         <div className="min-w-0">
           <h3 className="text-foreground text-sm font-medium">
             {title}

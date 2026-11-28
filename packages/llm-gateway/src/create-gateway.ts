@@ -301,6 +301,7 @@ export function createGateway(rawHooks: GatewayHooks, deps: GatewayDeps = {}) {
       recordUsage: hooks.recordUsage,
       recordTrace: hooks.recordTrace,
       claudeRefused: hooks.claudeRefused,
+      claudeForbidden: hooks.claudeForbidden,
       notePoolRateLimit: hooks.notePoolRateLimit,
       notePoolUsage: hooks.notePoolUsage,
     }, { upstream: deps.claudeCodeUpstream, logger })

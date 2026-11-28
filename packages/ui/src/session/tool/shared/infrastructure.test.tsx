@@ -60,11 +60,9 @@ describe('BasicTool panel surface — the disclosure row', () => {
     expect(html).not.toContain('pb-3');
 
     // Trigger anatomy.
-    expect(html).toContain('flex min-h-11 w-full items-center gap-2.5 px-3 py-2.5 text-left');
     expect(html).toContain('cursor-pointer');
     expect(html).toContain('>Searched memory</span>');
-    expect(html).toContain('text-sm font-medium');
-    expect(html).toContain('text-muted-foreground min-w-0 truncate font-mono text-xs');
+    expect(html).toContain('>pricing notes</span>');
 
     // Closed by default, and the body is genuinely absent — not merely hidden.
     expect(html).toContain('aria-expanded="false"');
@@ -171,8 +169,8 @@ describe('BasicTool panel surface — the disclosure row', () => {
     );
 
     expect(html).toContain('Generating slides');
-    expect(html).toContain('min-w-0 flex-1 truncate text-sm font-medium');
-    expect(html).toContain('text-muted-foreground shrink-0 font-mono text-xs');
+    // A row: the trigger's parts (a lead word, an agent chip, a subtitle) sit on one line.
+    expect(html).toContain('flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-sm font-medium');
     expect(html).toContain('4 slides');
     // Still a row, not the old sticky header.
     expect(html).not.toContain('sticky');

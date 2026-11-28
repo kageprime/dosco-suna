@@ -66,6 +66,13 @@ type SidebarContextProps = {
    * final value once on pointer-up.
    */
   previewWidth: (width: number) => void;
+  /**
+   * A desktop icon rail is on screen beside the panel (`Sidebar`'s `rail`). It
+   * carries the panel toggle, so the page-level openers stand down. Optional:
+   * contexts built before the rail (tests, hosts) read as no rail.
+   */
+  rail?: boolean;
+  setRail?: (on: boolean) => void;
 };
 
 export const SidebarContext = React.createContext<SidebarContextProps | null>(null);

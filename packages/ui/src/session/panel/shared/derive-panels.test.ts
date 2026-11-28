@@ -369,6 +369,28 @@ describe('deriveContext', () => {
     expect(tools.some((t) => t.label === 'Terminal')).toBe(true);
   });
 
+  it('a list of agents that found no other agent is not context', () => {
+    const agent = (handle: string, relation: string) => ({
+      handle, session_id: `ses-${handle}`, short_id: 'ses00001', project_id: 'p-1', agent_name: 'reviewer',
+      title: `${handle} at work`, relation, state: 'working', inbound: 'accept', can_receive: true,
+    });
+    const listed = (agents: unknown[]) =>
+      JSON.stringify({ ok: true, tool: 'list_agents', action: 'list', card: { title: 'Agents', status: 'done' }, data: { self: agent('lead', 'self'), agents } });
+    const empty = deriveContext([part('list_agents', {}, { output: listed([agent('lead', 'self')]) })]);
+    expect(empty.tools).toEqual([]);
+    const found = deriveContext([part('list_agents', {}, { output: listed([agent('lead', 'self'), agent('writer', 'child')]) })]);
+    expect(found.tools).toHaveLength(1);
+  });
+
+  it('a question the agent asked the user is not context', () => {
+    const { tools } = deriveContext([
+      part('question', { questions: [{ question: 'Which price should we test?' }] }),
+      part('ask', { question: 'Ship it?' }),
+      part('bash', { command: 'ls' }),
+    ]);
+    expect(tools.map((t) => t.label)).toEqual(['Terminal']);
+  });
+
   // ─── BUG 1 — anything that produced an Output must never also appear in
   // Context's "Tools used" bucket. `edit` already gets this right (see the
   // test above); `create` (image_gen/video_gen/presentation_gen/show) did

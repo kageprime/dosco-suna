@@ -24,6 +24,7 @@ import {
   getSessionCost,
   getToolInfo,
   getTurnCost,
+  getTurnStatus,
   groupMessagesIntoTurns,
   stripAnsi,
 } from './index';
@@ -322,6 +323,26 @@ describe('computeStatusFromPart', () => {
   function toolPart(tool: string): ToolPartLike {
     return { type: 'tool', tool, callID: 'c1', state: { status: 'running' } };
   }
+
+  test.each([
+    ['image_search', 'Searching for images...'],
+    ['scrape_webpage', 'Reading a web page...'],
+    ['image_gen', 'Creating an image...'],
+    ['video_gen', 'Creating a video...'],
+    ['presentation_gen', 'Creating a presentation...'],
+    ['show_user', 'Sharing the result...'],
+  ])('labels the wire tool %s', (tool, label) => {
+    expect(computeStatusFromPart(toolPart(tool))).toBe(label);
+  });
+
+  test('preserves unknown boundary names through the live turn caller', () => {
+    for (const tool of ['oc-read', 'apply-patch', 'morph-edit', 'context-info', 'constructor', '__proto__', '', 'IMAGE_SEARCH']) {
+      expect(getTurnStatus([{ part: toolPart(tool) }])).toBe('Working on it...');
+    }
+    expect(getTurnStatus([{ part: toolPart('image_search') }])).toBe('Searching for images...');
+    expect(getTurnStatus([{ part: toolPart('image-search') }])).toBe('Searching for images...');
+    expect(computeStatusFromPart(undefined)).toBeUndefined();
+  });
 
   test('maps agent orchestration tools to delegation status', () => {
     for (const tool of ['task', 'session_spawn', 'session-start-background', 'agent_task']) {

@@ -8,14 +8,14 @@ database's region and prod's own topology. Resource names use
 |---|---|---|
 | `staging-api-euw2.kortix.com` | Cloudflare (proxied) → ALB → ECS Fargate (eu-west-2) | **this Terraform** |
 | `gateway-staging-euw2.kortix.com` | Cloudflare (proxied) → ALB → ECS Fargate (eu-west-2) | **this Terraform** |
-| `staging-fe-ecs-euw2.kortix.com` | Cloudflare (proxied) → ALB → ECS Fargate (eu-west-2) | `../staging-web-eu-west-2` |
 
 These are origin hostnames. `staging-api.kortix.com` is the staging-api Worker,
 which routes to them (`ACTIVE_BACKEND = "eu-west-2"`). Deploy Staging rewrites
 the Worker bindings on every run (`deploy-staging.yml`), so a manual Worker
-change lasts only until the next staging deploy. `staging-fe-ecs.kortix.com` is
-a CNAME that Deploy Staging points at the web ALB. Vercel serves
-`staging.kortix.com`.
+change lasts only until the next staging deploy. Vercel serves
+`staging.kortix.com`, the only staging frontend. The parallel ECS frontend
+(`staging-fe-ecs.kortix.com`, root `staging-web-eu-west-2`) was removed in
+2026-11.
 
 Deploy Staging applies this root (`terraform-staging`) and rolls the task
 definitions with `infra/scripts/ecs-deploy.sh staging-euw2`. The env blob is

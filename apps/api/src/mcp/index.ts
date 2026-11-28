@@ -420,7 +420,7 @@ const TOOLS = [
   {
     name: 'list_projects',
     title: 'List projects',
-    description: 'List every project you can open, across all your accounts: project_id, name, account, repository, your role. Start here: the other tools take a project_id or a session_id.',
+    description: 'List every project this connection reaches: project_id, name, account, repository, your role. A connection bound to one workspace lists that one; one granted All my workspaces lists every workspace you can open. Start here: the other tools take a project_id or a session_id.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true, openWorldHint: false },
   },
@@ -869,7 +869,7 @@ export async function runTool(ctx: ToolContext, name: string, input: Record<stri
 
 async function listProjectsTool(ctx: ToolContext, _input: Record<string, unknown>): Promise<ToolResult> {
   // One read: every workspace the caller may open, across accounts. A token
-  // bound to one workspace (what the consent screen issues) lists that one;
+  // bound to one workspace (the consent screen's default) lists that one;
   // `GET /v1/accounts` is a person's route and refuses it.
   const r = await callApi(ctx, 'GET', '/v1/workspaces');
   if (r.status >= 400) return apiResult(r);
@@ -1228,8 +1228,9 @@ const connectorHost = (ctx: ToolContext): Host => ({
 
 function instructions(): string {
   return [
-    'Kortix MCP. You act as the signed-in user, with their permissions, across every account and project they can open — the same reach as the kortix CLI.',
-    'Start with list_projects. Tools take a project_id (start_session, list_sessions, repository reads) or a session_id (everything about one session).',
+    'Kortix MCP. You act as the signed-in user, with their permissions, in the workspaces this connection reaches. The person chose its reach when they connected it: one workspace, or All my workspaces (the same reach as the kortix CLI).',
+    'Start with list_projects: it lists exactly the workspaces this connection reaches. A 403 that says "This connection reaches the one workspace chosen" means the work needs another workspace, or a new one: ask the person to reconnect this app and choose All my workspaces. Creating a workspace (call_api POST /v1/workspaces) needs that reach too.',
+    'Tools take a project_id (start_session, list_sessions, repository reads) or a session_id (everything about one session).',
     'Sessions: start_session delegates a task to a Kortix agent in its own cloud sandbox; read_session (with wait_seconds) follows it; send_message continues it; list_sessions finds existing ones.',
     "Sandboxes: run_command runs bash in a session's sandbox, and read_file / write_file / list_files reach its live /workspace. With a project_id instead of a session_id, read_file and list_files read the project's git repository.",
     'Platform knowledge: read_skill lists the Kortix guides; read_skill name=kortix-system is the complete reference.',

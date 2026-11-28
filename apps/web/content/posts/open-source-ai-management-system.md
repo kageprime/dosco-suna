@@ -76,7 +76,7 @@ Connector credentials are brokered server-side and never enter the machine. A se
 
 Each session has its own isolated machine and branch. A session boots a fresh sandbox, which clones the repository, cuts its own branch, and gives the agent a shell, a package manager and a filesystem. The machine is disposable: a bad install goes away with it, and only what the agent commits survives. Two sessions cannot touch each other, so thousands can run on one config.
 
-Platinum is the reference provider, and its sandboxes are Cloud Hypervisor microVMs. That is the isolation boundary, and it stops short of the network. Nothing enforces network egress: a session reaches the internet, and no rule polices where it goes. The credential is the boundary that holds, which is why connector credentials are brokered outside the machine.
+[Platinum](https://www.platinum.dev) is the reference provider, and its sandboxes are Cloud Hypervisor microVMs. That is the isolation boundary, and it stops short of the network. Nothing enforces network egress: a session reaches the internet, and no rule polices where it goes. The credential is the boundary that holds, which is why connector credentials are brokered outside the machine.
 
 ## Work arrives as a diff before main changes
 

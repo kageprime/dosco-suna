@@ -26,13 +26,12 @@ let capabilityCalls: string[] = [];
 /** What each leg does on this call. A function so a case can make one throw. */
 let turnLeg: () => Promise<unknown>;
 let queueLeg: () => Promise<unknown[]>;
-let transcriptLeg: (limit: number) => Promise<unknown>;
 let modelsLeg: () => Promise<Record<string, unknown>>;
 let runtimeLeg: () => Promise<Record<string, unknown>>;
 let auditLeg: () => Promise<Record<string, unknown>>;
 let refreshCalls: Array<Record<string, unknown>> = [];
 let legCalls: string[] = [];
-let transcriptLimits: number[] = [];
+let logLimits: number[] = [];
 let auditedAccount = false;
 
 mock.module('../lib/access', () => ({
@@ -62,13 +61,6 @@ mock.module('../session-lifecycle/inbox-rows', () => ({
   listInboxPrompts: async () => {
     legCalls.push('queue');
     return queueLeg();
-  },
-}));
-mock.module('../lib/session-transcript', () => ({
-  buildSessionTranscriptSyncEnvelope: async (input: { limit: number }) => {
-    legCalls.push('transcript');
-    transcriptLimits.push(input.limit);
-    return transcriptLeg(input.limit);
   },
 }));
 mock.module('../lib/session-prompt-view', () => ({
@@ -126,7 +118,10 @@ let canStopCalls: Array<{ newest: string | null; callerUserId: string | null; ca
 // The session-log reads are DB reads (#10454 added the conversation model leg).
 // Unmocked, each request waited on a real connection: 3-7 s per open.
 mock.module('../session-log-read', () => ({
-  readSessionLogPage: async () => undefined,
+  readSessionLogPage: async (input: { limit: number }) => {
+    logLimits.push(input.limit);
+    return undefined;
+  },
   readSessionConversationModels: async () => new Map<string, string>(),
 }));
 mock.module('../session-lifecycle/turn-stop-authority', () => ({
@@ -173,7 +168,7 @@ describe('GET /v1/projects/:projectId/sessions/:sessionId/open-bundle', () => {
     canStop = true;
     canStopCalls = [];
     refreshCalls = [];
-    transcriptLimits = [];
+    logLimits = [];
     auditedAccount = false;
     loadedProject = {
       row: { accountId: ACCOUNT_ID, projectId: PROJECT_ID, defaultBranch: 'main', metadata: {} },
@@ -193,16 +188,6 @@ describe('GET /v1/projects/:projectId/sessions/:sessionId/open-bundle', () => {
     };
     turnLeg = async () => ({ turns: [], last_ended: { turn_token: 't1', end_reason: 'completed', ended_at: null } });
     queueLeg = async () => [];
-    transcriptLeg = async () => ({
-      available: true,
-      reason: null,
-      source: 'mirror',
-      complete: true,
-      captured_at: '2026-08-26T00:00:00.000Z',
-      runtime_session_id: 'ses_root',
-      message_count: 3,
-      messages: [{ info: { id: 'msg_1' }, parts: [] }],
-    });
     modelsLeg = async () => ({ account: 'a', agents: {}, projects: { [PROJECT_ID]: 'p' } });
     runtimeLeg = async () => ({
       known: true,
@@ -276,7 +261,7 @@ describe('GET /v1/projects/:projectId/sessions/:sessionId/open-bundle', () => {
     const response = await openBundle();
     expect(response.status).toBe(200);
     const body = (await response.json()) as Record<string, any>;
-    expect(legCalls.sort()).toEqual(['audit', 'models', 'queue', 'runtime', 'transcript', 'turn']);
+    expect(legCalls.sort()).toEqual(['audit', 'models', 'queue', 'runtime', 'turn']);
     expect(body.observed_at).toMatch(ISO_UTC_MS);
     expect(body.session).toEqual({ session_id: SESSION_ID });
     expect(body.turn).toEqual({
@@ -286,10 +271,8 @@ describe('GET /v1/projects/:projectId/sessions/:sessionId/open-bundle', () => {
       can_stop: true,
     });
     expect(body.queue).toEqual({ known: true, prompts: [], held: false });
-    expect(body.transcript.known).toBe(true);
-    expect(body.transcript.requested).toBe(true);
-    expect(body.transcript.source).toBe('mirror');
-    expect(body.transcript.messages).toEqual([{ info: { id: 'msg_1' }, parts: [] }]);
+    // The v1 window is gone (P8.3): the transcript part is the pointer only.
+    expect(body.transcript).toEqual({ known: true, requested: false });
     expect(body.config).toEqual({
       known: true,
       base_ref: 'main',
@@ -342,18 +325,17 @@ describe('GET /v1/projects/:projectId/sessions/:sessionId/open-bundle', () => {
     expect(Date.parse(body.observed_at)).toBeLessThanOrEqual(done - 25);
   });
 
-  test('defaults the transcript window to the SDK first-paint span', async () => {
+  test('defaults the log window to the SDK first-paint span', async () => {
     await openBundle();
-    expect(transcriptLimits).toEqual([40]);
+    expect(logLimits).toEqual([40]);
   });
 
-  test('transcript=0 asks for the pointer only and never reads the mirror', async () => {
+  test('transcript=0 reads the log pointer only; the transcript part is the pointer either way', async () => {
     const body = (await (await openBundle('?transcript=0')).json()) as Record<string, any>;
-    expect(legCalls).not.toContain('transcript');
-    // `known: true` — the bundle DID answer; `requested: false` says the caller
-    // asked for no bytes. Reporting `known: false` here would tell the client
-    // the transcript is unknown when it is merely unasked-for.
+    expect(logLimits).toEqual([0]);
     expect(body.transcript).toEqual({ known: true, requested: false });
+    const asked = (await (await openBundle('?transcript=40')).json()) as Record<string, any>;
+    expect(asked.transcript).toEqual({ known: true, requested: false });
   });
 
   test('derives held from the queue rows, not from a guess', async () => {
@@ -394,15 +376,6 @@ describe('GET /v1/projects/:projectId/sessions/:sessionId/open-bundle', () => {
     // Everything else still arrives.
     expect(body.queue.known).toBe(true);
     expect(body.transcript.known).toBe(true);
-  });
-
-  test('a failed transcript leg is unknown, never an empty thread', async () => {
-    transcriptLeg = async () => {
-      throw new Error('mirror unavailable');
-    };
-    const body = (await (await openBundle()).json()) as Record<string, any>;
-    expect(body.transcript).toEqual({ known: false, reason: 'leg_failed' });
-    expect(body.transcript.messages).toBeUndefined();
   });
 
   test('a stored llm_gateway: false override is inert: models known, llm_gateway_enabled stays true', async () => {

@@ -45,8 +45,9 @@ describe('local test runner contract', () => {
     const source = readRepoFile('tests/src/core/local-stack.ts');
 
     expect(source).toMatch(/"start",\s+"--ignore-health-check"/);
-    // No test uses the dashboard or image transforms; they were the largest pulls.
-    expect(source).toMatch(/"-x",\s+"studio,imgproxy"/);
+    // No test uses the dashboard or image transforms; they were the largest
+    // pulls. Nothing calls the Data API (flow SEC-K).
+    expect(source).toMatch(/"-x",\s+"studio,imgproxy,postgrest"/);
   });
 
   it('snapshots fixture counts into results before teardown starts', () => {

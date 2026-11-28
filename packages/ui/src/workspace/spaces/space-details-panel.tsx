@@ -11,9 +11,9 @@ import {
   useSetProjectSpaceProactive,
   useUpdateProjectSpace,
 } from '@kortix/sdk/react';
-import { DotsThreeIcon, LightningIcon, LockSimpleIcon, PencilSimpleIcon, PlusIcon } from '@phosphor-icons/react';
+import { DotsThreeIcon, GearSixIcon, LightningIcon, LockSimpleIcon, PencilSimpleIcon, PlusIcon } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
 import { describeWhen, triggerName } from '../../customize/triggers/schedule/schedule-copy';
 import { TriggerComposer } from '../../customize/triggers/schedule/trigger-composer';
@@ -34,6 +34,7 @@ import {
 import Hint from '../../primitives/hint';
 import { Label } from '../../primitives/label';
 import { Switch } from '../../primitives/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../primitives/tabs';
 import { errorToast, successToast } from '../../primitives/toast';
 import { UserAvatar } from '../../primitives/user-avatar';
 import { UiLink as Link, useUiViewer } from '../../providers/ui-provider';
@@ -41,51 +42,46 @@ import { type Principal, PrincipalRow } from './principal-card';
 import { SpaceAvatar } from './space-avatar';
 import { isPersonalSpace, isPrivateSpace, viewerDisplayName } from './space-identity';
 import { AddChannelMembersDialog, MemberAvatar } from './space-members';
-import { AddTabMenu, KIND_ICON, useSpaceTabs } from './space-tabs';
 import { agentLabel } from './space-timeline';
 
 /**
  * A space's details, on the right of the space (flag `chat`), opened from its
- * name in the header: its tile, name and description, then Agents (the
- * default first), People, Tabs and Routines, each with its own "Add", and
- * Proactive (flag `spaces_proactive`). The
- * rarer settings (make private, leave, archive, member menus) stay in the
- * full settings dialog, one link at the end. Everything here can also be
- * asked for in chat: the hint line says so.
+ * name in the header: its tile, name and description, then underline tabs.
+ * Members: Agents (the default first) and People, each with its own "Add".
+ * Routines: the routines that post here, and Proactive (flag
+ * `spaces_proactive`). An agent's chat (a DM) passes its own tabs as `body`.
+ * The rarer settings (make private, leave, archive, member menus) stay in
+ * the full settings dialog: the gear in the panel header opens it.
  */
 export function SpaceDetailsPanel({
   projectId,
   space,
   name,
   onClose,
-  onOpenTab,
   onRename,
   onOpenSettings,
   addOnOpen = false,
-  focusPeople = false,
+  body,
 }: {
   projectId: string;
   space: ProjectSpace;
   /** The space's display name (the personal space's "Ada's space"). */
   name: string;
   onClose: () => void;
-  /** A tab was added: open it. */
-  onOpenTab: (tabId: string) => void;
   /** Rename and describe: the channel's edit dialog. Absent: no pencil. */
   onRename?: () => void;
   /** The full settings dialog. Absent: no link. */
   onOpenSettings?: () => void;
   /** Open "Add members" at once: a space just created. */
   addOnOpen?: boolean;
-  /** Opened from "View all members": People scrolls into view. */
-  focusPeople?: boolean;
+  /** Replaces the sections and the hint under the name (an agent's settings tabs). */
+  body?: ReactNode;
 }) {
-  const peopleRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (focusPeople) peopleRef.current?.scrollIntoView({ block: 'start' });
-  }, [focusPeople]);
   const t = useTranslations('spaces.panel');
   const channel = space.kind === 'channel' ? space : null;
+  const dm = space.kind === 'dm';
+  // "View all members" opens on Members; an agent's chat has only Routines.
+  const [tab, setTab] = useState<'members' | 'routines'>(dm ? 'routines' : 'members');
   const editable = space.can_edit !== false;
   const members = useProjectSpaceMembers(projectId, channel?.space_id);
   const canAdd = !!channel && (members.data?.can_add === true || editable);
@@ -99,18 +95,27 @@ export function SpaceDetailsPanel({
 
   return (
     <aside aria-label={t('title', { name })} className="bg-background flex min-h-0 w-full flex-1 flex-col">
-      <div className="kx-titlebar-row relative flex shrink-0 items-center gap-2 px-2">
+      <div className="kx-titlebar-row border-border relative flex shrink-0 items-center gap-2 border-b px-2">
         <div className="kx-titlebar-tabs flex h-12 min-w-0 flex-1 items-center px-3">
           <h2 className="text-sm font-medium">{t('heading')}</h2>
         </div>
-        <Hint label={t('close')} side="bottom">
-          <Button variant="ghost" size="icon-md" aria-label={t('close')} onClick={onClose}>
-            <Close />
-          </Button>
-        </Hint>
+        <div className="flex items-center gap-px">
+          {onOpenSettings ? (
+            <Hint label={t('allSettings')} side="bottom">
+              <Button variant="ghost" size="icon-base" aria-label={t('allSettings')} onClick={onOpenSettings}>
+                <GearSixIcon />
+              </Button>
+            </Hint>
+          ) : null}
+          <Hint label={t('close')} side="bottom">
+            <Button variant="ghost" size="icon-base" aria-label={t('close')} onClick={onClose}>
+              <Close />
+            </Button>
+          </Hint>
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="flex flex-col items-center gap-2 px-6 pt-2 pb-6 text-center">
+        <div className="flex flex-col items-center gap-2 px-6 pt-6 pb-6 text-center">
           <SpaceAvatar space={space} size="xl" label={name} projectId={projectId} />
           <div className="flex min-w-0 items-center gap-1.5">
             <h3 className="truncate text-lg font-semibold">{name}</h3>
@@ -130,22 +135,32 @@ export function SpaceDetailsPanel({
           </p>
         </div>
 
-        <div className="space-y-6 px-4 pb-6">
-          <AgentsSection projectId={projectId} space={space} editable={!!channel && editable} />
-          <div ref={peopleRef} className="scroll-mt-2">
-          <PeopleSection projectId={projectId} space={space} members={members.data?.members} onAdd={canAdd ? () => setAdding(true) : undefined} />
-          </div>
-          <TabsSection projectId={projectId} space={space} onOpenTab={onOpenTab} />
-          <RoutinesSection projectId={projectId} space={space} />
-          <ProactiveSection projectId={projectId} space={space} />
-          {onOpenSettings ? (
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={onOpenSettings}>
-              {t('allSettings')}
-            </Button>
-          ) : null}
-        </div>
+        {body ?? (
+          <Tabs value={tab} onValueChange={(value) => setTab(value as 'members' | 'routines')} className="gap-0">
+            {/* An agent's chat (a DM) has one agent and one person: no Members tab. */}
+            <TabsList type="underline" size="sm" className="border-border w-full shrink-0 justify-start gap-4 border-b px-5">
+              {dm ? null : (
+                <TabsTrigger value="members" className="w-fit flex-none">
+                  {t('members')}
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="routines" className="w-fit flex-none">
+                {t('routines')}
+              </TabsTrigger>
+            </TabsList>
+            {dm ? null : (
+              <TabsContent value="members" className="space-y-6 px-3 py-4">
+                <AgentsSection projectId={projectId} space={space} editable={!!channel && editable} />
+                <PeopleSection projectId={projectId} space={space} members={members.data?.members} onAdd={canAdd ? () => setAdding(true) : undefined} />
+              </TabsContent>
+            )}
+            <TabsContent value="routines" className="space-y-6 px-3 py-4">
+              <SpaceRoutines projectId={projectId} space={space} />
+              <ProactiveSection projectId={projectId} space={space} />
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
-      <p className="text-muted-foreground shrink-0 border-t px-5 py-3 text-xs text-pretty">{t('askHint')}</p>
       {channel ? (
         <AddChannelMembersDialog projectId={projectId} space={channel} open={adding} onOpenChange={setAdding} />
       ) : null}
@@ -363,41 +378,19 @@ function PeopleSection({
   );
 }
 
-/** The space's tabs after Chat; "Add tab" is the tab row's own menu. */
-function TabsSection({ projectId, space, onOpenTab }: { projectId: string; space: ProjectSpace; onOpenTab: (id: string) => void }) {
-  const t = useTranslations('spaces.panel');
-  const state = useSpaceTabs(projectId, space);
-  return (
-    <Section
-      title={t('tabs')}
-      add={state.canEdit ? <AddTabMenu projectId={projectId} space={space} state={state} onAdded={onOpenTab} label={t('addTab')} /> : null}
-    >
-      {state.tabs.map((tab) => {
-        const Icon = KIND_ICON[tab.kind];
-        return (
-          <li key={tab.id}>
-            <button
-              type="button"
-              onClick={() => onOpenTab(tab.id)}
-              className="hover:bg-hover focus-visible:ring-ring flex min-h-9 w-full items-center gap-2.5 rounded-md px-2 text-left outline-none focus-visible:ring-2"
-            >
-              <span className="text-muted-foreground flex size-7 shrink-0 items-center justify-center">
-                {Icon ? <Icon className="size-4" /> : null}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-sm">{tab.title}</span>
-            </button>
-          </li>
-        );
-      })}
-    </Section>
-  );
-}
-
 /**
  * The routines that post into this space (the project's triggers with this
- * `space_id`). A private channel takes none: the API refuses a trigger into it.
+ * `space_id`), and "Add routine". A private channel takes none: the API
+ * refuses a trigger into it. The agent settings tabs show the same list for
+ * the agent's chat.
  */
-function RoutinesSection({ projectId, space }: { projectId: string; space: ProjectSpace }) {
+export function SpaceRoutines({
+  projectId,
+  space,
+}: {
+  projectId: string;
+  space: Pick<ProjectSpace, 'space_id' | 'kind'> & Partial<Pick<ProjectSpace, 'visibility' | 'dm_agent_name'>>;
+}) {
   const t = useTranslations('spaces.panel');
   const queryClient = useQueryClient();
   const listing = useProjectTriggers(projectId);

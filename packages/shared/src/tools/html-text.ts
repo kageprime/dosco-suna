@@ -51,8 +51,10 @@ export function decodeHtmlEntitiesOnce(s: string): string {
       continue;
     }
 
-    const end = s.indexOf(';', index + 1);
-    if (end === -1 || end - index > 16) {
+    // Look at most 16 characters ahead: a scan to the end per `&` is quadratic.
+    const offset = s.slice(index + 1, index + 17).indexOf(';');
+    const end = index + 1 + offset;
+    if (offset === -1) {
       decoded += s[index];
       index += 1;
       continue;

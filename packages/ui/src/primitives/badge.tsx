@@ -12,7 +12,7 @@ const badgeVariants = cva(
         solid: 'bg-foreground/15 text-foreground ring-1 ring-inset ring-foreground/15',
         default: 'bg-foreground/10 text-foreground ring-1 ring-inset ring-foreground/10',
         secondary:
-          'bg-secondary/80 text-secondary-foreground ring-1 ring-inset ring-border/60 normal-case',
+          'bg-secondary/80 text-secondary-foreground ring-1 ring-inset ring-border normal-case',
         accent: 'bg-foreground/5 text-foreground ring-1 ring-inset ring-foreground/5',
         destructive: 'bg-destructive/10 text-destructive ring-1 ring-inset ring-destructive/10',
         success:

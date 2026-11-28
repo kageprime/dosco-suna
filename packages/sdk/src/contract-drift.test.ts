@@ -69,9 +69,6 @@ import type {
   SessionAuditAction,
   SessionOpenBundle,
   SessionPrompt,
-  SessionTranscript,
-  SessionTranscriptMessage,
-  SessionTranscriptSyncEnvelope,
   SessionTurn,
   SessionTurnEnded,
   SessionTurnFailure,
@@ -195,12 +192,6 @@ export function contractDrift(): void {
   fits<ProjectTriggerDryRunResult>(wire<C.TriggerDryRunResult>());
   noPhantom<NoPhantom<ProjectTriggerDryRunResult, C.TriggerDryRunResult>>();
 
-  fits<SessionTranscript>(wire<C.SessionTranscript>());
-  noPhantom<NoPhantom<SessionTranscript, C.SessionTranscript>>();
-  noPhantom<NoPhantom<SessionTranscriptMessage, C.SessionTranscriptMessage>>();
-  fits<SessionTranscriptSyncEnvelope>(wire<C.SessionTranscriptSyncEnvelope>());
-  noPhantom<NoPhantom<SessionTranscriptSyncEnvelope, C.SessionTranscriptSyncEnvelope>>();
-
   fits<SessionTurnStatus>(wire<C.SessionTurnStatus>());
   noPhantom<NoPhantom<SessionTurnStatus, C.SessionTurnStatus>>();
   noPhantom<NoPhantom<SessionTurn, C.SessionTurn>>();
@@ -212,6 +203,7 @@ export function contractDrift(): void {
   fits<CreateSessionPromptResult>(wire<C.CreateSessionPromptResult>());
   noPhantom<NoPhantom<CreateSessionPromptResult, C.CreateSessionPromptResult>>();
 
+  // The transcript leg is the pointer only (P8.3/P8.4): the v1 window is gone on both sides.
   fits<SessionOpenBundle>(wire<C.SessionSnapshot>());
   noPhantom<NoPhantom<SessionOpenBundle, C.SessionSnapshot>>();
   noPhantom<NoPhantom<SessionAuditAction, C.SessionAuditAction>>();

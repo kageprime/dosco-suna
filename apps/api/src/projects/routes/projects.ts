@@ -202,8 +202,9 @@ export function registerProjectsRoutes(): void {
       throw err;
     }
     // Only a person lists across accounts (`newWorkspaceCallerDenial`: a
-    // browser session or an unscoped PAT). Every other credential, and a
-    // request that names an account, lists one account.
+    // browser session, an unscoped PAT or an unbound consent OAuth token).
+    // Every other credential, and a request that names an account, lists one
+    // account.
     if (namesAccount || newWorkspaceCallerDenial(newWorkspaceCallerOf(c)) !== null) {
       return c.json(await listAccountProjects(c, scope));
     }

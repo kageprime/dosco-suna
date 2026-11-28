@@ -31,6 +31,13 @@ interface FeatureRow {
 }
 
 /**
+ * Box tokens that are no workspace flag: the server offers the feature or it does not, and no
+ * workspace admin can turn it on. Outside a box, the project row's `experimental[key]` says it.
+ * `chrome` graduated on 2026-11-24 (off on a self-hosted server).
+ */
+const SERVER_FEATURES: Record<string, string> = { chrome: 'Kortix in Chrome' };
+
+/**
  * The enabled flags of the project a command acts on: the box's list, else the
  * project's from the API within `timeoutMs`, else null (unknown). Reads
  * `--project` / `--host` from `argv` without consuming them. Never prompts.
@@ -54,8 +61,12 @@ export async function enabledFeatureFlags(
   const { auth } = resolveProjectAuth({ hostArg });
   if (!ref?.projectId || !auth?.token) return null;
   const read = clientFromAuth(auth)
-    .get<{ experimental_features?: FeatureRow[] }>(`/workspaces/${ref.projectId}`)
-    .then((project) => new Set((project.experimental_features ?? []).filter((r) => r.enabled).map((r) => r.key)))
+    .get<{ experimental?: Record<string, unknown>; experimental_features?: FeatureRow[] }>(`/workspaces/${ref.projectId}`)
+    .then((project) => {
+      const flags = new Set((project.experimental_features ?? []).filter((r) => r.enabled).map((r) => r.key));
+      for (const key of Object.keys(SERVER_FEATURES)) if (project.experimental?.[key] === true) flags.add(key);
+      return flags;
+    })
     .catch(() => null);
   const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), opts.timeoutMs ?? 10_000).unref?.());
   return Promise.race([read, timeout]);
@@ -69,8 +80,11 @@ export function featureShown(flag: string | null | undefined, flags: Set<string>
 /** A box token that shows a flagged item too: `goal_mode` (a chat binds its own goal) needs `kortix goals` without the `goals` flag. */
 const ALSO_SHOWN_BY: Record<string, string[]> = { goals: ['goal_mode'] };
 
+
 /** The one line a hidden item prints instead of itself. */
 export function featureOffMessage(what: string, flag: string, flags: Set<string> | null): string {
+  const server = SERVER_FEATURES[flag];
+  if (server && flags !== null) return `${what} is not available: this Kortix server does not offer ${server}.`;
   if (flags === null) {
     return `${what} is behind the \`${flag}\` feature flag, and this workspace's flags could not be read. Link a workspace (kortix workspaces use) or pass --workspace <id>.`;
   }

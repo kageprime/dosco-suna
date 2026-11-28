@@ -84,7 +84,7 @@ export function ManifestCopyBlock({
       )}
     >
       {/* Filename left, copy opposite: the row reads [what] … [action]. */}
-      <div className="border-border/40 flex items-center justify-between gap-2 border-b px-2 py-1">
+      <div className="border-border flex items-center justify-between gap-2 border-b px-2 py-1">
         <span className="text-muted-foreground truncate font-mono text-xs">{filename}</span>
         {ready ? (
           // No `Hint` here on purpose. It renders `TooltipTrigger asChild`,

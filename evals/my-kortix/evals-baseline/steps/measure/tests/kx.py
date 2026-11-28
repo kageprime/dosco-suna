@@ -159,7 +159,7 @@ def drive_get(path, dest):
     return os.path.exists(dest) and os.path.getsize(dest) > 0
 
 
-ASK = re.compile(r'\?\s*$|\b(shall I|should I|want me to|do you want|ok to|okay to|go ahead\?|confirm|set it up\?|proceed\?)', re.I | re.M)
+ASK = re.compile(r'\?\s*$|\b(shall I|should I|want me to|do you want|ok to|okay to|go ahead\?|confirm|set it up\?|proceed\?|say (the word|yes|go)|give me the (go|ok)|once you (say|confirm|approve)|with your (yes|ok|go-ahead))', re.I | re.M)
 
 
 def asked_person():

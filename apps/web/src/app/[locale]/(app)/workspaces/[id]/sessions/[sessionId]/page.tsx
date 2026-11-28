@@ -1544,7 +1544,7 @@ function InlineSessionError({
             detail || action ? (
               <div className="flex max-w-sm flex-col items-center gap-3">
                 {detail ? (
-                  <code className="border-border/60 bg-muted/40 text-muted-foreground max-w-full rounded-md border px-2 py-1 font-mono text-xs leading-relaxed break-all">
+                  <code className="border-border bg-muted/40 text-muted-foreground max-w-full rounded-md border px-2 py-1 font-mono text-xs leading-relaxed break-all">
                     {detail}
                   </code>
                 ) : null}

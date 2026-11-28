@@ -14,19 +14,20 @@
  * SHAPE, so a stopped turn painted as running (`no-transcript-mirror.test.ts`
  * keeps it out of the live path). Version 4 drops its `sessions` rows and
  * creates `saved-copies`, a plain key-value store of the saved-copy store's
- * strings. Every function the mirror published stays, deprecated:
+ * strings. Two functions the mirror published stay, deprecated:
  *
  *  - `clearSessionIDBCache` empties `saved-copies` (sign-out, user switch);
  *  - `deleteSessionFromIDB` drops one session's saved copy when given its
- *    Kortix session scope;
- *  - `saveSessionToIDB` / `loadSessionFromIDB` / `flushIDBWrites` /
- *    `loadAllSessionIdsFromIDB` / `pruneIDBCache` keep their signatures and
- *    store nothing.
+ *    Kortix session scope.
+ *
+ * The mirror's other functions (`saveSessionToIDB`, `loadSessionFromIDB`,
+ * `flushIDBWrites`, `loadAllSessionIdsFromIDB`, `pruneIDBCache`) stored nothing
+ * and were removed with the v1 transcript.
  */
 
 import type { KeyValueStorage } from '../../core/cache/persisted-query-cache';
 import { currentSavedCopyStore } from '../../core/session-sync/saved-copy-store';
-import { parseKortixSessionScope } from '../session-sync/server-transcript-mirror';
+import { parseKortixSessionScope } from '../session-sync/session-scope';
 
 const DB_NAME = 'kortix-session-cache';
 /** 4 — drops the retired mirror's `sessions` store and creates `saved-copies`. */
@@ -121,32 +122,6 @@ export function indexedDBKeyValueStorage(): KeyValueStorage | null {
   };
 }
 
-/** @deprecated The transcript mirror is retired. Stores nothing. Removed in the next major. */
-export async function saveSessionToIDB(
-  _sessionId: string,
-  _messages: any[],
-  _parts: Record<string, any[]>,
-  _kortixSessionScope?: string,
-): Promise<void> {}
-
-/** @deprecated The transcript mirror is retired. Removed in the next major. */
-export function flushIDBWrites(): Promise<void> {
-  return Promise.resolve();
-}
-
-/** @deprecated The transcript mirror is retired. Always `null`. Removed in the next major. */
-export async function loadSessionFromIDB(
-  _sessionId: string,
-  _kortixSessionScope?: string,
-): Promise<{ messages: any[]; parts: Record<string, any[]> } | null> {
-  return null;
-}
-
-/** @deprecated The transcript mirror is retired. Always empty. Removed in the next major. */
-export async function loadAllSessionIdsFromIDB(): Promise<string[]> {
-  return [];
-}
-
 /**
  * @deprecated Delete the session with `deleteProjectSession`, which drops its
  * saved copy. This drops the saved copy of the Kortix session `kortixSessionScope`
@@ -169,6 +144,3 @@ export async function clearSessionIDBCache(): Promise<void> {
     // Nothing kept, or nothing reachable.
   }
 }
-
-/** @deprecated The saved-copy store bounds itself. Does nothing. Removed in the next major. */
-export async function pruneIDBCache(): Promise<void> {}

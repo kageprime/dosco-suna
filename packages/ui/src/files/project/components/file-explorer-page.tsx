@@ -298,7 +298,7 @@ export function FileExplorerPage({ embedded = false }: { embedded?: boolean } = 
       {searchEnabled && isSearchOpen && <FileSearch />}
 
       {historyPopoverPath && (
-        <div className="bg-popover border-border animate-in slide-in-from-bottom-4 fade-in-0 fixed right-4 bottom-4 z-50 overflow-hidden rounded-md border shadow-2xl duration-200">
+        <div className="bg-popover border-border animate-in slide-in-from-bottom-4 fade-in-0 fixed right-4 bottom-4 z-50 overflow-hidden rounded-md border shadow-md duration-200">
           <FileHistoryPopoverContent
             filePath={historyPopoverPath}
             onClose={() => setHistoryPopoverPath(null)}

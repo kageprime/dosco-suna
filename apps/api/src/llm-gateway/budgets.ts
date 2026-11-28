@@ -305,10 +305,21 @@ function activeReservedUsd(key: string): number {
   return active.length * RESERVATION_USD;
 }
 
-function addReservation(key: string): void {
+function addReservation(key: string): Reservation {
   const list = reservationsByKey.get(key) ?? [];
-  list.push({ expiresAt: Date.now() + RESERVATION_TTL_MS });
+  const reservation = { expiresAt: Date.now() + RESERVATION_TTL_MS };
+  list.push(reservation);
   reservationsByKey.set(key, list);
+  return reservation;
+}
+
+/** Drop exactly this reservation: never another in-flight request's on the same key. */
+function dropReservation(key: string, reservation: Reservation): void {
+  const list = reservationsByKey.get(key);
+  if (!list) return;
+  const rest = list.filter((r) => r !== reservation);
+  if (rest.length === 0) reservationsByKey.delete(key);
+  else reservationsByKey.set(key, rest);
 }
 
 /**
@@ -374,6 +385,9 @@ export async function checkBudget(
   if (applicable.length === 0) return { exceeded: false };
   // Every budget of this action in one statement.
   const spends = await budgetSpends(principal.projectId, applicable, now);
+  // What this check reserved: a refusal returns all of it, so a refused
+  // request never holds headroom another member's request needs.
+  const taken: Array<[string, Reservation]> = [];
   for (const [i, b] of applicable.entries()) {
     const subject = b.scope === 'member' ? b.subjectUserId : null;
     const spent = spends[i]?.spentUsd ?? 0;
@@ -398,6 +412,7 @@ export async function checkBudget(
       const key = reservationKey(principal.projectId, subject);
       const effectiveSpent = spent + activeReservedUsd(key);
       if (effectiveSpent >= limit) {
+        for (const [takenKey, reservation] of taken) dropReservation(takenKey, reservation);
         const who = b.scope === 'member' ? 'Your' : "This project's";
         return {
           exceeded: true,
@@ -408,7 +423,7 @@ export async function checkBudget(
       // Reserve for THIS admission before returning — the next concurrent
       // check (even one that started a moment ago and hasn't settled) will
       // see it.
-      addReservation(key);
+      taken.push([key, addReservation(key)]);
       continue;
     }
 

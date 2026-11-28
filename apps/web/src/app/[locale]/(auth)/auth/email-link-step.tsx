@@ -10,9 +10,8 @@ import {
   StepHeader,
 } from '@kortix/ui/internal/auth/auth-primitives';
 import Loading from '@kortix/ui/loading';
-import { m, useReducedMotion } from 'motion/react';
+import { m } from 'motion/react';
 
-const EASE = [0.23, 1, 0.32, 1] as const;
 
 export function EmailLinkStep({
   sentEmail,
@@ -67,12 +66,8 @@ export function EmailLinkStep({
         ? 'link.closedDescription'
         : 'link.description';
   const confirmed = mode === 'signup';
-  const prefersReducedMotion = useReducedMotion();
-  const rise = (delay = 0) => ({
-    initial: { opacity: 0, y: prefersReducedMotion ? 0 : 8 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.3, delay, ease: EASE },
-  });
+  // The form column holds still; each step paints in place.
+  const rise = (_delay = 0) => ({ initial: false as const });
   return (
     <>
       <m.div {...rise(0)}>

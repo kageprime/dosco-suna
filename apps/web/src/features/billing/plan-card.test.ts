@@ -298,6 +298,6 @@ describe('recommendedPlanUsd', () => {
   });
 
   test('the top tier stays the top tier', () => {
-    expect(recommendedPlanUsd(subscriber(50_000, 80_000))).toBe(50_000);
+    expect(recommendedPlanUsd(subscriber(10_000, 80_000))).toBe(10_000);
   });
 });

@@ -964,7 +964,7 @@ flow(
     const pushOnly = { kortix_permissions: ['project.read', 'project.write', 'project.gitops.read', 'project.gitops.push'] };
     const mergeOnly = { kortix_permissions: ['project.read', 'project.write', 'project.gitops.read', 'project.gitops.push', 'project.gitops.merge', 'project.gitops.ref.any'] };
     // Every permission a default-branch push asks for, but not everything a grant can confer.
-    const pushAll = { kortix_permissions: ['project.read', 'project.write', 'project.gitops.read', 'project.gitops.push', 'project.gitops.ref.any', 'project.agent.write', 'project.trigger.create', 'project.trigger.update', 'project.trigger.delete', 'project.customize.write'] };
+    const pushAll = { kortix_permissions: ['project.read', 'project.write', 'project.gitops.read', 'project.gitops.push', 'project.gitops.ref.any', 'project.agent.write', 'project.trigger.create', 'project.trigger.update', 'project.trigger.delete', 'project.connector.write', 'project.app.write', 'project.skill.write', 'project.command.write', 'project.sandbox.write', 'project.secret.write', 'project.settings.write', 'project.customize.write'] };
     const agents = (courierSecrets: string[]) => ({
       builder: { kortix_permissions: [...base.kortix_permissions] },
       drafter: { kortix_permissions: [...pushOnly.kortix_permissions] },

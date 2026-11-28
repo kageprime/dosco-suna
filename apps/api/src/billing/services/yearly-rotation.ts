@@ -1,5 +1,5 @@
 import { getYearlyAccountsDueForRotation, updateCreditAccount } from '../repositories/credit-accounts';
-import { canonicalTier, getTier, planMonthlyUsd } from './tiers';
+import { canonicalTier, getTier, planCreditsUsd, planMonthlyUsd } from './tiers';
 import { rotateDueAccounts } from './rotation-batch';
 import { wallet } from '../wallet';
 import { calculateNextCreditGrant } from './credit-grant-schedule';
@@ -26,10 +26,10 @@ export async function processYearlyCreditRotation(): Promise<{
     logPrefix: 'YearlyRotation',
     errorLabel: 'yearly',
     grant: async (account, now, key) => {
-      // A paid plan carries its monthly amount on the row; anything else
-      // grants its fixed allowance.
+      // A paid plan carries its monthly amount on the row and grants it plus
+      // its volume bonus; anything else grants its fixed allowance.
       const plan = canonicalTier(account.tier);
-      const credits = plan === 'credits' ? planMonthlyUsd(account) : getTier(account.tier ?? 'free').monthlyCredits;
+      const credits = plan === 'credits' ? planCreditsUsd(planMonthlyUsd(account)) : getTier(account.tier ?? 'free').monthlyCredits;
 
       if (credits > 0) {
         await wallet.reset({

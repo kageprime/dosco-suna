@@ -61,16 +61,14 @@ export type OkResponse = z.infer<typeof OkResponseSchema>;
  */
 export const FeatureFlagMapSchema = z.object({
   reminders: z.boolean(),
-  secrets_egress: z.boolean(),
   us_region: z.boolean(),
   event_triggers: z.boolean(),
+  channels: z.boolean(),
   chat: z.boolean(),
   shared_drives: z.boolean(),
   goals: z.boolean(),
-  workspace_volume: z.boolean(),
   email_channel: z.boolean(),
   session_groups: z.boolean(),
-  chrome: z.boolean(),
   agent_teams: z.boolean(),
   voice_call: z.boolean(),
   chat_input: z.boolean(),
@@ -80,6 +78,9 @@ export const FeatureFlagMapSchema = z.object({
   evals: z.boolean(),
   desktop_tabs: z.boolean(),
   calendar: z.boolean(),
+  review_swipe: z.boolean(),
+  platinum_cache: z.boolean(),
+  sidebar_rail: z.boolean(),
 });
 export type FeatureFlagMap = z.infer<typeof FeatureFlagMapSchema>;
 
@@ -221,6 +222,8 @@ export const ProjectSchema = z.object({
     notification_center: z.literal(true).optional(),
     /** Not a flag since 2026-11-12 (named provider keys, sharing and session key selection are on for every project); always `true` for older SDK, web, CLI and terminal UI clients. */
     pooled_provider_secrets: z.literal(true).optional(),
+    /** Not a flag since 2026-11-23 (every project can set a secret's exposure to enforced: a handle in the sandbox, the value substituted only on approved hosts); always `true` for older SDK, web and CLI clients. */
+    secrets_egress: z.literal(true).optional(),
     /** Not a flag since 2026-11-03 (warm sessions were removed); always `false` for older SDK, web and mobile clients, which pre-create a session only while it is true. */
     warm_sessions: z.literal(false).optional(),
     /** Not a flag since 2026-11-02 (every project has a Drive); `true` wherever the platform stores a Drive (Platinum), for older SDK, CLI and hosts. */
@@ -231,6 +234,10 @@ export const ProjectSchema = z.object({
     artifact_comments: z.literal(false).optional(),
     /** Not a flag since 2026-11-02 (every project has a Drive); `true` wherever the platform stores a Drive (Platinum), for older SDK, CLI and hosts. */
     drives: z.boolean().optional(),
+    /** Not a flag since 2026-11-23 (stateless sandboxes: every new Platinum session keeps /workspace on its own volume); `true` wherever new sessions get that volume (Platinum, and the deployment did not set `KORTIX_WORKSPACE_VOLUMES=off`), for older SDK, web and CLI clients. */
+    workspace_volume: z.boolean().optional(),
+    /** Not a flag since 2026-11-24 (Kortix in Chrome is on for every project); `true` wherever the API serves /v1/chrome (`KORTIX_CHROME_ENABLED`), for older SDK, web and CLI clients. */
+    chrome: z.boolean().optional(),
     /** @deprecated Merged into `chat` (2026-11); equal to `chat`, for released TUI, mobile and CLI builds that show Channels only while it is true. */
     project_channels: z.boolean().optional(),
   }),
@@ -1494,6 +1501,33 @@ export const SpaceMembersAddInputSchema = z
   .strict();
 export type SpaceMembersAddInput = z.infer<typeof SpaceMembersAddInputSchema>;
 
+/**
+ * One line of a channel's activity, drawn in its timeline between messages.
+ * - `member_joined`: a person joined (they added themself).
+ * - `member_added`: `actor` added a person.
+ * - `agent_added` / `agent_removed`: `actor` changed the channel's agents.
+ */
+export const SpaceActivitySchema = z
+  .object({
+    /** Stable across reads: `member:<user_id>` or the agent change's id. */
+    id: z.string(),
+    kind: z.enum(['member_joined', 'member_added', 'agent_added', 'agent_removed']),
+    /** Who it is about. A person: `id` is their user id, `name` their display name. An agent: `id` and `name` are its name in kortix.yaml. */
+    subject: z.object({ kind: z.enum(['person', 'agent']), id: z.string(), name: z.string() }).strict(),
+    /** Who did it; null for a join and when it is not known. */
+    actor: z.object({ user_id: z.string(), name: z.string() }).strict().nullable(),
+    at: z.string(),
+  })
+  .strict();
+export type SpaceActivity = z.infer<typeof SpaceActivitySchema>;
+
+/** `GET /projects/:id/spaces/:spaceId/activity`: newest first, at most {@link SPACE_ACTIVITY_LIMIT}. */
+export const SpaceActivityListSchema = z.object({ activity: z.array(SpaceActivitySchema) }).strict();
+export type SpaceActivityList = z.infer<typeof SpaceActivityListSchema>;
+
+/** At most this many lines in one activity read. */
+export const SPACE_ACTIVITY_LIMIT = 200;
+
 /** At most this many agents in one channel's agent list. */
 export const SPACE_AGENTS_MAX = 50;
 
@@ -1605,6 +1639,41 @@ export type SpaceUpdateInput = z.infer<typeof SpaceUpdateInputSchema>;
 
 export const SpaceDmInputSchema = z.object({ agent_name: z.string().trim().min(1).max(200) }).strict();
 export type SpaceDmInput = z.infer<typeof SpaceDmInputSchema>;
+
+/**
+ * An agent directory entry (flag `channels`): an agent of the workspace a
+ * person can message. An entry is an agent from kortix.yaml, not a new record. `chat_space_id` is the
+ * caller's own chat with it (their DM space), null until they first open it
+ * (`POST /spaces/dm`).
+ */
+export const AgentDirectoryEntrySchema = z
+  .object({
+    /** The agent name in kortix.yaml. */
+    name: z.string(),
+    /** The name a person reads. My Kortix for the built-in agent, else the agent name. */
+    display_name: z.string(),
+    /** The agent's model (`provider/model`), or null for the project default. */
+    model: z.string().nullable(),
+    /** `active`: it answers. `paused`: messages reach it, but no schedule or event starts it. `off`: kortix.yaml disables it or its block has an error. */
+    status: z.enum(['active', 'paused', 'off']),
+    /** The project's `default_agent`. */
+    is_default: z.boolean(),
+    /** My Kortix, the built-in agent. */
+    builtin: z.boolean(),
+    chat_space_id: z.string().nullable(),
+  })
+  .strict();
+export type AgentDirectoryEntry = z.infer<typeof AgentDirectoryEntrySchema>;
+
+export const AgentDirectorySchema = z.object({ agents: z.array(AgentDirectoryEntrySchema) }).strict();
+
+export const AgentPauseInputSchema = z.object({ paused: z.boolean() }).strict();
+export type AgentPauseInput = z.infer<typeof AgentPauseInputSchema>;
+
+/** The agent after a pause or resume, and how many of its running tasks the pause stopped (0 on resume). */
+export const AgentPauseResultSchema = z.object({ agent: AgentDirectoryEntrySchema, stopped_sessions: z.number().int().nonnegative() }).strict();
+export type AgentPauseResult = z.infer<typeof AgentPauseResultSchema>;
+export type AgentDirectory = z.infer<typeof AgentDirectorySchema>;
 
 /** A link pinned to a channel: `/projects/:id/spaces/:spaceId/links`. */
 export const SpaceLinkSchema = z
@@ -2328,89 +2397,10 @@ export const TriggerReplayRequestSchema = z.object({
 });
 export type TriggerReplayRequest = z.infer<typeof TriggerReplayRequestSchema>;
 
-// ─── Session reads: transcript, turn, prompt queue, snapshot ────────────────
+// ─── Session reads: turn, prompt queue, snapshot ────────────────────────────
 // The wire shapes of the routes a session view reads on every open. apps/api
 // builds them through these types; the SDK's own interfaces are checked
 // against them by `packages/sdk/src/contract-drift.test.ts`.
-
-/** Which source answered a transcript read. `none` is the only value that
- *  accompanies `available: false`; `live` and `mirror` are never merged. */
-export const SessionTranscriptSourceSchema = z.enum(['live', 'mirror', 'none']);
-export type SessionTranscriptSource = z.infer<typeof SessionTranscriptSourceSchema>;
-
-export const SessionTranscriptToolCallSchema = z.object({
-  tool: z.string(),
-  status: z.string().nullable(),
-  /** `detail=full` only: the arguments as JSON, cut to the read's `chars` bound. */
-  input: z.string().optional(),
-  /** `detail=full` only: what the call returned (or its error), cut the same way. */
-  output: z.string().optional(),
-});
-export type SessionTranscriptToolCall = z.infer<typeof SessionTranscriptToolCallSchema>;
-
-/** One compact transcript row: text and tool names, no tool payloads. */
-export const SessionTranscriptMessageSchema = z.object({
-  /** The runtime message id, verbatim. */
-  id: z.string().nullable(),
-  /** Which user message a step was parented on. */
-  parent_id: z.string().nullable(),
-  role: z.string(),
-  created: z.string().nullable(),
-  completed: z.string().nullable(),
-  text: z.string(),
-  tools: z.array(SessionTranscriptToolCallSchema),
-  files: z.array(z.object({ filename: z.string().nullable(), mime: z.string().nullable() })),
-  reasoning_omitted: z.boolean(),
-  error: z.object({ name: z.string().optional(), message: z.string().optional() }).nullable(),
-});
-export type SessionTranscriptMessage = z.infer<typeof SessionTranscriptMessageSchema>;
-
-const SessionTranscriptHeadShape = {
-  available: z.boolean(),
-  /** Why this is not a live read. */
-  reason: z.string().nullable(),
-  source: SessionTranscriptSourceSchema,
-  /** The window contains the session's FIRST message. */
-  complete: z.boolean(),
-  /** When the mirror was last written. Null for a live read. */
-  captured_at: z.string().nullable(),
-  runtime_session_id: z.string().nullable(),
-  /** Messages in THIS window. */
-  message_count: z.number(),
-};
-
-/** `GET .../transcript` (default `shape=compact`). */
-export const SessionTranscriptSchema = z.object({
-  ...SessionTranscriptHeadShape,
-  messages: z.array(SessionTranscriptMessageSchema),
-});
-export type SessionTranscript = z.infer<typeof SessionTranscriptSchema>;
-
-/** One mirrored message: the runtime's envelope verbatim, parts 1:1 minus
- *  attachment bytes. Its inner shape is `kortix.transcript.v1`
- *  (`@kortix/api-contract/transcript`). */
-export const SessionTranscriptSyncMessageSchema = z.object({
-  info: JsonObjectSchema,
-  parts: z.array(JsonObjectSchema),
-});
-export type SessionTranscriptSyncMessage = z.infer<typeof SessionTranscriptSyncMessageSchema>;
-
-/** `GET .../transcript?shape=sync`: the durable mirror, one window. */
-export const SessionTranscriptSyncEnvelopeSchema = z.object({
-  ...SessionTranscriptHeadShape,
-  /** Messages the mirror holds for this session, across every window. */
-  total: z.number(),
-  /** Pass as `before` to read the window older than this one. */
-  next_cursor: z.string().nullable(),
-  messages: z.array(SessionTranscriptSyncMessageSchema),
-});
-export type SessionTranscriptSyncEnvelope = z.infer<typeof SessionTranscriptSyncEnvelopeSchema>;
-
-/** Either shape of `GET .../transcript`, chosen by `?shape=`. */
-export const SessionTranscriptReadSchema = z.union([
-  SessionTranscriptSchema,
-  SessionTranscriptSyncEnvelopeSchema,
-]);
 
 /** `delivering`: minted, not yet confirmed by the runtime. `active`: accepted. */
 export const SessionTurnStateSchema = z.enum(['delivering', 'active']);
@@ -2632,14 +2622,9 @@ export const SessionSnapshotSchema = z.object({
     z.object({ known: z.literal(true), prompts: z.array(SessionPromptSchema), held: z.boolean() }),
     SessionSnapshotUnknownSchema,
   ]),
-  transcript: z.union([
-    z.object({ known: z.literal(true), requested: z.literal(false) }),
-    SessionTranscriptSyncEnvelopeSchema.extend({
-      known: z.literal(true),
-      requested: z.literal(true),
-    }),
-    SessionSnapshotUnknownSchema,
-  ]),
+  /** Pointer only since session-log plan P8.3 (the v1 window is gone): the saved
+   *  history is `log`, the first page of `GET …/log`. Kept so an older client still parses. */
+  transcript: z.object({ known: z.literal(true), requested: z.literal(false) }),
   config: z.object({
     known: z.literal(true),
     base_ref: z.string().nullable(),
@@ -2799,6 +2784,9 @@ export const SecretConsumerSchema = z.enum([
   'git_proxy',
   'http_broker',
   'network',
+  // A website login: `{ username, password }` that the sandbox browser fills
+  // through `POST /projects/:id/browser-logins/resolve`. Never in the env.
+  'browser',
 ]);
 export type SecretConsumer = z.infer<typeof SecretConsumerSchema>;
 

@@ -11,5 +11,6 @@ export function newWorkspaceCallerOf(c: Context): NewWorkspaceCaller {
     // A browser JWT's `sessionId` is its Supabase login session, not a
     // Kortix session (middleware/caller-session.ts): never a scoped credential.
     scopedCredential: Boolean(c.get('tokenProjectId')) || isProjectSessionPrincipal(c),
+    oauthAppViewer: Boolean(c.get('oauthAppId')),
   };
 }

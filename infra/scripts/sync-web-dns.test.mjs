@@ -2,39 +2,22 @@ import { describe, expect, test } from 'bun:test';
 import { syncWebDns, webDnsRecord } from './sync-web-dns.mjs';
 
 describe('webDnsRecord', () => {
-  test('renders the canonical Dev host and isolated ECS hosts elsewhere', () => {
-    const targets = {
-      dev: 'kortix-dev-web-alb-123.us-west-2.elb.amazonaws.com',
-      staging: 'kortix-staging-web-alb-123.us-west-2.elb.amazonaws.com',
-      prod: 'kortix-prod-web-alb-123.eu-west-2.elb.amazonaws.com',
-    };
-    const expectedHosts = {
-      dev: 'dev.kortix.com',
-      staging: 'staging-fe-ecs.kortix.com',
-      prod: 'prod-fe-ecs.kortix.com',
-    };
+  test('renders the canonical Dev host', () => {
+    const target = 'kortix-dev-web-alb-123.us-east-2.elb.amazonaws.com';
+    expect(webDnsRecord('dev', target)).toMatchObject({
+      name: 'dev.kortix.com',
+      content: target,
+      proxied: true,
+    });
+  });
 
-    for (const environment of ['dev', 'staging', 'prod']) {
-      expect(webDnsRecord(environment, targets[environment])).toMatchObject({
-        name: expectedHosts[environment],
-        content: targets[environment],
-        proxied: true,
-      });
+  test('rejects every environment except dev, and non-ALB targets', () => {
+    const target = 'kortix-dev-web-alb-123.us-east-2.elb.amazonaws.com';
+    // Staging and prod serve the frontend from Vercel: no ECS hostname exists.
+    for (const environment of ['preview', 'staging', 'prod']) {
+      expect(() => webDnsRecord(environment, target)).toThrow('environment must be dev');
     }
-  });
-
-  test('rejects unknown environments and non-ALB targets', () => {
-    expect(() => webDnsRecord('preview', 'example.com')).toThrow(
-      'environment must be dev, staging, or prod',
-    );
     expect(() => webDnsRecord('dev', 'example.com')).toThrow('target must be an AWS ELB hostname');
-  });
-
-  test('selects canonical Dev only and preserves isolated staging and prod hosts', () => {
-    const target = 'kortix-dev-web-alb-123.us-west-2.elb.amazonaws.com';
-    expect(webDnsRecord('dev', target).name).toBe('dev.kortix.com');
-    expect(webDnsRecord('staging', target).name).toBe('staging-fe-ecs.kortix.com');
-    expect(webDnsRecord('prod', target).name).toBe('prod-fe-ecs.kortix.com');
   });
 
   test('converts the existing canonical Vercel A record to the ECS CNAME in place', async () => {

@@ -29,7 +29,7 @@ export interface DefinitionListProps {
 
 export function DefinitionList({ dividers, className, children }: DefinitionListProps) {
   return (
-    <dl className={cn(dividers && 'divide-border border-border/60 divide-y border-y', className)}>
+    <dl className={cn(dividers && 'divide-border border-border divide-y border-y', className)}>
       {children}
     </dl>
   );

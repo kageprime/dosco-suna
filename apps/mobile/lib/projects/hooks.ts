@@ -148,15 +148,12 @@ export const projectKeys = {
    */
   projectSession: (projectId: string | null | undefined, sessionId: string | null | undefined) =>
     ['project-sessions', projectId, 'session', sessionId] as const,
-  /** A session's public shares (KRTX-248: the transcript link). */
   /** Under `projectSessions`, so a sharing save (which invalidates that key) refetches it. */
   sessionParticipants: (projectId: string | null | undefined, sessionId: string | null | undefined) =>
     ['project-sessions', projectId, 'participants', sessionId] as const,
   /** Who wrote each message; under `projectSessions` like `sessionParticipants`. */
   sessionMessageAuthors: (projectId: string | null | undefined, sessionId: string | null | undefined) =>
     ['project-sessions', projectId, 'message-authors', sessionId] as const,
-  sessionPublicShares: (projectId: string | null | undefined, sessionId: string | null | undefined) =>
-    ['session-public-shares', projectId, sessionId] as const,
   connectors: (projectId: string | null | undefined) => ['project-connectors', projectId] as const,
   secrets: (projectId: string | null | undefined) => ['project-secrets', projectId] as const,
   slackInstall: (projectId: string | null | undefined) => ['slack-install', projectId] as const,

@@ -7,7 +7,7 @@ import { useTranslations } from '../../i18n';
 import { agentDisplayName } from '../../internal/components/agent-mark';
 import { useSessionIds } from '../../providers/session-ids';
 import { SubagentDialog } from '../agents/subagent-view';
-import { AgentFace, AgentRowScope, AgentStatus, AgentTrigger } from '../agents/agent-surface';
+import { AgentRowScope, AgentStatus, AgentTrigger } from '../agents/agent-surface';
 import { BasicTool } from '../tool/shared/infrastructure';
 import { firstLine, type SubagentNotice } from './subagent-notice';
 
@@ -30,6 +30,8 @@ export const NOTICE_GLYPH: Record<SubagentNotice['status'], 'done' | 'failed' | 
 
 /** A first line that only says it is done repeats the state word. */
 const ONLY_DONE = /^(done|finished|completed?|all done|ok(ay)?)[.!]*$/i;
+/** A sandbox path in a one-line summary reads as its file name: `/workspace/out/review.md` → `review.md`. */
+const SANDBOX_PATH = /\/workspace\/(?:[\w.-]+\/)*([\w.-]+)/g;
 
 /** Who the notice is from: the handle its parent gave it, else the kind of agent, else the task. */
 function useNoticeName(notice: SubagentNotice): { name: string; face: string } {
@@ -57,7 +59,7 @@ export function SubagentNoticeRow({ notice }: { notice: SubagentNotice; defaultO
   const [viewing, setViewing] = useState(false);
   const failed = notice.status === 'failed';
   const result = readableReport(notice.result);
-  const first = firstLine(result);
+  const first = firstLine(result)?.replace(SANDBOX_PATH, '$1');
   const subtitle = notice.ownedTasks
     ? t('ownsTasks', { tasks: notice.ownedTasks })
     : failed
@@ -70,8 +72,7 @@ export function SubagentNoticeRow({ notice }: { notice: SubagentNotice; defaultO
     <div data-testid="subagent-notice" data-notice-status={notice.status} data-child-session={notice.sessionId} className="min-w-0">
       <AgentRowScope>
         <BasicTool
-          icon={<AgentFace handle={face} />}
-          trigger={<AgentTrigger title={name} subtitle={subtitle} />}
+          trigger={<AgentTrigger handle={face} title={name} subtitle={subtitle} sessionId={notice.sessionId} />}
           triggerAction={<AgentStatus status={NOTICE_GLYPH[notice.status]} label={t(`state.${notice.status}`)} opens />}
           onClick={() => setViewing(true)}
         />

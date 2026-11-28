@@ -14,6 +14,7 @@ interface Ask {
   surface_session_id: string;
   request_id: string;
   title: string;
+  agent_name: string | null;
 }
 
 async function team(ctx: FlowContext) {
@@ -83,6 +84,9 @@ flow(
         if (ask!.kind !== 'permission' || ask!.title !== 'bash: git push origin main' || ask!.surface_session_id !== watched.sessionId) {
           throw new Error(JSON.stringify(ask));
         }
+        // The bot that asks: the agent of the surface session.
+        const { rows } = await db.query('SELECT agent_name FROM kortix.project_sessions WHERE session_id = $1', [watched.sessionId]);
+        if (ask!.agent_name !== (rows[0]?.agent_name ?? null)) throw new Error(`agent_name ${ask!.agent_name}, want ${rows[0]?.agent_name}`);
         permissionAskId = ask!.id;
         const onSession = await asksOf(launcher, { surface_session_id: watched.sessionId });
         if (onSession.map((a) => a.id).join() !== permissionAskId) throw new Error(JSON.stringify(onSession));

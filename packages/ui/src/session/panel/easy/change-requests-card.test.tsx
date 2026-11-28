@@ -36,14 +36,13 @@ describe('ChangeRequestsCard', () => {
     expect(renderToStaticMarkup(<ChangeRequestsCard requests={[]} onOpen={noop} onJump={jump} />)).toBe('');
   });
 
-  test('newest first, with references, ages and the header count', () => {
+  test('newest first, with references and ages', () => {
     const html = renderToStaticMarkup(<ChangeRequestsCard requests={[request(1), request(3), request(2)]} onOpen={noop} onJump={jump} />);
     expect(html.indexOf('Proposal 3')).toBeLessThan(html.indexOf('Proposal 2'));
     expect(html.indexOf('Proposal 2')).toBeLessThan(html.indexOf('Proposal 1'));
     expect(html).toContain('Change requests');
     expect(html).toContain('#3');
     expect(html).toContain('<time');
-    expect(html).toContain('>3</span>');
   });
 
   test('open, merged, closed and superseded requests show their current status', () => {

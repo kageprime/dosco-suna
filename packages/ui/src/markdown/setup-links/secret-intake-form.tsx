@@ -11,8 +11,10 @@ import { useTranslations } from '../../i18n';
 import { cn } from '../../lib/utils';
 import {
   getSecretSetupLink,
+  submitBrowserLoginSetupLink,
   submitSecretSetupLink,
   type SecretSetupLinkInfo,
+  type SecretSetupLinkLogin,
 } from '@kortix/sdk';
 import {
   ArrowUpRightIcon,
@@ -22,7 +24,7 @@ import {
   WarningCircleIcon,
   type Icon,
 } from '@phosphor-icons/react';
-import { Fragment, useEffect, useState, type ReactElement } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactElement } from 'react';
 import {
   classifySetupLinkError,
   describeLinkExpiry,
@@ -107,9 +109,12 @@ export function SecretIntakeForm({
   token,
   onDone,
   compact,
+  onLinkInfo,
 }: {
   token: string;
   onDone?: () => void;
+  /** Called once with what the link asks for, so a host can title its dialog. */
+  onLinkInfo?: (info: SecretSetupLinkInfo) => void;
   /**
    * The host already states the encryption promise (the in-chat modal header),
    * so the footnote keeps only the expiry.
@@ -118,11 +123,16 @@ export function SecretIntakeForm({
 }) {
   const tI18nHardcoded = useTranslations('hardcodedUi');
   const base = setupLinkApiBase();
+  const onLinkInfoRef = useRef(onLinkInfo);
+  onLinkInfoRef.current = onLinkInfo;
   const [phase, setPhase] = useState<Phase>('loading');
   const [info, setInfo] = useState<SecretSetupLinkInfo | null>(null);
   const [expiresIn, setExpiresIn] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
+  // A `browser` link asks for website logins: a username and a password each.
+  const [logins, setLogins] = useState<Record<string, SecretSetupLinkLogin>>({});
   // Who can use the values: everyone (the default) or only the person who asked.
+  // A website login acts as one person, so it starts as theirs alone.
   const [onlyRequester, setOnlyRequester] = useState(false);
   const tSharing = useTranslations('accessSharing');
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +147,8 @@ export function SecretIntakeForm({
         const body = await getSecretSetupLink(token, { backendUrl: base });
         if (cancelled) return;
         setInfo(body);
+        onLinkInfoRef.current?.(body);
+        setOnlyRequester(body.scope === 'browser' && Boolean(body.requester));
         setExpiresIn(describeLinkExpiry(body.expires_at, Date.now()));
         setPhase('ready');
       } catch (cause) {
@@ -161,26 +173,41 @@ export function SecretIntakeForm({
     };
   }, [base, token, tI18nHardcoded]);
 
+  /** A `browser` link's logins with both parts filled; the password is kept verbatim. */
+  function filledLogins(fields: SecretSetupLinkInfo['fields']): Record<string, SecretSetupLinkLogin> {
+    const filled: Record<string, SecretSetupLinkLogin> = {};
+    for (const f of fields) {
+      const username = (logins[f.name]?.username ?? '').trim();
+      const password = logins[f.name]?.password ?? '';
+      if (username && password) filled[f.name] = { username, password };
+    }
+    return filled;
+  }
+
   async function submit() {
     if (!info) return;
+    const isLoginLink = info.scope === 'browser';
     const filled: Record<string, string> = {};
     for (const f of info.fields) {
       const v = (values[f.name] ?? '').trim();
       if (v.length > 0) filled[f.name] = v;
     }
-    if (Object.keys(filled).length === 0) {
-      setError('Enter a value before saving.');
+    const filledLoginValues = isLoginLink ? filledLogins(info.fields) : {};
+    if (Object.keys(isLoginLink ? filledLoginValues : filled).length === 0) {
+      setError(
+        isLoginLink
+          ? tI18nHardcoded.raw('secretIntakeLogin.missing')
+          : 'Enter a value before saving.',
+      );
       return;
     }
     setPhase('submitting');
     setError(null);
     try {
-      const result = await submitSecretSetupLink(
-        token,
-        filled,
-        { backendUrl: base },
-        onlyRequester ? { only_requester: true } : undefined,
-      );
+      const audience = onlyRequester ? { only_requester: true } : undefined;
+      const result = isLoginLink
+        ? await submitBrowserLoginSetupLink(token, filledLoginValues, { backendUrl: base }, audience)
+        : await submitSecretSetupLink(token, filled, { backendUrl: base }, audience);
       setWithheldNotice(describeWithheldSecrets(result));
       setPhase('done');
       onDone?.();
@@ -264,6 +291,16 @@ export function SecretIntakeForm({
           />
         );
       }
+      if (info?.scope === 'browser') {
+        return (
+          <StatusNotice
+            icon={CheckIcon}
+            tone="success"
+            title={tI18nHardcoded.raw('secretIntakeLogin.savedTitle')}
+            description={tI18nHardcoded.raw('secretIntakeLogin.savedDescription')}
+          />
+        );
+      }
       return (
         <StatusNotice
           icon={CheckIcon}
@@ -280,6 +317,13 @@ export function SecretIntakeForm({
 
   const submitting = phase === 'submitting';
   const fields = info?.fields ?? [];
+  const isLogin = info?.scope === 'browser';
+  const loginSites = [...new Set(fields.flatMap((f) => f.sites ?? []))];
+  const setLogin = (name: string, patch: Partial<SecretSetupLinkLogin>) =>
+    setLogins((current) => {
+      const previous: SecretSetupLinkLogin = current[name] ?? { username: '', password: '' };
+      return { ...current, [name]: { ...previous, ...patch } };
+    });
   const footnote = [
     compact
       ? null
@@ -294,7 +338,9 @@ export function SecretIntakeForm({
   return (
     <div className="space-y-5">
       <p className="text-muted-foreground text-xs text-pretty">
-        {info?.scope === 'runtime'
+        {isLogin
+          ? tI18nHardcoded('secretIntakeLogin.delivery', { sites: loginSites.join(', ') })
+          : info?.scope === 'runtime'
           ? tI18nHardcoded.raw(
               'autoComponentsSetupLinksSecretIntakeFormJsxTextDeliveryRuntime1760e931',
             )
@@ -307,7 +353,60 @@ export function SecretIntakeForm({
               )}
       </p>
       <FieldGroup className="gap-5">
-        {fields.map((f) => (
+        {isLogin &&
+          fields.map((f) => (
+            <Field key={f.name} className="space-y-2">
+              <div className="space-y-1">
+                <p className="text-foreground text-sm font-medium">
+                  {f.label || <code className="font-mono">{f.name}</code>}
+                </p>
+                {f.description ? (
+                  <p className="text-muted-foreground text-xs text-pretty">
+                    <LinkedText text={f.description} />
+                  </p>
+                ) : null}
+              </div>
+              <div className="space-y-2">
+                <FieldLabel htmlFor={`login-${f.name}-username`} className="text-muted-foreground">
+                  {tI18nHardcoded.raw('secretIntakeLogin.username')}
+                </FieldLabel>
+                <Input
+                  id={`login-${f.name}-username`}
+                  name={`${f.name}-username`}
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  // 16px below `sm` so iOS Safari does not zoom the page on focus.
+                  className="max-sm:text-base"
+                  value={logins[f.name]?.username ?? ''}
+                  disabled={submitting}
+                  onChange={(e) => setLogin(f.name, { username: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <FieldLabel htmlFor={`login-${f.name}-password`} className="text-muted-foreground">
+                  {tI18nHardcoded.raw('secretIntakeLogin.password')}
+                </FieldLabel>
+                <Input
+                  id={`login-${f.name}-password`}
+                  name={`${f.name}-password`}
+                  type="password"
+                  // Not the Kortix account: keep the browser from filling it in.
+                  autoComplete="new-password"
+                  spellCheck={false}
+                  className="font-mono max-sm:text-base"
+                  placeholder="••••••••••••"
+                  value={logins[f.name]?.password ?? ''}
+                  disabled={submitting}
+                  onChange={(e) => setLogin(f.name, { password: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && fields.length === 1) void submit();
+                  }}
+                />
+              </div>
+            </Field>
+          ))}
+        {!isLogin && fields.map((f) => (
           <Field key={f.name} className="space-y-2">
             <div className="space-y-1">
               <FieldLabel htmlFor={`secret-${f.name}`} className="text-foreground">

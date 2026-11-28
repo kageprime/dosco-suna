@@ -16,6 +16,7 @@ import {
   CREDIT_TIERS,
   formatWholeUsd,
   monthlyCreditsForUsd,
+  planBonusPercent,
   tierForMonthlyUsd,
 } from '@kortix/ui/internal/billing/compute-pricing';
 import { useLocale, useTranslations } from '@/i18n/use-translations';
@@ -100,6 +101,11 @@ export function CreditTierSelect({
                           }),
                         })}
                       </span>
+                      {planBonusPercent(option.monthlyUsd) > 0 ? (
+                        <span className="text-muted-foreground">
+                          {t('bonus', { percent: planBonusPercent(option.monthlyUsd) })}
+                        </span>
+                      ) : null}
                       {current === option.monthlyUsd ? (
                         <Badge variant="muted">{t('current')}</Badge>
                       ) : null}

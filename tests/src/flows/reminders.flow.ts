@@ -14,7 +14,7 @@ import { flow } from '../core/flow';
 import { waitFor } from '../core/poll';
 import { openWorld } from '../fixtures/agent-principals';
 import { subscribe } from '../fixtures/billing';
-import type { Transcript } from '../fixtures/session-run';
+import { readTranscript } from '../fixtures/session-run';
 import { CliSandbox } from '../fixtures/cli';
 
 const ROUTES = {
@@ -449,7 +449,7 @@ flow(
     requires: ['sandbox', 'funded'],
     // A cold image build can take ~7 min; the fire lands within ~2 min of its time.
     timeoutMs: 1_200_000,
-    routes: ['POST /v1/workspaces/:projectId/sessions', 'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript'],
+    routes: ['POST /v1/workspaces/:projectId/sessions', 'GET /v1/workspaces/:projectId/sessions/:sessionId/log'],
   },
   async (ctx) => {
     const team = await ctx.fixtures.team();
@@ -481,14 +481,7 @@ flow(
 
     await ctx.step('the fire reaches the session and the agent answers it', async () => {
       await waitFor(
-        async () => {
-          const r = await asAdmin.get('/v1/workspaces/:projectId/sessions/:sessionId/transcript', {
-            params: { projectId: project.id, sessionId },
-            query: { limit: '200' },
-          });
-          r.status(200);
-          return r.json<Transcript>();
-        },
+        async () => readTranscript(ctx, project.id, sessionId, { as: admin }),
         {
           // The whole reply, so an echo of the command text cannot pass.
           until: (t) => (t.messages ?? []).some((m) => m.role === 'assistant' && fired.test(m.text)),

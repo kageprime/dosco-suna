@@ -102,6 +102,24 @@ describe('checkBudget', () => {
   });
 
   describe('action = "block"', () => {
+    test('a refused check rolls back the reservations it took for the budgets it admitted', async () => {
+      // The member budget admits (0.6 < 1) and reserves $0.50; the project
+      // budget then refuses. Nothing of this check may stay reserved.
+      budgetRows = [
+        { scope: 'member', subjectUserId: 'user-1', limitUsd: '1', period: 'day', action: 'block' },
+        { scope: 'project', subjectUserId: null, limitUsd: '1', period: 'day', action: 'block' },
+      ];
+      spendQueue = [0.6, 1];
+      expect((await checkBudget(principal())).exceeded).toBe(true);
+
+      // With a leaked member reservation the next check reads 0.6 + 0.5 ≥ 1 and refuses.
+      budgetRows = [
+        { scope: 'member', subjectUserId: 'user-1', limitUsd: '1', period: 'day', action: 'block' },
+      ];
+      spendQueue = [0.6];
+      expect((await checkBudget(principal())).exceeded).toBe(false);
+    });
+
     test('spend under the limit → not exceeded', async () => {
       budgetRows = [
         { scope: 'project', subjectUserId: null, limitUsd: '50', period: 'day', action: 'block' },

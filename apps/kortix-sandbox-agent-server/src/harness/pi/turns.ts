@@ -7,6 +7,7 @@ import { MESSAGE_READ_CODE, STEER_NO_ACTIVE_TURN_CODE, type RuntimeCommandInfo }
 import type { SessionLogMessage } from '@kortix/api-contract/session-log'
 import type { HarnessTurnResponse, HarnessTurnService, RuntimePromptInput } from '../contract/turns'
 import { CommandNotEnabled, PromptRejected, parsePromptBody, type PiRuntime, type PromptInput } from './runtime'
+import { promptAuthorFrom } from './prompt-author'
 import { sessionLogView } from '../shared/session-log-journal'
 import { piQueued, piSessionLog } from './session-log'
 
@@ -64,7 +65,7 @@ function mimeOf(log: { threads?: Array<{ messages?: Array<{ blocks?: unknown[] }
 /** The runtime's prompt input, or the 400 that refuses the body. */
 function toPrompt(input: RuntimePromptInput): PromptInput | HarnessTurnResponse {
   try {
-    return parsePromptBody({
+    const prompt = parsePromptBody({
       ...(input.messageId ? { messageID: input.messageId } : {}),
       parts: input.parts,
       ...(input.agent ? { agent: input.agent } : {}),
@@ -75,6 +76,10 @@ function toPrompt(input: RuntimePromptInput): PromptInput | HarnessTurnResponse 
       ...(input.threadFiles ? { thread_files: input.threadFiles } : {}),
       ...(input.spaceAgents ? { space_agents: input.spaceAgents } : {}),
     })
+    // Read here, never by `parsePromptBody`: the `prompt_async` route parses its body with it, and
+    // apps/api's proxy drops a client's `author` on the Kortix prompt route only.
+    const author = promptAuthorFrom(input.author)
+    return author ? { ...prompt, author } : prompt
   } catch (err) {
     return answer(400, { error: err instanceof Error ? err.message : String(err) })
   }

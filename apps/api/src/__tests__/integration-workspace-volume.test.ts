@@ -1,10 +1,12 @@
 /**
- * Integration test (real Postgres, Platinum stubbed at `fetch`): the
- * `workspace_volume` flag puts a session's /workspace on a Platinum volume and
- * makes its box disposable.
+ * Integration test (real Postgres, Platinum stubbed at `fetch`): stateless
+ * sandboxes put a new Platinum session's /workspace on a Platinum volume and
+ * make its box disposable.
  *
- * - The flag is operator-only: a project admin's PATCH answers 403.
- * - The flag is read once, at create; the session record alone decides later.
+ * - On by default since 2026-11-23 (`workspace_volume` graduated): a stored
+ *   project override is inert, PATCH answers 400, and only
+ *   KORTIX_WORKSPACE_VOLUMES=off stops new volumes.
+ * - The decision is made once, at create; the session record alone decides later.
  * - Every volume call goes to the control plane of the volume's region.
  * - A volume that does not open fails the boot with a storage message.
  * - A box stopped past the idle window is retired and removed; an open removes
@@ -37,7 +39,6 @@ type CreateSandboxOpts = import('../platform/providers/contract').CreateSandboxO
 const OWNER = crypto.randomUUID();
 const PT = 'https://api.platinum.test';
 const PT_US = 'https://us-east.api.platinum.test';
-const FLAG_ON = { experimental: { workspace_volume: true } };
 const HOUR = 3_600_000;
 
 const original = {
@@ -128,61 +129,73 @@ afterAll(async () => {
 });
 
 describe('workspace_volume', () => {
-  test('is operator-only: a project admin cannot turn it on', async () => {
-    const res = await app.request(`/v1/projects/${project.project_id}/features`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${ownerSecret}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ feature: 'workspace_volume', enabled: true }),
-    });
-    expect(res.status).toBe(403);
-    expect(((await res.json()) as { code: string }).code).toBe('feature_operator_only');
+  test('graduated: PATCH answers 400 unknown flag, nothing is stored, and the project reports it on without a catalog row', async () => {
+    for (const enabled of [true, false, null]) {
+      const res = await app.request(`/v1/projects/${project.project_id}/features`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${ownerSecret}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ feature: 'workspace_volume', enabled }),
+      });
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe("Unknown feature flag 'workspace_volume'");
+    }
+    const read = async () => {
+      const res = await app.request(`/v1/projects/${project.project_id}`, { headers: { Authorization: `Bearer ${ownerSecret}` } });
+      expect(res.status).toBe(200);
+      return (await res.json()) as { experimental: Record<string, boolean>; experimental_features: Array<{ key: string }> };
+    };
+    const on = await read();
+    expect(on.experimental.workspace_volume).toBe(true);
+    expect(on.experimental_features.map((f) => f.key)).not.toContain('workspace_volume');
+    // The kill switch: older clients read that new sessions get no volume.
+    config.KORTIX_WORKSPACE_VOLUMES = 'off';
+    expect((await read()).experimental.workspace_volume).toBe(false);
   });
 
   test('create opens a us-east volume at the us-east control plane once; provisioning reuses that open', async () => {
     const sessionId = crypto.randomUUID();
-    const volume = startWorkspaceVolume({ sessionId, projectMetadata: FLAG_ON, location: 'us-east' });
+    const volume = startWorkspaceVolume({ sessionId, location: 'us-east' });
     expect(volume).toEqual({ name: `kws-${sessionId}`, location: 'us-east' });
     await newSessionWithId(sessionId, volume);
     expect(await resolveWorkspaceVolume(sessionId)).toEqual(volume);
     expect(calls).toEqual([{ method: 'PUT', url: `${PT_US}/v1/volumes/kws-${sessionId}`, body: '{"sync_mode":"git"}' }]);
 
-    // A later box: the flag is off and the kill switch is on. The record decides.
+    // A later box: the kill switch is on. The record decides.
     calls = [];
     config.KORTIX_WORKSPACE_VOLUMES = 'off';
     expect(await resolveWorkspaceVolume(sessionId)).toEqual(volume);
     expect(callLines()).toEqual([`PUT ${PT_US}/v1/volumes/kws-${sessionId}`]);
   });
 
-  test('KORTIX_WORKSPACE_VOLUMES=on: a project without its own choice is on (listed read-only) and gets a volume; one that chose off gets none', async () => {
-    config.KORTIX_WORKSPACE_VOLUMES = 'on';
+  test('on by default (unset or `on`): a new session gets a home-region volume, whatever its project stored', async () => {
+    for (const value of ['', 'on']) {
+      config.KORTIX_WORKSPACE_VOLUMES = value;
+      calls = [];
+      const sessionId = crypto.randomUUID();
+      const volume = startWorkspaceVolume({ sessionId, location: undefined });
+      expect(volume).toEqual({ name: `kws-${sessionId}`, location: null });
+      await newSessionWithId(sessionId, volume);
+      expect(await resolveWorkspaceVolume(sessionId)).toEqual(volume);
+      expect(callLines()).toEqual([`PUT ${PT}/v1/volumes/kws-${sessionId}`]);
+    }
+    // A project that stored `false` before the graduation: inert.
+    await db.execute(
+      sql`update kortix.projects set metadata = coalesce(metadata, '{}'::jsonb) || '{"experimental":{"workspace_volume":false}}'::jsonb where project_id = ${project.project_id}`,
+    );
     const res = await app.request(`/v1/projects/${project.project_id}`, { headers: { Authorization: `Bearer ${ownerSecret}` } });
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { experimental: Record<string, boolean>; experimental_features: Array<{ key: string }> };
-    expect(body.experimental.workspace_volume).toBe(true);
-    expect(body.experimental_features.find((f) => f.key === 'workspace_volume')).toMatchObject({
-      enabled: true,
-      overridden: false,
-      operator_only: true,
-    });
-
-    const sessionId = crypto.randomUUID();
-    const volume = startWorkspaceVolume({ sessionId, projectMetadata: {}, location: undefined });
-    expect(volume).toEqual({ name: `kws-${sessionId}`, location: null });
-    await newSessionWithId(sessionId, volume);
-    expect(await resolveWorkspaceVolume(sessionId)).toEqual(volume);
-    expect(callLines()).toEqual([`PUT ${PT}/v1/volumes/kws-${sessionId}`]);
-
-    calls = [];
-    const optedOut = { experimental: { workspace_volume: false } };
-    expect(startWorkspaceVolume({ sessionId: crypto.randomUUID(), projectMetadata: optedOut, location: undefined })).toBeNull();
-    expect(calls).toEqual([]);
+    expect(((await res.json()) as { experimental: Record<string, boolean> }).experimental.workspace_volume).toBe(true);
+    expect(startWorkspaceVolume({ sessionId: crypto.randomUUID(), location: undefined })).not.toBeNull();
+    await db.execute(sql`update kortix.projects set metadata = metadata - 'experimental' where project_id = ${project.project_id}`);
   });
 
-  test('flag off, kill switch on, no record or a forged record: no volume, no Platinum call', async () => {
+  test('kill switch on, no Platinum, no record or a forged record: no volume, no Platinum call', async () => {
     const id = crypto.randomUUID();
-    expect(startWorkspaceVolume({ sessionId: id, projectMetadata: {}, location: undefined })).toBeNull();
     config.KORTIX_WORKSPACE_VOLUMES = 'off';
-    expect(startWorkspaceVolume({ sessionId: id, projectMetadata: FLAG_ON, location: undefined })).toBeNull();
+    expect(startWorkspaceVolume({ sessionId: id, location: undefined })).toBeNull();
+    config.KORTIX_WORKSPACE_VOLUMES = '';
+    config.PLATINUM_API_KEY = '';
+    expect(startWorkspaceVolume({ sessionId: id, location: undefined })).toBeNull();
+    config.PLATINUM_API_KEY = 'pt_synthetic_workspace_volume';
     expect(await resolveWorkspaceVolume(await newSession('none'))).toBeNull();
     expect(await resolveWorkspaceVolume(await newSession('forged'))).toBeNull();
     expect(calls).toEqual([]);

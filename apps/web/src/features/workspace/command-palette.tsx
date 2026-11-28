@@ -50,6 +50,7 @@ import { buildAgentGitReconciliationPrompt } from '@kortix/ui/session/status/age
 import { DiffDialog, openSessionQuickView } from '@kortix/ui/session-panel';
 import {
   CompactModal,
+  getSessionDisplayTitle,
   sessionLastActivityAt,
   sortSessionsByLastActivity,
 } from '@kortix/ui/session';
@@ -800,15 +801,9 @@ function FeatureFlagsPage({
   );
 }
 
-const sessionName = (s: ProjectSession) =>
-  s.name ||
-  (typeof s.metadata?.session_name === 'string' ? s.metadata.session_name : '') ||
-  s.branch_name ||
-  s.session_id.slice(0, 8);
-
 export function sessionMatchesPaletteQuery(session: ProjectSession, query: string): boolean {
   return (
-    sessionName(session).toLowerCase().includes(query) ||
+    getSessionDisplayTitle(session).toLowerCase().includes(query) ||
     session.session_id.toLowerCase().startsWith(query)
   );
 }
@@ -2559,12 +2554,12 @@ export function CommandPalette() {
                           <CommandItem
                             key={session.session_id}
                             value={sanitizeCmdkValue(
-                              `recent ${sessionName(session)} ${session.session_id}`,
+                              `recent ${getSessionDisplayTitle(session)} ${session.session_id}`,
                             )}
                             onSelect={() => handleSelectProjectSession(session)}
                           >
                             <MessageCircle className="size-4 shrink-0" />
-                            <span className="flex-1 truncate">{sessionName(session)}</span>
+                            <span className="flex-1 truncate">{getSessionDisplayTitle(session)}</span>
                             <SessionSharedIcon session={session} />
                             <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                               {formatRelativeTime(
@@ -2758,12 +2753,12 @@ export function CommandPalette() {
                           <CommandItem
                             key={session.session_id}
                             value={sanitizeCmdkValue(
-                              `session ${sessionName(session)} ${session.initiator?.label ?? ''} ${session.session_id}`,
+                              `session ${getSessionDisplayTitle(session)} ${session.initiator?.label ?? ''} ${session.session_id}`,
                             )}
                             onSelect={() => handleSelectProjectSession(session)}
                           >
                             <MessageCircle className="size-4 shrink-0" />
-                            <span className="flex-1 truncate">{sessionName(session)}</span>
+                            <span className="flex-1 truncate">{getSessionDisplayTitle(session)}</span>
                             <SessionSharedIcon session={session} />
                             {session.session_id === params?.sessionId && (
                               <Check className="text-primary h-3.5 w-3.5 shrink-0" />
@@ -3133,12 +3128,12 @@ export function CommandPalette() {
                     <CommandItem
                       key={session.session_id}
                       value={sanitizeCmdkValue(
-                        `session ${sessionName(session)} ${session.initiator?.label ?? ''} ${session.session_id}`,
+                        `session ${getSessionDisplayTitle(session)} ${session.initiator?.label ?? ''} ${session.session_id}`,
                       )}
                       onSelect={() => handleSelectProjectSession(session)}
                     >
                       <MessageCircle className="text-muted-foreground size-4 shrink-0" />
-                      <span className="flex-1 truncate">{sessionName(session)}</span>
+                      <span className="flex-1 truncate">{getSessionDisplayTitle(session)}</span>
                       <SessionSharedIcon session={session} />
                       <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
                         {formatRelativeTime(new Date(sessionLastActivityAt(session)).getTime())}

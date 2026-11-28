@@ -43,7 +43,7 @@ triggers:
     prompt: Diff each flow exported from Langflow yesterday against the copy in flows/, and open a change request for every node that changed.
 ```
 
-Models come from whichever provider you hold a key with, or from the ChatGPT subscription you already pay for ([Kortix docs](https://kortix.com/docs)). Connector credentials are brokered server-side and never enter the machine. Run it on Kortix Cloud, in your VPC, or on your own on-prem network. Self-host is free. The paid plan is credits from $50 a month, at 100 credits per dollar ([Kortix pricing](https://kortix.com/pricing), read October 2026).
+Models come from whichever provider you hold a key with, or from the ChatGPT subscription you already pay for ([Kortix docs](https://kortix.com/docs)). Connector credentials are brokered server-side and never enter the machine. Run it on Kortix Cloud, in your VPC, or on your own on-prem network. Self-host is free. The paid plan is credits from $50 a month, at 100 credits per dollar, and larger tiers buy up to 30% more credits per dollar ([Kortix pricing](https://kortix.com/pricing), read November 2026).
 
 ## Where the canvas runs out
 

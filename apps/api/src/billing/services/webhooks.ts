@@ -11,8 +11,7 @@ import { cancelFreeSubscriptionForUpgrade } from './subscriptions';
 import { calculateNextCreditGrant } from './credit-grant-schedule';
 import { getCustomerByStripeId } from '../repositories/customers';
 import { updatePurchaseStatus, getPurchaseByPaymentIntent } from '../repositories/transactions';
-import { billingPeriodForSubscription, canonicalTier, monthlyCreditsForSubscription, planForSubscription, planMonthlyUsd } from './tiers';
-import { grantTopUpBonus } from './top-up-bonus';
+import { billingPeriodForSubscription, canonicalTier, monthlyUsdForSubscription, paidMonthlyUsd, planCreditsUsd, planForSubscription, planMonthlyUsd } from './tiers';
 import { grantForPaidProrationInvoice } from './proration-grants';
 import { wallet } from '../wallet';
 import { isPayingSubscriptionStatus } from './billing-state';
@@ -85,7 +84,6 @@ async function handleCreditPurchase(session: Stripe.Checkout.Session, accountId:
     expiring: false,
     key: { event: session.id },
   });
-  await grantTopUpBonus(accountId, amountTotal, `${session.id}:bonus`);
 
   await markCreditPurchase(session, 'completed');
 
@@ -302,7 +300,12 @@ async function handleSubscriptionChange(snapshot: Stripe.Subscription) {
   await withAccountLock(accountId, () => syncSubscriptionState(accountId, subscription));
 }
 
-async function syncSubscriptionState(accountId: string, subscription: Stripe.Subscription) {
+/**
+ * Write the account's plan from the subscription as Stripe holds it. The
+ * webhook and the client re-sync (`syncSubscription`, on the portal return)
+ * both land here, so either one moves the plan.
+ */
+export async function syncSubscriptionState(accountId: string, subscription: Stripe.Subscription) {
   const account = await getCreditAccount(accountId);
   if (isClosedBillingAccount(account)) {
     logger.info(`[Webhook] syncSubscriptionState: skipping closed account ${accountId} (sub=${subscription.id})`);
@@ -367,7 +370,7 @@ async function syncSubscriptionState(accountId: string, subscription: Stripe.Sub
   // A comped $0 subscription leaves the stored amount alone.
   // A scheduled cut is the exception: Stripe already bills the lower amount,
   // but this period keeps the amount in effect until the renewal applies it.
-  const subscriptionUsd = monthlyCreditsForSubscription(subscription);
+  const subscriptionUsd = monthlyUsdForSubscription(subscription);
   const cutPending = account?.scheduledMonthlyUsd != null && Number(account.scheduledMonthlyUsd) === subscriptionUsd;
   if (resolvedTier === 'credits' && subscriptionUsd > 0 && !cutPending) {
     updates.planMonthlyUsd = String(subscriptionUsd);
@@ -376,6 +379,13 @@ async function syncSubscriptionState(accountId: string, subscription: Stripe.Sub
   }
   if (resolvedTier && subIsPaying) {
     updates.tier = resolvedTier;
+  }
+  // The portal's downgrade switches the item to the $0 Free price: the paid
+  // amount and a scheduled cut end with the paid plan.
+  if (resolvedTier === 'free' && subIsPaying) {
+    updates.planMonthlyUsd = null;
+    updates.scheduledMonthlyUsd = null;
+    updates.scheduledTierChangeDate = null;
   }
 
   if (subscription.cancel_at_period_end) {
@@ -507,7 +517,7 @@ async function tryRestoreOtherActiveSubscription(
   };
   if (resolvedTier) {
     updates.tier = resolvedTier;
-    const targetUsd = monthlyCreditsForSubscription(target);
+    const targetUsd = monthlyUsdForSubscription(target);
     if (resolvedTier !== 'credits') updates.planMonthlyUsd = null;
     else if (targetUsd > 0) updates.planMonthlyUsd = String(targetUsd);
   }
@@ -593,12 +603,12 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   const tierName = planForSubscription(subscription) ?? canonicalTier(account.tier ?? 'free');
   const allowance = allowanceForSubscription(tierName, subscription, account);
   // Rollover (paid plan only): the unused part of LAST month's allowance
-  // carries one month. It is capped at last month's allowance, so a carry
-  // never compounds. Free resets to its $2.
+  // carries one month. It is capped at last month's allowance (its credits,
+  // bonus included), so a carry never compounds. Free resets to its $5.
   // ponytail: reads the balance outside the wallet's row lock; a debit landing
   // between the read and the reset can carry a few cents too many.
   const expiringNow = tierName === 'credits' ? (await wallet.balance(accountId))?.expiring ?? 0 : 0;
-  const carried = Math.max(0, Math.min(expiringNow, planMonthlyUsd(account)));
+  const carried = Math.max(0, Math.min(expiringNow, planCreditsUsd(planMonthlyUsd(account))));
   const credits = Math.round((allowance + carried) * 100) / 100;
 
   if (credits > 0) {
@@ -616,7 +626,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   await applyStripeSync(
     accountId,
     {
-      ...(tierName === 'credits' ? { planMonthlyUsd: String(allowance) } : {}),
+      ...(tierName === 'credits' ? { planMonthlyUsd: String(paidMonthlyUsd(subscription, account)) } : {}),
       // A scheduled cut takes effect with this renewal.
       scheduledMonthlyUsd: null,
       scheduledTierChangeDate: null,

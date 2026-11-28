@@ -1,14 +1,17 @@
 // Which Claude account the gateway uses for Claude Code's model calls
 // (`resolveClaudeCredentials`): the session's selected accounts, else the
 // personal-key owner's own, else one shared with the project. A private account
-// serves only its creator; a refused one is skipped.
+// serves only its creator; a refused one is skipped, and so is one Anthropic
+// forbade (403) within the last 15 minutes.
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { createHash, randomUUID } from 'node:crypto';
 import { accountMembers, accountSecretResources, accounts, projectSessions, projects, sessionProviderSecretPools } from '@kortix/db';
 import { eq, sql } from 'drizzle-orm';
-import { CLAUDE_ACCOUNT, claudeCredentialsForGateway, countUsableClaudeAccounts, markClaudeAccountRefused, resolveClaudeCredentials } from '../claude-subscription/accounts';
+import { CLAUDE_ACCOUNT, claudeCredentialsForGateway, countUsableClaudeAccounts, markClaudeAccountForbidden, markClaudeAccountRefused, resolveClaudeCredentials } from '../claude-subscription/accounts';
 import { coolDownAccountSecret } from '../secrets/account-resource';
-import { writeProviderAccount } from '../secrets/provider-accounts';
+import { reconnectProviderAccount, writeProviderAccount } from '../secrets/provider-accounts';
+import { recordSubscriptionUsage } from '../llm-gateway/subscription-usage';
+import { missingClaudeSubscription } from '../projects/claude-subscription/gate';
 import { isModelServableForAccount } from '../llm-gateway/resolution/default-model';
 import { resolveCandidates } from '../llm-gateway/resolution/resolve-candidates';
 import { db } from '../shared/db';
@@ -142,6 +145,76 @@ describe('the Claude account a request uses', () => {
 
     await db.update(accountSecretResources).set({ cooldownUntil: null, cooldownProbeAt: null }).where(eq(accountSecretResources.accountId, ACCOUNT));
     expect(await servable(false)).toBe(true);
+  });
+
+  test('an account Anthropic forbade (403) is skipped with its reason for 15 minutes, named when none is left, and cleared by its next served answer or a reconnect', async () => {
+    const digest = (value: string) => createHash('sha256').update(value).digest('hex');
+    const ORG_OFF = 'Your organization has disabled Claude subscription access for Claude Code.';
+    const state = async (secretId: string) => {
+      const [row] = await db.select({ status: accountSecretResources.verifyStatus, message: accountSecretResources.verifyMessage, at: accountSecretResources.verifiedAt })
+        .from(accountSecretResources).where(eq(accountSecretResources.secretId, secretId));
+      return row!;
+    };
+    const usage = (observedAt: Date) => ({
+      windows: [{ id: 'weekly', window_minutes: 10080, used_percent: 18, resets_at: new Date(Date.now() + 86_400_000).toISOString() }],
+      limited: false, observed_at: observedAt.toISOString(), source: 'response' as const,
+    });
+
+    // Only the token Anthropic forbade is marked.
+    expect(await markClaudeAccountForbidden(ACCOUNT, SHARED, digest('an older token'), ORG_OFF)).toBe(false);
+    expect(await markClaudeAccountForbidden(ACCOUNT, SHARED, digest(token('shared')), ORG_OFF)).toBe(true);
+    expect(await state(SHARED)).toMatchObject({ status: 'invalid', message: ORG_OFF });
+
+    // An unattended run skips it for the other shared account.
+    expect(await ids(principal(null))).toEqual([SELECTED]);
+
+    // Every shared account forbidden: the answer names them, Anthropic's reason and the fix.
+    expect(await markClaudeAccountForbidden(ACCOUNT, SELECTED, digest(token('selected')), ORG_OFF)).toBe(true);
+    const none = await claudeCredentialsForGateway(principal(null), 'claude-opus-5-5');
+    expect(none).toEqual({ error: {
+      status: 400, code: 'provider_reauth_required',
+      message: `Anthropic refuses 2 Claude accounts ("Team", "Selected"): ${ORG_OFF}`,
+      suggestion: 'An admin of their Claude organization must turn Claude Code back on, or share another Claude account with everyone in this workspace.',
+      retryAfterSeconds: undefined,
+    } });
+
+    // The turn gate says the same, not "Connect your Claude subscription". OWNER's own account still serves OWNER.
+    expect(await missingClaudeSubscription({ accountId: ACCOUNT, projectId: PROJECT, userId: OTHER, model: 'claude-agent/opus' })).toEqual({
+      model: 'claude-agent/opus',
+      message: `Anthropic refuses the Claude account "Selected": ${ORG_OFF} An admin of its Claude organization must turn Claude Code back on, or connect another Claude account.`,
+    });
+    expect(await missingClaudeSubscription({ accountId: ACCOUNT, projectId: PROJECT, userId: OWNER, model: 'claude-agent/opus' })).toBeNull();
+    // A private session of OTHER resolves OTHER's own accounts. OTHER sees the reason;
+    // OWNER, prompting it (a Space-shared private session), never sees OTHER's account named.
+    const othersSession = randomUUID();
+    await db.insert(projectSessions).values({ sessionId: othersSession, accountId: ACCOUNT, projectId: PROJECT, branchName: othersSession, createdBy: OTHER, visibility: 'private' });
+    expect((await missingClaudeSubscription({ accountId: ACCOUNT, projectId: PROJECT, sessionId: othersSession, userId: OTHER, model: 'claude-agent/opus' }))?.message)
+      .toContain('Anthropic refuses the Claude account "Selected"');
+    expect(await missingClaudeSubscription({ accountId: ACCOUNT, projectId: PROJECT, sessionId: othersSession, userId: OWNER, model: 'claude-agent/opus' })).toEqual({
+      model: 'claude-agent/opus', message: 'Connect your Claude subscription to use Claude models.',
+    });
+    await db.delete(projectSessions).where(eq(projectSessions.sessionId, othersSession));
+
+    // After the 15-minute hold the account is tried again.
+    await db.update(accountSecretResources).set({ verifiedAt: sql`now() - interval '16 minutes'` }).where(eq(accountSecretResources.secretId, SHARED));
+    expect(await ids(principal(null))).toEqual([SHARED]);
+
+    // A usage-endpoint read, and an answer observed before the 403, clear nothing.
+    await recordSubscriptionUsage(SHARED, ACCOUNT, usage(new Date()));
+    expect((await state(SHARED)).status).toBe('invalid');
+    await recordSubscriptionUsage(SHARED, ACCOUNT, usage(new Date(Date.now() - 30 * 60_000)), { served: true });
+    expect((await state(SHARED)).status).toBe('invalid');
+    // A model answer on it after the 403 clears the reason.
+    await recordSubscriptionUsage(SHARED, ACCOUNT, usage(new Date()), { served: true });
+    expect(await state(SHARED)).toEqual({ status: null, message: null, at: null });
+
+    // A reconnect signs in a new login: the old login's 403 reason goes, and the old token marks nothing.
+    expect(await reconnectProviderAccount({ secretId: SELECTED, accountId: ACCOUNT, userId: OTHER, projectId: PROJECT, value: token('selected-2'), kind: CLAUDE_ACCOUNT })).not.toBeNull();
+    expect(await state(SELECTED)).toEqual({ status: null, message: null, at: null });
+    expect(await markClaudeAccountForbidden(ACCOUNT, SELECTED, digest(token('selected')), ORG_OFF)).toBe(false);
+    // Both serve again, most room first: the reconnect cleared SELECTED's usage, SHARED reported 18 %.
+    expect(await ids(principal(null))).toEqual([SELECTED, SHARED]);
+    await db.update(accountSecretResources).set({ usage: null }).where(eq(accountSecretResources.accountId, ACCOUNT));
   });
 
   test('the gateway answer: tokens to try, the provider turned off, or no account', async () => {

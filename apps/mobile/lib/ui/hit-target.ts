@@ -24,6 +24,7 @@ export const BUTTON_BOX = {
   xl: { height: 48 },
   icon: { height: 40, width: 40 },
   'icon-lg': { height: 44, width: 44 },
+  'icon-xl': { height: 56, width: 56 },
   'icon-md': { height: 36, width: 36 },
   'icon-sm': { height: 28, width: 28 },
 } as const;

@@ -20,13 +20,13 @@ name: Rollback Production
 #     :X.Y.Z gateway image exists (the gateway entered prod at v0.9.72, so older
 #     targets have no gateway image; it's left untouched rather than pointed at a
 #     missing tag).
-#   * FRONTEND (ECS): rolls `kortix-prod-web` to the immutable
-#     `kortix/kortix-frontend:X.Y.Z` image and verifies the isolated ECS host.
-#   * FRONTEND (Vercel): also promotes the matching Vercel deployment while the
-#     parallel validation path remains active.
+#   * FRONTEND (Vercel): promotes the production Vercel deployment of vX.Y.Z
+#     back to kortix.com. kortix.com runs on Vercel only; nothing is rebuilt.
 #
 # SAFETY
-#   * Image existence is checked per surface (Docker Hub tags API). Missing → skip.
+#   * Image existence is checked per backend surface (Docker Hub tags API).
+#     Missing → skip. The frontend is skipped when VERCEL_TOKEN is unreadable
+#     and fails when no Vercel deployment of vX.Y.Z exists.
 #   * The root VERSION file is LEFT at the current prod version, so deploy-prod's
 #     retag job targets :current and can never overwrite the :X.Y.Z rollback image.
 #     (Refuses if target == current.) Requires the vX.Y.Z tag to exist.
@@ -138,7 +138,7 @@ jobs:
           want() { case "$SURF" in *",$1,"*) return 0;; *) return 1;; esac; }
           img_exists() { [ "$(curl -s -o /dev/null -w '%{http_code}' "https://hub.docker.com/v2/repositories/kortix/$1/tags/$TARGET/")" = "200" ]; }
 
-          ROLL_API=no; ROLL_GW=no; ROLL_FE=no; ROLL_FE_VERCEL=no
+          ROLL_API=no; ROLL_GW=no; ROLL_FE=no
           if want api; then
             if img_exists kortix-api; then ROLL_API=yes; else echo "::warning::kortix-api:$TARGET missing — skipping api."; fi
           fi
@@ -156,22 +156,12 @@ jobs:
             if img_exists kortix-gateway; then ROLL_GW=yes; else echo "::warning::kortix-gateway:$TARGET missing (gateway likely didn't exist at $TARGET) — leaving gateway untouched."; fi
           fi
           if want frontend; then
-            if img_exists kortix-frontend; then
-              ROLL_FE=yes
-              if [ -n "${VERCEL_TOKEN:-}" ]; then
-                ROLL_FE_VERCEL=yes
-              else
-                echo "::warning::No VERCEL_TOKEN — rolling ECS frontend only."
-              fi
-            else
-              echo "::warning::kortix-frontend:$TARGET missing — skipping frontend."
-            fi
+            if [ -n "${VERCEL_TOKEN:-}" ]; then ROLL_FE=yes; else echo "::warning::No VERCEL_TOKEN — skipping frontend."; fi
           fi
 
           {
             echo "target=$TARGET"; echo "current=$CUR"
             echo "roll_api=$ROLL_API"; echo "roll_gw=$ROLL_GW"; echo "roll_fe=$ROLL_FE"
-            echo "roll_fe_vercel=$ROLL_FE_VERCEL"
           } >> "$GITHUB_OUTPUT"
           echo "Plan → target=$TARGET current=$CUR | api=$ROLL_API gateway=$ROLL_GW frontend=$ROLL_FE"
 
@@ -189,7 +179,7 @@ jobs:
           fi
 
       - name: Configure AWS credentials for ECS rollback
-        if: steps.plan.outputs.roll_api == 'yes' || steps.plan.outputs.roll_gw == 'yes' || steps.plan.outputs.roll_fe == 'yes'
+        if: steps.plan.outputs.roll_api == 'yes' || steps.plan.outputs.roll_gw == 'yes'
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: arn:aws:iam::935064898258:role/kortix-gha-ecs-deploy-prod
@@ -224,48 +214,9 @@ jobs:
               --database-migrated
           fi
 
-      - name: Frontend — roll ECS to the vTARGET image
-        if: steps.plan.outputs.roll_fe == 'yes'
-        env:
-          TARGET: ${{ steps.plan.outputs.target }}
-        run: |
-          set -euo pipefail
-          bash infra/scripts/ecs-deploy.sh \
-            prod \
-            "kortix/kortix-frontend:${TARGET}" \
-            --service web \
-            --version "${TARGET}" \
-            --database-migrated
-          task_definition="$(aws ecs describe-services \
-            --region eu-west-2 \
-            --cluster kortix-prod-web \
-            --services kortix-prod-web \
-            --query 'services[0].taskDefinition' \
-            --output text)"
-          # shellcheck disable=SC2016
-          image="$(aws ecs describe-task-definition \
-            --region eu-west-2 \
-            --task-definition "$task_definition" \
-            --query 'taskDefinition.containerDefinitions[?name==`web`].image | [0]' \
-            --output text)"
-          [ "$image" = "kortix/kortix-frontend:${TARGET}" ] || {
-            echo "::error::ECS task definition uses $image"; exit 1;
-          }
-          for attempt in $(seq 1 20); do
-            live="$(curl -fsS --max-time 15 https://prod-fe-ecs.kortix.com/api/health 2>/dev/null || true)"
-            if [ "$(jq -r '.version // empty' <<<"$live" 2>/dev/null || true)" = "$TARGET" ]; then
-              echo "Prod FE-ECS rolled back to v$TARGET."
-              exit 0
-            fi
-            echo "(${attempt}/20) waiting for prod FE-ECS v$TARGET"
-            sleep 10
-          done
-          echo "::error::Prod FE-ECS did not report v$TARGET after rollback."
-          exit 1
-
       - name: Frontend — promote the vTARGET deployment (Vercel)
         id: frontend
-        if: steps.plan.outputs.roll_fe_vercel == 'yes'
+        if: steps.plan.outputs.roll_fe == 'yes'
         env:
           TARGET: ${{ steps.plan.outputs.target }}
         run: |
@@ -297,7 +248,6 @@ jobs:
           ROLL_API: ${{ steps.plan.outputs.roll_api }}
           ROLL_GW: ${{ steps.plan.outputs.roll_gw }}
           ROLL_FE: ${{ steps.plan.outputs.roll_fe }}
-          ROLL_FE_VERCEL: ${{ steps.plan.outputs.roll_fe_vercel }}
         run: |
           {
             echo "### Rollback → prod \`$CURRENT\` → \`v$TARGET\`"
@@ -307,8 +257,7 @@ jobs:
             echo "| api ECS | ${ROLL_API:-no} | immutable release image, KORTIX_PROCESS_ROLE=all |"
             echo "| worker ECS | not rolled | scaled to 0 after the api rollout when api=yes; the next release rolls it |"
             echo "| gateway ECS | ${ROLL_GW:-no} | immutable release image |"
-            echo "| frontend ECS | ${ROLL_FE:-no} | immutable release image |"
-            echo "| frontend Vercel | ${ROLL_FE_VERCEL:-no} | promoted via Vercel API |"
+            echo "| frontend Vercel | ${ROLL_FE:-no} | promoted via Vercel API |"
             echo ""
             echo "- DB untouched. Next promote of \`staging\` supersedes this cleanly."
           } >> "$GITHUB_STEP_SUMMARY"

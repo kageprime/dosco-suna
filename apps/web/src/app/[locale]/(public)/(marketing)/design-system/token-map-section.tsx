@@ -211,21 +211,16 @@ const FAMILIES: TokenFamily[] = [
     id: 'tokens-elevation',
     name: 'Elevation',
     about:
-      'Shadow means floats above the page; in-flow panels stay flat. An overlay pairs its shadow with a hairline.',
+      'Shadow means floats above the page; in-flow panels stay flat. Three steps: xs, sm, md. An overlay pairs shadow-xs with a hairline.',
     rows: [
       {
-        job: 'Raised chip, slider thumb',
+        job: 'Dropdown, select, popover, hover card, raised chip',
         cls: 'shadow-xs',
         token: '--shadow-xs',
         probe: 'box-shadow',
       },
-      {
-        job: 'Dropdown, select, popover',
-        cls: 'shadow-md',
-        token: '--shadow-md',
-        probe: 'box-shadow',
-      },
-      { job: 'Modal, sheet, toast', cls: 'shadow-lg', token: '--shadow-lg', probe: 'box-shadow' },
+      { job: 'Sticky bar', cls: 'shadow-sm', token: '--shadow-sm', probe: 'box-shadow' },
+      { job: 'Modal, sheet', cls: 'shadow-md', token: '--shadow-md', probe: 'box-shadow' },
     ],
   },
 ];

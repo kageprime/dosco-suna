@@ -49,6 +49,8 @@ export interface SessionAsk {
   session_id: string;
   /** The session a person opens for it. */
   surface_session_id: string;
+  /** The agent of that session: the agent that asks (flag `channels`). Null when the session row is gone. */
+  agent_name: string | null;
   /** The runtime's request id (question, permission); the execution id (approval); the ask's own id (access). */
   request_id: string;
   /** One line for a list row: the question header, the command, the connector action. */
@@ -234,6 +236,7 @@ export async function listOpenAsks(input: {
       kind: 'question',
       session_id: q.sessionId,
       surface_session_id: q.surfaceSessionId ?? q.sessionId,
+      agent_name: null,
       request_id: q.requestId,
       title: questionTitle(q.questions),
       asked_at: q.askedAt,
@@ -245,6 +248,7 @@ export async function listOpenAsks(input: {
       kind: 'permission',
       session_id: p.sessionId,
       surface_session_id: p.surfaceSessionId ?? p.sessionId,
+      agent_name: null,
       request_id: p.requestId,
       title: permissionTitle(p.tool, p.patterns),
       asked_at: p.askedAt,
@@ -258,6 +262,7 @@ export async function listOpenAsks(input: {
         kind: 'approval',
         session_id: a.sessionId!,
         surface_session_id: approvalSurfaces.get(a.sessionId!) ?? a.sessionId!,
+        agent_name: null,
         request_id: a.callId,
         title: a.action.slice(0, 200),
         asked_at: toIso(a.createdAt),
@@ -269,6 +274,7 @@ export async function listOpenAsks(input: {
       kind: 'access',
       session_id: a.sessionId,
       surface_session_id: a.surfaceSessionId ?? a.sessionId,
+      agent_name: null,
       request_id: a.id,
       title: `A colleague for "${a.title}" needs ${describeColleagueAccess(a)}`.slice(0, 200),
       asked_at: toIso(a.askedAt),
@@ -277,7 +283,18 @@ export async function listOpenAsks(input: {
     })),
   ].filter((ask) => !input.surfaceSessionId || ask.surface_session_id === input.surfaceSessionId);
   asks.sort((a, b) => (a.asked_at < b.asked_at ? 1 : a.asked_at > b.asked_at ? -1 : 0));
-  return asks.slice(0, limit);
+  const shown = asks.slice(0, limit);
+  // The agent that asks: the agent of the session a person opens. One read for the page.
+  const surfaces = [...new Set(shown.map((ask) => ask.surface_session_id))];
+  if (surfaces.length > 0) {
+    const rows = await db
+      .select({ sessionId: projectSessions.sessionId, agentName: projectSessions.agentName })
+      .from(projectSessions)
+      .where(and(eq(projectSessions.projectId, input.projectId), inArray(projectSessions.sessionId, surfaces)));
+    const agents = new Map(rows.map((row) => [row.sessionId, row.agentName ?? null]));
+    for (const ask of shown) ask.agent_name = agents.get(ask.surface_session_id) ?? null;
+  }
+  return shown;
 }
 
 function toIso(value: unknown): string {

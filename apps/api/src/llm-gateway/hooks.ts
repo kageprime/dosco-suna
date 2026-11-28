@@ -492,6 +492,7 @@ const OPERATION_ROUTES = new Map<unknown, string>([
   ['images.edits', '/v1/llm/images/edits'],
   ['audio.transcriptions', '/v1/llm/audio/transcriptions'],
   ['audio.speech', '/v1/llm/audio/speech'],
+  ['audio.dictation', '/v1/projects/{workspaceId}/dictation'],
 ]);
 
 const routeOf = (event: UsageEvent) => OPERATION_ROUTES.get(event.operation) ?? '/v1/llm/chat/completions';
@@ -551,7 +552,7 @@ export async function recordGatewayUsage(event: UsageEvent): Promise<void> {
   // reconciles against what is owed, never against finalCost alone.
   const ownKey = event.billingMode === 'none';
   const owed = ownKey ? byokFee : event.finalCost;
-  const label = ownKey ? 'BYOK fee' : 'LLM';
+  const label = ownKey ? 'BYOK fee' : event.operation === 'audio.dictation' ? 'Dictation' : 'LLM';
 
   if (event.billingHoldUsd != null) {
     const { toDeduct, toRefund } = reconcileBillingHold(owed, event.billingHoldUsd);
@@ -594,7 +595,11 @@ async function settleLlmUsage(
   await settleAndCheckAutoTopup({
     accountId: event.accountId,
     amount: costUsd,
-    description: `${label} · ${event.provider ? `${event.provider}/` : ''}${event.model}`,
+    // A dictation reads "Dictation" alone: its model is the product, not a choice.
+    description:
+      event.operation === 'audio.dictation'
+        ? label
+        : `${label} · ${event.provider ? `${event.provider}/` : ''}${event.model}`,
     kind: 'llm_debit',
     key: usageEventId ? { request: `llm:${usageEventId}` } : null,
     audit: hasAudit

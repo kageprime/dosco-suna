@@ -44,7 +44,7 @@ import { isDeadSubscriptionStatus } from '../src/billing/services/billing-state'
 import {
   billingPeriodForSubscription,
   LEGACY_PAID_PLAN_KEYS,
-  monthlyCreditsForSubscription,
+  monthlyUsdForSubscription,
   paidMonthlyUsd,
   planForSubscription,
   revenueCatProductMonthlyUsd,
@@ -90,7 +90,7 @@ async function decide(row: Row): Promise<Action> {
   if (plan === 'free') return { monthlyUsd: null, tier: 'free', note: 'on the free price' };
   // A paid stored tier on a $0 / unmapped price is a comp: it keeps its amount.
   const usd = paidMonthlyUsd(sub, { tier: row.tier, seatCount: row.seatCount });
-  const comped = monthlyCreditsForSubscription(sub) === 0;
+  const comped = monthlyUsdForSubscription(sub) === 0;
   return { monthlyUsd: usd, tier: 'credits', note: `subscription ${sub.status}${comped ? ` (comped, $0 price ${sub.items.data[0]?.price?.id ?? '-'})` : ''}` };
 }
 

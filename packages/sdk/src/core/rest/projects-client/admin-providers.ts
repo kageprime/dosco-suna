@@ -41,9 +41,21 @@ export interface AdminProviderAnalytics {
     error: number;
     stopped: number;
     migrations: number;
+    wakes: number;
     successRate: number | null;
   };
   providers: AdminProviderStat[];
+  /**
+   * Session resume per provider: each wake of a stopped sandbox, its phases,
+   * and `resumeP50Ms` / `resumeP95Ms` from the wake to the runtime's first
+   * answer (null when no resume of the window reached it).
+   */
+  wakes: (Omit<AdminProviderStat, 'provisions'> & {
+    wakes: number;
+    resumes: number;
+    resumeP50Ms: number | null;
+    resumeP95Ms: number | null;
+  })[];
   latencyByDay: Record<string, unknown>[];
   volumeByDay: Record<string, unknown>[];
   migrations: { flow: string; count: number }[];

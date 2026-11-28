@@ -236,6 +236,50 @@ describe('createKortixAuth — the sign-in flow', () => {
 });
 
 describe('createKortixAuth — expiry, refresh, sign-out, abuse', () => {
+  for (const scenario of ['missing', 'live', 'expired', 'invalid', 'network'] as const) {
+    test(`/refresh preserves redirects, cookie policy and token calls: ${scenario}`, async () => {
+      let now = Date.parse('2026-08-26T10:00:00Z');
+      const auth = makeAuth({
+        now: () => now,
+        fetch: (input, init) => {
+          if (scenario === 'network' && now > Date.parse('2026-08-26T10:00:00Z')) {
+            calls.push({ url: String(input), method: init?.method ?? 'GET', body: null, auth: null });
+            return Promise.reject(new Error('synthetic upstream unavailable'));
+          }
+          return fakeFetch(input, init);
+        },
+      });
+      const { jar } = await signIn(auth);
+      if (scenario !== 'live') now += 90 * 60 * 1000;
+      if (scenario === 'invalid') revokedTokens.push('kortix_ort_1');
+      calls = [];
+      const returnTo = '/reports/weekly?view=compact&sort=desc';
+      const response = await auth.handler(new Request(
+        `${APP}/api/kortix/auth/refresh?return_to=${encodeURIComponent(returnTo)}`,
+        { headers: { cookie: scenario === 'missing' ? '' : cookieHeader(jar) } },
+      ));
+      const succeeds = scenario === 'live' || scenario === 'expired';
+      expect(response.status).toBe(302);
+      expect(response.headers.get('location')).toBe(succeeds ? returnTo : auth.signInUrl(returnTo));
+      expect(calls.map((call) => call.url)).toEqual(
+        scenario === 'missing' || scenario === 'live' ? [] : [`${BACKEND}/oauth/token`],
+      );
+      const cookies = response.headers.getSetCookie();
+      if (scenario === 'live') {
+        expect(cookies).toEqual([]);
+      } else if (scenario === 'expired') {
+        expect(cookies).toHaveLength(1);
+        expect(cookies[0]).toMatch(/^__Host-kortix_session=[^;]+; /);
+        expect(cookies[0]).not.toContain('Max-Age=0');
+        Object.assign(jar, cookiesFrom(response));
+        const viewer = await auth.viewer(new Request(`${APP}/reports`, { headers: { cookie: cookieHeader(jar) } }));
+        expect(viewer?.token).toBe('kortix_oat_2');
+      } else {
+        expect(cookies).toEqual(['__Host-kortix_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure']);
+      }
+    });
+  }
+
   test('an expired access token: viewer() is null, requireViewer redirects to /refresh, /refresh rotates and sets a new cookie', async () => {
     const auth = makeAuth({ now: () => Date.parse('2026-08-26T10:00:00Z') });
     const { jar } = await signIn(auth);

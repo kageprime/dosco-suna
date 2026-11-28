@@ -3,14 +3,19 @@
 import { ApiError, type ProjectSpace } from '@kortix/sdk';
 import {
   useCreateProjectSpace,
+  useFeatureFlag,
   usePrivateChannelsAvailable,
   useProjectConfig,
   useProjectSpaceMembers,
   useProjectSpaces,
   useUpdateProjectSpace,
+  useWorkspaceAgentDirectory,
 } from '@kortix/sdk/react';
 import { isMyKortixAgentName, spaceSlug } from '@kortix/shared';
-import { ChatCircleIcon, PlusIcon } from '@phosphor-icons/react';
+import { ChatCircleIcon, LinkSimpleIcon, PlusIcon } from '@phosphor-icons/react';
+import { useCopy } from '../../internal/hooks/use-copy';
+import { SolidCheckIcon } from '../../internal/icons/solid-check-icon';
+import { ProviderLogo } from '../../internal/lib/provider-branding';
 import { createContext, type ReactNode, useContext, useMemo } from 'react';
 
 import { useTranslations } from '../../i18n';
@@ -215,7 +220,8 @@ export function PrincipalHover({
           {children}
         </button>
       </HoverCardTrigger>
-      <HoverCardContent align="start" side="top" animated={false} className="w-72 p-0">
+      {/* `overflow-hidden`: the role banner is the card's first row, so the card's rounded top clips it. */}
+      <HoverCardContent align="start" side="top" animated={false} collisionPadding={8} className="w-72 overflow-hidden p-0">
         <PrincipalSummary projectId={projectId} principal={principal} onOpenProfile={canOpen ? () => openProfile!(principal) : undefined} />
       </HoverCardContent>
     </HoverCard>
@@ -288,31 +294,91 @@ function AgentSummary({ projectId, name, onOpenProfile }: { projectId: string; n
   const config = useProjectConfig(projectId);
   const agent = config?.agents.find((item) => item.name === name);
   const add = useAddAgentToSpace(projectId, name);
+  const router = useUiRouter();
+  const { copied, copy } = useCopy({ toast: false });
+  // The agent's directory entry (`channels`): its model and whether it answers.
+  const agentsOn = useFeatureFlag(projectId, 'channels').enabled;
+  const entry = useWorkspaceAgentDirectory(projectId, { enabled: agentsOn }).data?.find((item) => item.name === name) ?? null;
+  const model = entry?.model ?? agent?.model ?? null;
+  const [provider, ...modelRest] = model ? model.split('/') : [];
+  const modelName = modelRest.join('/') || model;
+  const connectors = agent?.scope?.connectors;
+  const apps =
+    connectors === 'all' || connectors === undefined
+      ? t('connectorsAll')
+      : connectors.length === 0
+        ? t('connectorsNone')
+        : connectors.join(', ');
+  const paused = entry?.status === 'paused';
+  const off = entry?.status === 'off';
+  const role = [t('agent'), entry?.is_default || config?.default_agent === name ? t('default') : null, paused ? t('paused') : off ? t('off') : null]
+    .filter(Boolean)
+    .join(' · ');
+  const chatHref = uiRoutes().dm(projectId, name);
+  const linkLabel = copied ? t('linkCopied') : t('copyLink');
   return (
     <div className="space-y-3 p-4">
       <div className="flex items-start gap-3">
-        <AgentMark slug={name} size={28} tile={40} className="rounded-md" />
+        <span className="relative shrink-0">
+          <AgentMark slug={name} size={28} tile={40} className="rounded-md" />
+          {/* Only a real state earns a dot: a paused or switched-off agent. */}
+          {paused || off ? (
+            <span
+              aria-hidden
+              className={cn('ring-popover absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full ring-2', paused ? 'bg-kortix-orange' : 'bg-muted-foreground')}
+            />
+          ) : null}
+        </span>
         <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="truncate text-sm font-semibold">{agentLabel(name)}</p>
-          <p className="text-muted-foreground text-xs">{t('agent')}</p>
+          <div className="flex min-w-0 items-center gap-1.5">
+            {onOpenProfile ? (
+              <button type="button" onClick={onOpenProfile} className="truncate text-sm font-semibold hover:underline focus-visible:underline focus-visible:outline-none">
+                {agentLabel(name)}
+              </button>
+            ) : (
+              <p className="truncate text-sm font-semibold">{agentLabel(name)}</p>
+            )}
+            {model ? (
+              <span className="text-muted-foreground flex min-w-0 items-center gap-1 text-xs">
+                <span aria-hidden>·</span>
+                {provider && modelRest.length ? <ProviderLogo providerID={provider} size="xs" className="shrink-0" /> : null}
+                <span className="truncate">{modelName}</span>
+              </span>
+            ) : null}
+          </div>
+          <p className="text-muted-foreground text-xs">{role}</p>
         </div>
       </div>
-      {agent?.description ? <p className="text-muted-foreground line-clamp-3 text-xs text-pretty">{agent.description}</p> : null}
-      {add || onOpenProfile ? (
-        <div className="flex gap-2">
-          {add ? (
-            <Button variant="outline" size="sm" className="min-w-0 flex-1 gap-1.5" onClick={add.run} disabled={add.pending} aria-busy={add.pending || undefined}>
-              <PlusIcon className="size-3.5 shrink-0" />
-              <span className="truncate">{add.label}</span>
-            </Button>
-          ) : null}
-          {onOpenProfile ? (
-            <Button variant={add ? 'ghost' : 'outline'} size="sm" className="flex-1" onClick={onOpenProfile}>
-              {t('openProfile')}
-            </Button>
-          ) : null}
-        </div>
+      {agent?.description ? <p className="text-foreground line-clamp-3 text-sm text-pretty">{agent.description}</p> : null}
+      <p className="text-muted-foreground truncate text-xs">
+        <span className="text-foreground">{t('connectors')}</span> {apps}
+      </p>
+      {add ? (
+        <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={add.run} disabled={add.pending} aria-busy={add.pending || undefined}>
+          <PlusIcon className="size-3.5 shrink-0" />
+          <span className="truncate">{add.label}</span>
+        </Button>
       ) : null}
+      <div className="flex gap-2">
+        {chatHref ? (
+          <Button variant="outline" size="sm" className="min-w-0 flex-1 gap-1.5" onClick={() => router.push(chatHref)}>
+            <ChatCircleIcon className="size-3.5 shrink-0" />
+            {t('message')}
+          </Button>
+        ) : null}
+        {chatHref ? (
+          <Hint label={linkLabel} side="top">
+            <Button
+              variant="outline"
+              size="icon-base"
+              aria-label={linkLabel}
+              onClick={() => void copy(new URL(chatHref, window.location.origin).toString())}
+            >
+              {copied ? <SolidCheckIcon className="size-3.5" /> : <LinkSimpleIcon className="size-3.5" />}
+            </Button>
+          </Hint>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -328,35 +394,38 @@ function PersonSummary({
 }) {
   const t = useTranslations('spaces.profile');
   const person = usePerson(projectId, principal);
-  const role = useRoleLabel(person.role);
   const message = useMessagePerson(projectId, principal.userId, person.name);
+  const roleTitle =
+    person.role === 'owner' ? t('roleOwner') : person.role === 'admin' ? t('roleAdmin') : person.role === 'member' ? t('roleMember') : null;
   return (
-    <div className="space-y-3 p-4">
-      <div className="flex items-start gap-3">
+    <div className="space-y-3 p-3">
+      <div className="flex items-center gap-3">
         <UserAvatar email={person.email ?? ''} name={person.name} avatarUrl={person.avatarUrl} colorKey={principal.userId} size="lg" />
         <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="flex min-w-0 items-baseline gap-1.5 text-sm font-semibold">
+          <p className="flex min-w-0 items-baseline gap-1.5 text-sm font-medium">
             <span className="truncate">{person.name}</span>
             {person.isViewer ? <span className="text-muted-foreground shrink-0 text-xs font-normal">{t('you')}</span> : null}
           </p>
-          {role ? <p className="text-muted-foreground text-xs">{role}</p> : null}
+          {/* Their place in the workspace, then how to reach them: quiet lines under the name, no band of its own. */}
+          {roleTitle ? <p className="text-muted-foreground truncate text-xs">{roleTitle}</p> : null}
+          {person.email ? <p className="text-muted-foreground truncate text-xs">{person.email}</p> : null}
         </div>
       </div>
-      {message || onOpenProfile ? (
-        <div className="flex gap-2">
-          {message ? (
-            <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={message}>
-              <ChatCircleIcon className="size-3.5 shrink-0" />
-              {t('message')}
-            </Button>
-          ) : null}
-          {onOpenProfile ? (
-            <Button variant="ghost" size="sm" className="flex-1" onClick={onOpenProfile}>
-              {t('viewProfileShort')}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+        {message || onOpenProfile ? (
+          <div className="flex gap-2">
+            {message ? (
+              <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={message}>
+                <ChatCircleIcon className="size-3.5 shrink-0" />
+                {t('message')}
+              </Button>
+            ) : null}
+            {onOpenProfile ? (
+              <Button variant={message ? 'ghost' : 'outline'} size="sm" className="flex-1" onClick={onOpenProfile}>
+                {t('viewProfileShort')}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
     </div>
   );
 }
@@ -378,7 +447,7 @@ export function ProfilePanel({ projectId, principal, onClose }: { projectId: str
           <h2 className="text-sm font-medium">{t('heading')}</h2>
         </div>
         <Hint label={t('close')} side="bottom">
-          <Button variant="ghost" size="icon-md" aria-label={t('close')} onClick={onClose}>
+          <Button variant="ghost" size="icon-base" aria-label={t('close')} onClick={onClose}>
             <Close />
           </Button>
         </Hint>

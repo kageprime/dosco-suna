@@ -8,6 +8,7 @@ import * as React from 'react';
 import { asChildRender, FLOATING_LAYER_ATTR, openState, stateRender } from '../lib/base-ui-compat';
 import { usePortalContainer } from '../lib/portal-container';
 import { cn } from '../lib/utils';
+import { floatingZ, useDialogDepth } from '../lib/z-stack';
 
 /**
  * Base UI always renders the open item's content in one popup viewport, so
@@ -132,11 +133,15 @@ function NavigationMenuContent({
  */
 function NavigationMenuViewport({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
   const scoped = usePortalContainer();
+  // On the floating scale like every portaled menu: a fixed z-50 opened under
+  // any dialog and tied with the sidebar rail.
+  const depth = useDialogDepth();
   return (
     <NavigationMenuPrimitive.Portal container={scoped}>
       <NavigationMenuPrimitive.Positioner
         {...FLOATING_LAYER_ATTR}
-        className="isolate z-50"
+        className="isolate"
+        style={{ zIndex: floatingZ(depth) }}
         sideOffset={0}
       >
         <NavigationMenuPrimitive.Popup

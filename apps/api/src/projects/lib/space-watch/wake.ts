@@ -150,7 +150,7 @@ async function writeEventsFile(place: { drive: DriveRow; folder: string } | null
 /** The owner as the watcher reads them: their name and the exact `@` token that mentions them. */
 async function ownerName(userId: string): Promise<string> {
   const who = (await resolveUserIdentities([userId])).get(userId);
-  const name = who?.displayName?.trim() || who?.email?.split('@')[0] || 'the space owner';
+  const name = who?.displayName?.trim() || who?.email?.split('@')[0] || 'the channel owner';
   const token = await mentionOf(userId);
   return token ? `${name} (mention them as ${token})` : name;
 }

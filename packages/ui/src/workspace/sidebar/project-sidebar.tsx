@@ -3,10 +3,12 @@
 import { uiRoutes } from '../../lib/routes';
 import { Button } from '../../primitives/button';
 import Hint from '../../primitives/hint';
+import { Tabs, TabsList, TabsTrigger } from '../../primitives/tabs';
 import { Kbd, KbdGroup } from '../../primitives/kbd';
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarHeader,
   SidebarMenu,
@@ -36,11 +38,19 @@ import { useFeatureFlag } from '@kortix/sdk/react';
 import { AppsModal } from '../../internal/apps-and-extensions/apps-modal';
 import { useAppsModalStore } from '../../internal/stores/apps-modal-store';
 import {
+  ArrowUpRightIcon,
+  GitPullRequestIcon,
   MagnifyingGlassIcon,
   NavigationArrowIcon,
+  PlusIcon,
 } from '@phosphor-icons/react';
-import { UiLink as Link, useUiPathname } from '../../providers/ui-provider';
+import { UiLink as Link, useUiPathname, useUiRouter } from '../../providers/ui-provider';
+import { useCapabilityAccess } from '../../internal/layout/project-settings-nav';
+import { reviewHref } from '../../internal/lib/capability-tab-routes';
 import { SettingsReturnTracker, SidebarDrill } from './sidebar-drill';
+import { ProjectRail } from './project-rail';
+import { SpaceFormModal } from '../session-spaces/space-form-modal';
+import { isProjectAdminPath } from '../../internal/layout/project-capability-nav';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { SidebarBalanceWarning } from './footer/project-balance-warning';
 import { SidebarUpgradeButton } from './footer/project-upgrade-button';
@@ -61,10 +71,16 @@ const FULL_COMPOSER_ROUTE = /\/workspaces\/[^/]+\/(?:c|chat|dm|spaces)(?:\/.*)?$
 export function ProjectSidebar({
   projectId,
   menu,
+  help,
   onOpenSearch,
   onOpenDownloadApp,
 }: {
   projectId: string;
+  /**
+   * The footer's help control (apps/web passes `HelpMenu`: docs, support,
+   * shortcuts, status, what's new). Without it, the sidebar has no footer.
+   */
+  help?: ReactNode;
   /**
    * Opens the host's Download app dialog. Without it, the footer has no
    * Download app row.
@@ -90,6 +106,37 @@ export function ProjectSidebar({
   const isMobile = useIsMobile();
   const pathname = useUiPathname();
   const sessionsGroupRef = useRef<HTMLDivElement>(null);
+  // The icon rail (`sidebar_rail`), desktop only. Off, or on a phone, the
+  // sidebar is the one without a rail: every `railed` branch below falls through.
+  const railFlag = useFeatureFlag(projectId, 'sidebar_rail').enabled;
+  const railed = !isMobile && railFlag;
+  // With the rail, the panel shows the sessions, or workspace settings by the route.
+  const settingsOpen = isProjectAdminPath(pathname);
+  // Collapsed and hovered on the rail: the hovered item picks the list, not the route.
+  const [peekSection, setPeekSection] = useState<'home' | 'spaces' | 'customize'>('home');
+  const peeking = railed && !isExpanded && peek;
+  const peekOverride = peeking ? peekSection === 'customize' : undefined;
+  const showingSettings = peekOverride ?? settingsOpen;
+  // The rail's Spaces (`session_groups`): the panel lists the spaces on a spaces page, or while Spaces is hovered.
+  const groupsOn = useFeatureFlag(projectId, 'session_groups').enabled;
+  const spacesHref = groupsOn ? (uiRoutes().sessionSpaces?.(projectId) ?? null) : null;
+  const spacesOpen = !!spacesHref && !!pathname && (pathname === spacesHref || pathname.startsWith(`${spacesHref}/`));
+  const showingSpaces = railed && !showingSettings && (peeking ? peekSection === 'spaces' : spacesOpen);
+  // New space, from the Spaces title row (rail only).
+  const [newSpaceOpen, setNewSpaceOpen] = useState(false);
+  // Chat on, rail: the panel shows the chats or the sessions.
+  const [chatTab, setChatTab] = useState<'chat' | 'sessions'>('chat');
+  // Review on the Chat tab's title row: for the people who may act on it (the Review row's own rule).
+  const reviewAccess = useCapabilityAccess(projectId);
+  const reviewPage = reviewHref(projectId);
+  const reviewLink =
+    reviewPage && reviewAccess.settled && reviewAccess.tabs.includes('review')
+      ? { href: reviewPage, active: !!pathname?.startsWith(reviewPage.split('?')[0]!) }
+      : null;
+  // The Sessions title row's right edge (rail only): the session list draws its view options button there.
+  const [sessionsFilterSlot, setSessionsFilterSlot] = useState<HTMLDivElement | null>(null);
+  const router = useUiRouter();
+  const tGroups = useTranslations('sidebar.sessionGroups');
   // Mounted outside <Sidebar>: the mobile sheet unmounts its content on close.
   const [computerConnectOpen, setComputerConnectOpen] = useState(false);
   const [connectMcpOpen, setConnectMcpOpen] = useState(false);
@@ -195,8 +242,20 @@ export function ProjectSidebar({
     <Sidebar
       collapsible="offcanvas"
       variant="inset"
-      // No background here. This className lands on the sidebar CONTAINER Ã¢â‚¬â€
-      // the square positioning box Ã¢â‚¬â€ while the visible card is the rounded
+      rail={
+        railed ? (
+          <ProjectRail
+            projectId={projectId}
+            onOpenSearch={onOpenSearch ? handleOpenSearch : undefined}
+            help={help}
+            settingsOpen={settingsOpen}
+            onPeek={setPeekSection}
+          />
+        ) : undefined
+      }
+      // No background here. This className lands on the sidebar CONTAINER —
+      // the square positioning box — while the visible card is the rounded
+
       // inner box, which already carries `bg-sidebar`. Painting it twice put a
       // square fill behind the flyout card and it showed at all four corners.
       className="[scrollbar-width:'none'] [-ms-overflow-style:'none'] [&::-webkit-scrollbar]:hidden"
@@ -221,6 +280,88 @@ export function ProjectSidebar({
             pointing at. The workspace directory is now a second VIEW of this
             menu, behind "Switch Workspace", which is why there is no footer
             control below any more. */}
+        {railed ? (
+          // The rail carries search, the toggle and help; the panel names what it shows.
+          <div
+            className={cn(
+              'flex w-full items-center gap-1 px-2',
+              !peek && 'kx-titlebar-row kx-titlebar-band-height kx-project-sidebar-titlebar',
+            )}
+          >
+            {chat && !showingSettings && !showingSpaces ? (
+              // Chat on: two views of the panel, the chats and the sessions.
+              <Tabs value={chatTab} onValueChange={(value) => setChatTab(value as 'chat' | 'sessions')} className="min-w-0 flex-1">
+                {/* `-ml-2.5` cancels the first trigger's `px-2.5`: its label starts on the list's label edge. */}
+                <TabsList variant="secondary" size="sm" className="-ml-2.5">
+                  <TabsTrigger value="chat" className="w-fit flex-none px-2.5">
+                    {t('spaces.chat')}
+                  </TabsTrigger>
+                  <TabsTrigger value="sessions" className="w-fit flex-none px-2.5">
+                    {t('sessions')}
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            ) : (
+              <span className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">
+                {showingSettings ? t('customize') : showingSpaces ? tGroups('heading') : t('sessions')}
+              </span>
+            )}
+            {showingSettings ? null : showingSpaces ? (
+              // Spaces: the Spaces page, then New space, at the row's right edge.
+              // `-mr-1.75` cancels the `icon-base` button's inset (29px box, 16px glyph):
+              // the last glyph ends on the row's edge, as the title starts on it.
+              <div className="-mr-1.75 flex shrink-0 items-center gap-0.5">
+                {spacesHref ? (
+                  <Hint label={tGroups('allSpaces')} side="bottom">
+                    <Button asChild variant="ghost" size="icon-base" className="text-muted-foreground hover:text-foreground">
+                      <Link href={spacesHref} prefetch aria-label={tGroups('allSpaces')}>
+                        <ArrowUpRightIcon className="cn-rtl-flip size-4" />
+                      </Link>
+                    </Button>
+                  </Hint>
+                ) : null}
+                <Hint label={tGroups('newGroup')} side="bottom">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-base"
+                    aria-label={tGroups('newGroup')}
+                    onClick={() => setNewSpaceOpen(true)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <PlusIcon className="size-4" />
+                  </Button>
+                </Hint>
+              </div>
+            ) : chat && chatTab === 'chat' ? (
+              // Review, as an icon at the row's right edge (it is the list's first row without the rail).
+              reviewLink ? (
+                <Hint label={t('spaces.review')} side="bottom">
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon-base"
+                    className={cn(
+                      'text-muted-foreground hover:text-foreground -mr-1.75',
+                      reviewLink.active && 'bg-sidebar-accent text-foreground',
+                    )}
+                  >
+                    <Link
+                      href={reviewLink.href}
+                      prefetch
+                      aria-label={t('spaces.review')}
+                      aria-current={reviewLink.active ? 'page' : undefined}
+                    >
+                      <GitPullRequestIcon className="size-4" />
+                    </Link>
+                  </Button>
+                </Hint>
+              ) : null
+            ) : (
+              <div ref={setSessionsFilterSlot} className="-mr-1.75 flex shrink-0 items-center" />
+            )}
+          </div>
+        ) : (
         <div
           className={cn(
             'flex w-full items-center gap-1',
@@ -309,6 +450,7 @@ export function ProjectSidebar({
             )}
           </div>
         </div>
+        )}
       </SidebarHeader>
       {/* One icon lane for every row (Jay, 2026-10-12). Session rows inset
           their status mark by `px-2`; the menu-button recipe insets by
@@ -318,10 +460,16 @@ export function ProjectSidebar({
           (header `p-2` + switcher `px-1` + half of the `size-6` tile). Left
           side only: right padding still clears trailing badges. */}
       <SidebarContent className="relative min-h-0 flex-1 [scrollbar-width:'none'] overflow-hidden [-ms-overflow-style:'none'] [&::-webkit-scrollbar]:hidden [&_[data-sidebar=menu-button]]:pl-2">
-        <SidebarDrill projectId={projectId} onNavigate={handleDrilledNavigate}>
+        <SidebarDrill
+          projectId={projectId}
+          onNavigate={handleDrilledNavigate}
+          hideBack={railed}
+          drilledOverride={peekOverride}
+          instant={railed}
+        >
           <SidebarGroup className="py-0">
             <SidebarMenu>
-              {chat ? null : (
+              {chat || showingSpaces ? null : (
                 <SidebarMenuItem>
                   {creatingSession ? (
                     <SidebarMenuButton
@@ -347,7 +495,8 @@ export function ProjectSidebar({
               {/* Customize, Apps, Files: order and
                   visibility come from "Customize sidebar". They moved up here
                   from the footer (Jay, 2026-10-12) to keep the footer short. */}
-              {chat ? null : <ProjectNavItems projectId={projectId} />}
+              {/* With the rail, they live in the rail's More menu. */}
+              {chat || railed ? null : <ProjectNavItems projectId={projectId} />}
             </SidebarMenu>
           </SidebarGroup>
 
@@ -360,13 +509,24 @@ export function ProjectSidebar({
                 {/* Spaces on: Review and the Spaces are the only things up
                     top. Everything else (Customize, Drive, Apps, Artifacts,
                     the session list) waits in "More" at the bottom. */}
-                <div className="min-h-0 flex-1">
-                  <ProjectSpacesNav projectId={projectId} />
-                </div>
-                <SidebarMoreGroup projectId={projectId} footer={<SidebarMenu className="gap-1">{connectRows}</SidebarMenu>} />
+                {railed && chatTab === 'sessions' ? (
+                  <ProjectSessionList projectId={projectId} hideSpaces filterSlot={sessionsFilterSlot} />
+                ) : (
+                  <div className="min-h-0 flex-1">
+                    <ProjectSpacesNav projectId={projectId} review={!railed} />
+                  </div>
+                )}
+                {/* On the rail the panel's tabs pick Chat or Sessions, and the
+                    rail's More menu holds the pages: no More row here. */}
+                {railed ? null : <SidebarMoreGroup projectId={projectId} footer={<SidebarMenu className="gap-1">{connectRows}</SidebarMenu>} />}
               </>
             ) : (
-              <ProjectSessionList projectId={projectId} />
+              <ProjectSessionList
+                projectId={projectId}
+                hideSpaces={railed && !showingSpaces}
+                spacesOnly={showingSpaces}
+                filterSlot={railed ? sessionsFilterSlot : undefined}
+              />
             )}
           </SidebarGroup>
 
@@ -384,6 +544,15 @@ export function ProjectSidebar({
           </SidebarGroup>
         </SidebarDrill>
       </SidebarContent>
+
+      {/* Help sits alone at the foot: a person looks for it at the bottom of
+          the navigation. `pl-2.5` puts its glyph on the rows' icon lane above. */}
+      {railed ? (
+        // With the rail, Help is on the rail and the workspace switcher sits at the panel's foot.
+        menu ? <SidebarFooter className="pt-0">{menu}</SidebarFooter> : null
+      ) : help ? (
+        <SidebarFooter className="flex-row pt-0 pl-2.5">{help}</SidebarFooter>
+      ) : null}
 
       <SidebarRail aria-label={t('resize')} title={t('resizeHelp')} />
     </Sidebar>
@@ -413,6 +582,18 @@ export function ProjectSidebar({
       open={computerConnectOpen}
       onOpenChange={setComputerConnectOpen}
     />
+    {railed ? (
+      <SpaceFormModal
+        projectId={projectId}
+        space={null}
+        open={newSpaceOpen}
+        onOpenChange={setNewSpaceOpen}
+        onSaved={(space) => {
+          const href = uiRoutes().sessionSpace?.(projectId, space.group_id);
+          if (href) router.push(href);
+        }}
+      />
+    ) : null}
     <AppsModal
       chrome={chrome}
       onOpenComputer={() => setComputerConnectOpen(true)}

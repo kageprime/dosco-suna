@@ -101,10 +101,11 @@ describe('split-off billing (C6)', () => {
 
     expect(await isPayingAccount(source)).toBe(true);
     const preview = await previewSplitOffBilling(source, now);
-    expect(preview).toEqual({ kind: 'comped', compedUntil: '2026-12-01T00:00:00.000Z', credits: 20_000 });
+    // 20 of the period's 30 days are left: 2/3 of the $300 plan's 33,000 credits (+10% volume bonus).
+    expect(preview).toEqual({ kind: 'comped', compedUntil: '2026-12-01T00:00:00.000Z', credits: 22_000 });
 
     const result = await applySplitOffBilling({ runId, sourceAccountId: source, newAccountId: target }, now);
-    expect(result).toEqual({ kind: 'comped', tier: 'credits', planMonthlyUsd: 300, compedUntil: '2026-12-01T00:00:00.000Z', grantedCredits: 20_000 });
+    expect(result).toEqual({ kind: 'comped', tier: 'credits', planMonthlyUsd: 300, compedUntil: '2026-12-01T00:00:00.000Z', grantedCredits: 22_000 });
     // Replayed one day later: same window, no second grant.
     const replay = await applySplitOffBilling({ runId, sourceAccountId: source, newAccountId: target }, new Date(now.getTime() + DAY));
     expect(replay).toMatchObject({ kind: 'comped', compedUntil: '2026-12-01T00:00:00.000Z' });
@@ -117,7 +118,7 @@ describe('split-off billing (C6)', () => {
       comp: new Date(after.compPlanUntil!).toISOString(),
       eligible: after.freeCreditsEligible,
       balance: Number(after.balance),
-    }).toEqual({ tier: 'credits', monthly: 300, sub: null, comp: '2026-12-01T00:00:00.000Z', eligible: false, balance: 200 });
+    }).toEqual({ tier: 'credits', monthly: 300, sub: null, comp: '2026-12-01T00:00:00.000Z', eligible: false, balance: 220 });
     const grants = await ledger(target, 'split_off_comp:');
     expect(grants).toHaveLength(1);
     expect(new Date(grants[0]!.expiresAt!).toISOString()).toBe('2026-12-01T00:00:00.000Z');

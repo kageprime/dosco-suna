@@ -4,6 +4,7 @@ import { Button } from '../../primitives/button';
 import Loading from '../../primitives/loading';
 import { CountBadge } from '../../primitives/count-badge';
 import { parseNoticeBatch } from '../turn/subagent-notice';
+import { STALE_RUNTIME_DELIVERY_ERROR } from '@kortix/shared';
 import { useTranslations } from '../../i18n';
 import { cn } from '../../lib/utils';
 import {
@@ -373,9 +374,25 @@ export function QueuedPromptList({
                           </p>
                         )}
                       {failed && (
-                        <p className="text-kortix-red text-xs" role="status" title={row.lastError}>
-                          {copy.raw('textcd5f943d5863')}
-                          {row.lastError ? ` — ${row.lastError}` : ''}
+                        <p className="flex flex-wrap items-baseline gap-x-2 text-xs" role="status" title={row.lastError}>
+                          <span className="text-kortix-red">
+                            {copy.raw('textcd5f943d5863')}
+                            {row.lastError
+                              ? ` · ${row.lastError === STALE_RUNTIME_DELIVERY_ERROR ? t('queuedDisconnected') : row.lastError}`
+                              : ''}
+                          </span>
+                          {/* Retry is the one thing a failed row is for: on the row, not in the menu.
+                              A session that lost its API keeps failing, so it gets none. */}
+                          {row.lastError !== STALE_RUNTIME_DELIVERY_ERROR &&
+                            actions.some((action) => action.key === 'retry') && (
+                              <button
+                                type="button"
+                                onClick={actions.find((action) => action.key === 'retry')!.run}
+                                className="text-foreground hover:text-foreground/80 cursor-pointer font-medium underline-offset-2 hover:underline focus-visible:underline"
+                              >
+                                {actionLabel.retry}
+                              </button>
+                            )}
                         </p>
                       )}
                     </div>

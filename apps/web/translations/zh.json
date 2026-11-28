@@ -87,6 +87,7 @@
     "reconnectTitle": "重新连接 {label}",
     "reconnectDescription": "请重新登录 ChatGPT。账户的名称、访问权限和会话选择保持不变。",
     "needsReconnection": "需要重新连接",
+    "refusedByAnthropic": "被 Anthropic 拒绝",
     "accountLabelPlaceholder": "例如：我的 ChatGPT 账户",
     "chooseProvider": "请选择提供商。",
     "saved": "密钥已保存",
@@ -108,6 +109,7 @@
     "coolingDown": "冷却中",
     "keyVerified": "已验证：{provider} 接受了此密钥",
     "keyInvalid": "{provider} 拒绝了此密钥：{message}",
+    "loginForbidden": "Anthropic 拒绝了此账户：{message} 每次被拒绝后，Kortix 会跳过它 15 分钟。",
     "keyUnchecked": "未验证：{message}",
     "checkKey": "重新检查",
     "savedVerified": "密钥已保存并验证",
@@ -1293,10 +1295,6 @@
       "permission": "更改功能开关需要工作区的设置权限。",
       "updateFailed": "无法更新 {key}",
       "flags": {
-        "secrets_egress": {
-          "name": "网络强制保护的机密",
-          "description": "控制哪些工具和目标可以接收工作区机密。"
-        },
         "reminders": {
           "name": "循环",
           "description": "让代理和用户在会话上安排一次性或重复的检查。每次触发都会重新提示该会话。在触发器列表中新增循环，以及会话循环标记和 `kortix loop`。"
@@ -1313,25 +1311,21 @@
           "name": "目标",
           "description": "给代理一个目标，它会一直负责，直到独立检查确认结果。它会规划、执行、等待、跟进相关人员，并把状态保存在“文件”中的 Goals 文件夹里。需要开启卷和循环。"
         },
-        "workspace_volume": {
-          "name": "无状态沙盒",
-          "description": "每个会话只保留 /workspace，存放在独立的卷上。停止一小时的沙盒会被删除，下次打开时会用相同的文件和对话启动新沙盒。旧沙盒中运行的程序不会继续运行。由 Kortix 按工作区启用。"
-        },
         "email_channel": {
           "name": "电子邮件渠道",
           "description": "为智能体提供一个 Resend 邮箱：收到的邮件会启动并延续会话，智能体从该邮箱阅读、回复和发送邮件。使用你自己的 Resend API 密钥和域名。"
         },
-        "chat": {
+        "channels": {
           "name": "频道",
-          "description": "像 Slack 一样使用 Kortix 频道：每条消息都是一个线程，Kortix 的最新回复显示在下方，Kortix 可以发起线程，你可以与他人共享频道。替换侧边栏中的会话列表。"
+          "description": "Slack 风格的频道，以及与工作区每个智能体的聊天，集中在一个侧边栏中：智能体和频道。频道中的每条消息都会开启一个线程。取代会话列表；现有会话会移到 #general。"
+        },
+        "chat": {
+          "name": "Slack 风格频道",
+          "description": "使用 Slack 风格的频道和私信，每条消息都会开启一个线程。将侧边栏切换为聊天布局。此功能独立于用于分组会话、文件和标签页的空间。"
         },
         "session_groups": {
           "name": "空间",
           "description": "将会话归入空间，每个空间都有自己的文件和标签页。新空间仅你可见；可与指定成员或整个工作区共享。可从空间页面或输入框下方的空间选择器在空间中开始会话。空间中的每个会话都知道该空间的用途，并挂载其 Files 文件夹。"
-        },
-        "chrome": {
-          "name": "Chrome 中的 Kortix",
-          "description": "允许会话使用已连接的 Chrome 浏览器。你可以随时接管或停止。"
         },
         "agent_teams": {
           "name": "智能体团队",
@@ -1346,16 +1340,16 @@
           "description": "整个团队都能使用的云盘：管理员创建云盘并为其添加智能体。这些智能体的每个会话都会挂载它，任何可以使用其中某个智能体的人都能打开它。关闭时，每个人只有“我的文件”。"
         },
         "chat_input": {
-          "name": "Spaces-ChatInput",
+          "name": "Channels-ChatInput",
           "description": "输入框下方的一个控件，决定由谁回答以及如何回答：选择智能体后，其他所有设置都保持自动，继承自该智能体。打开某一行即可为本会话覆盖模型、思考强度、密钥、提供商密钥或沙盒，并一键恢复为自动。"
         },
         "chat_front": {
-          "name": "Spaces-Router",
-          "description": "开启 Spaces 后，你在话题中对话的智能体是一个路由器：快速的工作它自己完成（一个回答、一段短文、查看话题文件），较长的工作交给空间的智能体。它像人一样用简短消息回复。智能体把完整结果保存为话题中的文件，路由器链接该文件，而不是重新输入。消息下方的“查看工作”会打开背后的工作。需要在 kortix.yaml 中开启 My Kortix。"
+          "name": "Channels-Router",
+          "description": "开启 Slack 风格频道后，你在话题中对话的智能体是一个路由器：快速的工作它自己完成（一个回答、一段短文、查看话题文件），较长的工作交给频道的智能体。它像人一样用简短消息回复。智能体把完整结果保存为话题中的文件，路由器链接该文件，而不是重新输入。消息下方的“查看工作”会打开背后的工作。需要在 kortix.yaml 中开启 My Kortix。"
         },
         "spaces_proactive": {
-          "name": "Spaces-Proactive",
-          "description": "开启空间后，空间可以自己留意动态：在空间详情中打开“主动”，一个智能体会阅读这里发生的事（完成的话题、未回答的问题、新加入的人），只在重要时在聊天中发言：值得分享的结果、需要你做的决定或逾期事项。它也可以开启一个话题来完成工作。可选每天 9:00 的简报。"
+          "name": "Channels-Proactive",
+          "description": "开启 Slack 风格频道后，频道可以自己留意动态：在频道详情中打开“主动”，一个智能体会阅读这里发生的事（完成的话题、未回答的问题、新加入的人），只在重要时在聊天中发言：值得分享的结果、需要你做的决定或逾期事项。它也可以开启一个话题来完成工作。可选每天 9:00 的简报。"
         },
         "program_agents": {
           "name": "程序智能体",
@@ -1372,16 +1366,28 @@
         "calendar": {
           "name": "日历",
           "description": "人与智能体共享的日历：带日期、参与者和评论的事项，与已排程的触发器和循环并列显示。用 @ 提及某人即可通知对方。智能体使用 `kortix calendar`。"
+        },
+        "review_swipe": {
+          "name": "审阅卡片",
+          "description": "审阅页面的“待你处理”以卡片堆显示：每张卡片一项。向右滑动批准或合并，向左滑动附上修改意见退回给智能体。"
+        },
+        "platinum_cache": {
+          "name": "工作区缓存",
+          "description": "新会话会从本工作区保存在 Platinum 上的工作区缓存恢复 /workspace：一个已准备好的代码检出，包含 node_modules 和 pnpm 存储，大约一秒即可就绪，而不是数分钟的安装。工作区管理员将准备好的会话保存为缓存。关闭时，每个会话都从空的 /workspace 开始。"
+        },
+        "sidebar_rail": {
+          "name": "侧边栏图标栏",
+          "description": "在桌面端，侧边栏旁会固定显示一条图标栏：顶部是首页、搜索和更多，底部是帮助、自定义和面板开关。更多列出其他所有页面，点击某一行的图钉即可把该页面放到图标栏上。面板折叠时，将鼠标悬停在首页、空间或自定义上，会显示对应列表的面板。"
         }
       },
       "channelsSwitch": {
-        "onTitle": "为 {project} 开启空间？",
-        "onBody": "此工作区中的所有人都会看到空间，而不是会话列表。所有现有会话都会移到 #general。你可以随时关闭；不会删除任何内容。",
-        "drive": "同时开启云盘，让空间拥有文件。",
+        "onTitle": "为 {project} 开启 Slack 风格频道？",
+        "onBody": "此工作区中的所有人都会看到Slack 风格频道，而不是会话列表。所有现有会话都会移到 #general。你可以随时关闭；不会删除任何内容。",
+        "drive": "同时开启云盘，让频道拥有文件。",
         "turnOn": "开启",
         "cancel": "取消",
-        "offTitle": "关闭空间？",
-        "offBody": "空间、记忆、文件和链接都会保留。所有人都会重新看到会话列表。",
+        "offTitle": "关闭 Slack 风格频道？",
+        "offBody": "频道、记忆、文件和链接都会保留。所有人都会重新看到会话列表。",
         "turnOff": "关闭"
       },
       "wip": "Work in progress",
@@ -1674,6 +1680,13 @@
     "pin": "固定侧边栏",
     "resize": "调整侧边栏大小",
     "resizeHelp": "拖动以调整大小 — 双击以重置",
+    "iconRail": {
+      "navigation": "工作区导航",
+      "home": "首页",
+      "more": "更多",
+      "pinTab": "显示标签页",
+      "unpinTab": "隐藏标签页"
+    },
     "customize": "自定义",
     "sessions": "会话",
     "sessionViewOptions": "会话视图选项",
@@ -1928,16 +1941,18 @@
     "searchArtifacts": "搜索工件",
     "appsNoMatches": "无匹配项",
     "spaces": {
-      "channels": "空间",
-      "addChannel": "新建空间",
-      "loadError": "无法加载空间。",
+      "channels": "频道",
+      "chat": "聊天",
+      "addChannel": "新建频道",
+      "loadError": "无法加载频道。",
       "newAgent": "新建智能体",
       "review": "审核",
       "personal": "你的空间",
       "personalNamed": "{name} 的空间",
       "private": "私密",
       "noMessages": "还没有消息",
-      "more": "更多"
+      "more": "更多",
+      "title": "频道"
     },
     "calendar": "日历",
     "running": "运行中",
@@ -1947,7 +1962,15 @@
     "runningFailed": "无法读取正在运行的内容。",
     "runningRetry": "重试",
     "runningIn": "在 {title} 中",
-    "runningFirst": "显示前 {count} 个。"
+    "runningFirst": "显示前 {count} 个。",
+    "agents": {
+      "title": "智能体",
+      "paused": "已暂停",
+      "off": "已关闭",
+      "noMessages": "暂无消息",
+      "newAgent": "新建智能体",
+      "newAgentPrompt": "我想要一个新的智能体。先问我它应该负责什么，以及我们如何判断它已完成。然后提出方案，在我同意后，把它作为拥有工作区所有应用（connectors: all）的智能体添加到 kortix.yaml。"
+    }
   },
   "dashboard": {
     "title": "仪表板",
@@ -2240,8 +2263,6 @@
     "turn": {
       "autoRetried": "Kortix 在此失败前已自动重试该模型 {count, plural, other {# 次}}。",
       "typing": "{name} 正在输入…",
-      "showWork": "查看过程",
-      "hideWork": "隐藏过程",
       "starting": "启动中…",
       "workingFor": "处理中 · {time}",
       "agentWorking": "正在处理",
@@ -2260,7 +2281,35 @@
     "panel": {
       "outputNew": "新",
       "outputUpdated": "已更新",
+      "backgroundTasks": "后台任务",
+      "finished": "已完成",
+      "finishedCount": "已完成 {count} 个",
+      "running": "进行中",
       "resizePane": "调整窗格大小"
+    },
+    "changeRequest": {
+      "merge": "合并",
+      "merging": "正在合并…",
+      "moreActions": "更多操作",
+      "close": "关闭变更请求",
+      "openInReview": "在审阅中打开",
+      "resolveConflict": "解决冲突",
+      "open": "待处理",
+      "merged": "已合并",
+      "closed": "已关闭",
+      "conflicts": "{count, plural, other {# 个冲突}}",
+      "mergedToast": "变更请求 #{number} 已合并",
+      "closedToast": "变更请求 #{number} 已关闭",
+      "mergeFailed": "无法合并变更请求。",
+      "closeFailed": "无法关闭变更请求。",
+      "files": "{count, plural, other {# 个文件}}",
+      "into": "合并到 {branch}",
+      "number": "变更请求 #{number}",
+      "openedAgo": "创建于{time}",
+      "mergeInto": "合并到 {branch}",
+      "readyToMerge": "可以合并",
+      "mergedInto": "已合并到 {branch}",
+      "closedNote": "未合并即关闭"
     }
   },
   "agents": {
@@ -2462,7 +2511,8 @@
     "collapseQueue": "折叠等待中的消息",
     "expandQueue": "展开等待中的消息",
     "myKortixRoutes": "把每个任务交给合适的智能体",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "此会话与 Kortix 的连接已断开。请开始新会话以继续。"
   },
   "billing": {
     "plan": {
@@ -2510,7 +2560,7 @@
       "minimum": "最低充值金额为 {amount}。",
       "contactSales": "如需充值超过 {amount}，请联系销售团队。",
       "creditHint": "{credits} 个积分 · 付款后立即到账。",
-      "noExpiry": "积分永不过期。1 美元 = 100 个积分，50 美元起另有赠送。",
+      "noExpiry": "积分永不过期。1 美元 = 100 个积分。",
       "processing": "处理中",
       "addAmount": "添加 {amount}",
       "addCredits": "添加积分",
@@ -2519,7 +2569,6 @@
       "amountGroup": "充值金额",
       "customAmount": "自定义美元金额",
       "custom": "自定义",
-      "creditHintBonus": "{credits} 个积分 + {bonus} 赠送 · 付款后立即到账。",
       "autoTopupOff": "自动充值：关闭",
       "autoTopupOn": "自动充值：余额低于 {threshold} 积分时充入 {amount}",
       "ledgerBonus": "充值赠送"
@@ -2563,8 +2612,7 @@
       "paymentNeeded": "请添加付款方式，以便执行自动充值。",
       "turnedOffAfterFailure": "自动充值已于 {date} 关闭：上一次扣款失败（{reason}）。请更新付款方式，然后重新开启自动充值。",
       "lastChargeFailed": "上一次自动充值扣款于 {date} 失败（{reason}）。Kortix 会重试；连续 3 次扣款失败后，自动充值将关闭。",
-      "bonusHint": "每次充值增加 {credits} 积分 + {bonus} 奖励。",
-      "bonusFrom": "充值 {min} 及以上可获得奖励积分。"
+      "creditsHint": "每次充值增加 {credits} 个积分。"
     },
     "title": "计费与订阅",
     "subscription": "订阅",
@@ -2639,6 +2687,7 @@
         "creditsPerMonth": "每月 {credits} 个积分",
         "credits": "{credits} 个积分",
         "price": "{amount} / 月",
+        "bonus": "多送 {percent}%",
         "current": "当前",
         "choose": "选择档位",
         "chooseHint": "档位起价为每月 {min}。",
@@ -2647,8 +2696,7 @@
         "groups": {
           "small": "小型团队",
           "growing": "成长型团队",
-          "scale": "规模版",
-          "large": "大型组织"
+          "scale": "规模版"
         },
         "once": "一次性",
         "onceLabel": "一次性积分金额"
@@ -2830,9 +2878,10 @@
           "f2": "托管模型：DeepSeek、GLM。零数据保留",
           "f3": "成员不限数量，共用一个积分池",
           "f4": "未用完的积分可顺延一个月",
-          "f5": "随时充值，充值的积分永不过期",
+          "f5": "随时升级档位，新积分立即到账",
           "f6": "更高的模型速率限制",
-          "f7": "邮件支持"
+          "f7": "邮件支持",
+          "f8": "更高档位最多多送 30% 积分"
         },
         "enterprise": {
           "name": "企业版",
@@ -2857,7 +2906,7 @@
         },
         "amounts": {
           "question": "我每月需要支付多少？",
-          "answer": "可选择每月 50 美元（5,000 个积分）到每月 50,000 美元（5,000,000 个积分）的档位。所有档位的积分费率相同：每美元 100 个积分。每月超过 50,000 美元请联系销售。"
+          "answer": "可选择每月 {minUsd}（{minCredits} 个积分）到每月 {maxUsd}（{maxCredits} 个积分）的档位。档位越高，每美元的积分越多：每月 {firstBonusUsd} 起多送 {firstBonus}%，{topBonusUsd} 起最高多送 {topBonus}%。低于 {firstBonusUsd} 为每美元 100 个积分。每月超过 {maxUsd} 请联系销售。"
         },
         "members": {
           "question": "成员需要付费吗？",
@@ -2873,7 +2922,7 @@
         },
         "topup": {
           "question": "月中可以追加积分吗？",
-          "answer": "可以。随时充值任意金额，或开启自动充值，让智能体永不中断。充值 {smallestBonusUsd} 及以上可获赠额外积分：{smallestBonusUsd} 赠 {smallestBonus}%，{largestBonusUsd} 起最高赠 {largestBonus}%。充值的积分永不过期。"
+          "answer": "可以：升级月度档位。升级立即生效。你支付本月剩余时间的差价，新档位在这段时间的积分会立即到账，并按更高档位的费率计算。一次性充值随 Enterprise 合同提供。"
         },
         "change": {
           "question": "可以更改档位吗？",
@@ -3089,8 +3138,9 @@
     },
     "unified": {
       "welcome": "欢迎使用 {name}",
+      "sessionEnded": "您已退出登录。请重新登录以继续。",
       "email": "邮箱",
-      "emailPlaceholder": "您的邮箱地址",
+      "emailPlaceholder": "输入你的邮箱地址…",
       "password": "密码",
       "showPassword": "显示密码",
       "hidePassword": "隐藏密码",
@@ -3156,7 +3206,7 @@
         "title": "重置密码",
         "description": "我们会向你发送重置链接。",
         "email": "邮箱",
-        "emailPlaceholder": "您的邮箱地址",
+        "emailPlaceholder": "输入你的邮箱地址…",
         "sending": "正在发送链接…",
         "submit": "发送重置链接"
       },
@@ -3196,6 +3246,13 @@
       "errorTitle": "无法登录",
       "errorBody": "请先在浏览器标签页中登录 Kortix，然后重新打开此面板。",
       "signIn": "登录"
+    },
+    "story": {
+      "label": "关于 Kortix CompanyOS",
+      "outcome": "交给它一个目标，AI 智能体全天候执行。",
+      "repo": "你的智能体、技能和记忆，都在你拥有的一个仓库里。",
+      "approve": "智能体完成工作，由你批准上线内容。",
+      "worksWith": "与团队已在使用的工具协同工作"
     }
   },
   "onboarding": {
@@ -3436,7 +3493,18 @@
         "completed": "已完成",
         "failed": "未完成",
         "stopped": "已停止"
-      }
+      },
+      "card": {
+        "session": "会话",
+        "copyId": "复制会话 ID",
+        "openNewTab": "在新标签页中打开",
+        "model": "模型",
+        "runsAs": "运行身份",
+        "inline": "在此会话内运行，因此没有可打开的独立会话。"
+      },
+      "notStarted": "未启动",
+      "notStartedSentence": "Kortix 无法启动这位同事。没有运行任何内容。",
+      "policyBlocked": "已被此工作区的策略阻止。请让工作区管理员允许它。"
     }
   },
   "agentRunLimit": {
@@ -8161,6 +8229,7 @@
       "legendAssistant": "回复",
       "legendTool": "工具结果",
       "legendOther": "其他",
+      "skillsUsedLabel": "已使用的技能",
       "subAgentsLabel": "子代理",
       "subAgentsNote": "在此会话中运行的辅助代理。它们的费用计入此会话的费用。",
       "combinedMessages": "合计消息",
@@ -10455,6 +10524,7 @@
       "authEmailRateLimit": "无法发送邮件。请在大约一小时后重试。",
       "authRequestRateLimit": "请求过多。请在几分钟后重试。",
       "text03217276a5f1": "余额 {value0} 积分",
+      "text041fb4e77d8e": "网站登录信息",
       "text0b6a47661327": "未知所有者",
       "text1a9030082a20": "创建技能",
       "text25ab55af92b1": "已开始上传附件",
@@ -10819,6 +10889,7 @@
       "text0b2e0f1bf47e": "它执行过的每次调用，以及批准者",
       "text0b2ecc210632": "唯一的实时渠道。在问题出现的线程中提问，答案、图表和查询都会回到同一线程。",
       "text0b348466332c": "尚未有任何更改",
+      "text93d50ea93ca0": "仅由会话浏览器在其网站上输入。不会进入环境变量。",
       "textf83916135509": "已用",
       "texta251c18205f1": "已缓存",
       "text64cd989efc14": "剩余空间",
@@ -18332,7 +18403,6 @@
       "texte59a1d133be1": "更改将应用于下一次登录。已签发的令牌在过期前仍可使用。",
       "texte59eaa3acaf1": "墙",
       "texte5a4af9b350f": "我已创建、启用并测试 SCIM 连接",
-      "texte5a718af362a": "前两个",
       "texte5ab168f1943": "会前简报",
       "texte5b104783abd": "你的代理可以使用所需工具，就像在普通计算机上一样。",
       "texte5bd74e98514": "其他 — 仅源码",
@@ -21348,7 +21418,11 @@
       "textf543a9f99ce7": "操作栏",
       "textca4067071fcf": "选择",
       "text4cea356a17a1": "未保存的编辑",
-      "text2358f7b37c07": "临时模式的浮动栏：选择、未保存的编辑、待粘贴内容。标题、弱化的描述、带快捷键提示的操作，以及关闭按钮。"
+      "text2358f7b37c07": "临时模式的浮动栏：选择、未保存的编辑、待粘贴内容。标题、弱化的描述、带快捷键提示的操作，以及关闭按钮。",
+      "textf14554abf742": "会话恢复",
+      "text9b166fdc8348": "从唤醒已停止的沙盒到其运行时首次响应的时间，以及每个阶段的平均值。",
+      "text2c501fc3ba5b": "恢复次数",
+      "text421f441370b1": "阶段（平均）"
     },
     "publicShareConfirm": {
       "title": "创建公开链接？",
@@ -21516,6 +21590,17 @@
       "grant": "{count, plural, other {# 个密钥}}（{names}）不在智能体 {agent} 的密钥中。请打开 自定义 → Agents → {agent} → 密钥 并启用{count, plural, other {它们}}。",
       "allowlist": "{count, plural, other {# 个密钥}}（{names}）不在此会话的密钥范围内。请启动新会话以使用{count, plural, other {它们}}。"
     },
+    "secretIntakeLogin": {
+      "delivery": "{sites} 的网站登录信息。此会话的浏览器只在这些网站上输入它。智能体只能看到它的名称。",
+      "username": "用户名或邮箱",
+      "password": "密码",
+      "missing": "请输入用户名和密码。",
+      "savedTitle": "登录信息已保存",
+      "savedDescription": "智能体现在可以登录了。它只能看到登录信息的名称。",
+      "modalTitle": "添加网站登录信息",
+      "modalDescription": "输入密码前请先核对网站。",
+      "pageDescription": "输入密码前请先核对网站。登录信息加密存储。"
+    },
     "sessionEmbed": {
       "sectionTitle": "嵌入",
       "sectionDescription": "仅适用于同站点页面。查看者必须已登录并拥有此会话的访问权限；不支持在跨站点 iframe 内登录。",
@@ -21562,6 +21647,37 @@
     "reviewPane": {
       "emptyTitle": "选择一个项目",
       "emptyDescription": "详情会在这里打开。按 J 和 K 在列表中移动。"
+    },
+    "reviewDeck": {
+      "label": "审阅卡片",
+      "remaining": "{count, plural, other {剩余 # 张}}",
+      "merge": "合并",
+      "close": "关闭",
+      "approve": "批准",
+      "deny": "拒绝",
+      "dismiss": "忽略",
+      "yes": "是",
+      "no": "否",
+      "skip": "跳过",
+      "open": "打开",
+      "undo": "撤销",
+      "staged": "{verdict}：{title}",
+      "needsChoice": "打开以选择答案",
+      "noVerdict": "你无法决定此项。打开查看详情。",
+      "emptyTitle": "全部处理完毕",
+      "emptyDescription": "目前没有需要你处理的内容。",
+      "highRisk": "高风险",
+      "files": "{count, plural, other {# 个文件}}",
+      "conflicts": "{count, plural, other {# 处冲突}}",
+      "items": "{count, plural, other {# 项}}",
+      "showCards": "以卡片显示",
+      "showList": "以列表显示",
+      "sendBack": "退回",
+      "whatShouldChange": "需要修改什么？",
+      "sendToAgent": "发送给智能体",
+      "cancel": "取消",
+      "reviews": "审阅",
+      "questions": "问题"
     }
   },
   "commandPalette": {
@@ -21579,7 +21695,7 @@
     "copyFailed": "无法复制到剪贴板",
     "threads": "话题",
     "recentThreads": "最近的话题",
-    "searchChannels": "搜索空间、话题、命令..."
+    "searchChannels": "搜索频道、话题、命令..."
   },
   "personalWelcome": {
     "dismiss": "关闭",
@@ -21800,9 +21916,9 @@
     "perDay": "每天",
     "noLimit": "不限",
     "postTo": "发布到",
-    "postToHint": "每次运行都会在那里开始一个新话题。未选择空间时，运行会进入 #{channel}。",
-    "postToNone": "无空间",
-    "postToUnavailable": "不可用的空间",
+    "postToHint": "每次运行都会在那里开始一个新话题。未选择频道时，运行会进入 #{channel}。",
+    "postToNone": "无频道",
+    "postToUnavailable": "不可用的频道",
     "postToPrivate": "私有：触发器无法发布到这里",
     "appLabel": "应用",
     "appPlaceholder": "选择应用",
@@ -21903,14 +22019,14 @@
     "loadErrorBody": "请检查网络连接后重试。"
   },
   "sessionOversight": {
-    "label": "管理员可以打开每个会话和空间",
-    "description": "工作区所有者和管理员可以打开此工作区中的任何会话和空间，包括私有的。以这种方式打开的每个会话都会记录在审计日志中。",
-    "ownerOnlyDescription": "工作区所有者和管理员可以打开此工作区中的任何会话和空间，包括私有的。只有工作区所有者可以更改此设置。",
+    "label": "管理员可以打开每个会话和频道",
+    "description": "工作区所有者和管理员可以打开此工作区中的任何会话和频道，包括私有的。以这种方式打开的每个会话都会记录在审计日志中。",
+    "ownerOnlyDescription": "工作区所有者和管理员可以打开此工作区中的任何会话和频道，包括私有的。只有工作区所有者可以更改此设置。",
     "enableTitle": "允许管理员打开所有会话？",
-    "enableDescription": "工作区所有者和管理员将能够打开此工作区中的每个会话和空间，包括成员设为私有的。成员会在共享对话框中看到提示。以这种方式打开的每个会话都会记录在审计日志中。",
+    "enableDescription": "工作区所有者和管理员将能够打开此工作区中的每个会话和频道，包括成员设为私有的。成员会在共享对话框中看到提示。以这种方式打开的每个会话都会记录在审计日志中。",
     "enableConfirm": "开启",
     "disableTitle": "不再允许管理员打开所有会话？",
-    "disableDescription": "私有会话和空间将恢复为仅其所有者和被共享者可见。管理员只保留对与其共享内容的访问权限。",
+    "disableDescription": "私有会话和频道将恢复为仅其所有者和被共享者可见。管理员只保留对与其共享内容的访问权限。",
     "disableConfirm": "关闭",
     "enabledToast": "管理员现在可以打开所有会话",
     "disabledToast": "私密会话已恢复为仅所有者可见",
@@ -22375,6 +22491,8 @@
     "redirectsTo": "完成后返回至",
     "workspaceLabel": "工作区",
     "workspaceHint": "{client} 只能访问此工作区。",
+    "workspaceAll": "我的所有工作区",
+    "workspaceAllHint": "{client} 将以你的身份访问你能打开的每个工作区（包括以后加入的），并可以创建新工作区。仅对你自己使用的应用选择此项。",
     "scopes": {
       "profile": "查看你的个人资料",
       "email": "查看你的电子邮件地址",
@@ -24801,7 +24919,7 @@
       "off": "Off",
       "on": "On",
       "projectWide": "工作区范围",
-      "spaceValue": "Space: {space}",
+      "spaceValue": "频道：{space}",
       "startPrimary": "People start it",
       "startSubagent": "Agents call it",
       "startBoth": "成员和智能体均可启动",
@@ -24831,8 +24949,8 @@
       "accessKindConnectors": "Connectors",
       "accessKindSecrets": "Secrets",
       "accessKindActions": "Permissions",
-      "newSpace": "New space…",
-      "newSpacePlaceholder": "space-name",
+      "newSpace": "新建频道…",
+      "newSpacePlaceholder": "channel-name",
       "managersOnly": "Managers only",
       "projectModelsLink": "工作区的模型、提供商和路由在<link>工作区管理</link>中。",
       "reviewLead": "智能体需要你处理的事项：决策、审批和已完成的工作。",
@@ -24877,7 +24995,7 @@
       "showInPickersHelp": "成员启动会话时可以选择它。",
       "whoStarts": "谁可以启动",
       "modeDefault": "工作区默认",
-      "space": "Space",
+      "space": "频道",
       "model": "Model",
       "tools": "Tools",
       "workspace": "Workspace",
@@ -24994,7 +25112,7 @@
       "models": "模型",
       "tabCapabilities": "能力",
       "summaryExcept": "{all} except {list}",
-      "spaceHelp": "此智能体工作的空间：使用 engineering 或 sales 等标识符。留空表示整个工作区。",
+      "spaceHelp": "此智能体工作的频道：使用 engineering 或 sales 等标识符。留空表示整个工作区。",
       "spacePlaceholder": "例如 engineering"
     },
     "myKortix": {
@@ -25020,8 +25138,8 @@
           "help": "启动一个目标协调会话，负责该目标直到验证者确认，并每天检查一次。"
         },
         "spaces": {
-          "label": "构建空间",
-          "help": "通过变更请求在 kortix.yaml 中添加并排列空间的区块。"
+          "label": "构建频道",
+          "help": "通过变更请求在 kortix.yaml 中添加并排列频道的区块。"
         }
       },
       "access": {
@@ -25122,6 +25240,32 @@
     "stopNote": "该链接将失效。"
   },
   "artifacts": {
+    "folderIcon": "选择文件夹图标",
+    "docCreateFailed": "无法创建文档，请重试。",
+    "newFolder": "新建文件夹",
+    "editFolder": "编辑文件夹",
+    "folderName": "文件夹名称",
+    "folderCreateIn": "位置",
+    "folderSaved": "文件夹已保存",
+    "folderCreated": "文件夹已创建",
+    "folderSaveFailed": "无法保存文件夹，请重试。",
+    "saveFolder": "保存文件夹",
+    "createFolder": "创建文件夹",
+    "folderActions": "{name}的操作",
+    "deleteFolder": "删除文件夹",
+    "deleteFolderTitle": "删除“{name}”？",
+    "deleteFolderHint": "其子文件夹和作品将上移一级。文件和链接仍可使用。",
+    "folderDeleted": "文件夹已删除",
+    "folderDeleteFailed": "无法删除文件夹，请重试。",
+    "folderNavigation": "作品文件夹",
+    "folderPathMore": "显示文件夹路径",
+    "folderUnavailable": "文件夹不可用",
+    "folderLoadFailed": "无法加载文件夹",
+    "moveToFolder": "移至文件夹",
+    "movedToFolder": "已移动到 {name}",
+    "emptyUnfiled": "没有未归档的产物",
+    "emptyFolder": "此文件夹中没有作品",
+    "folderRoot": "无文件夹",
     "title": "工件",
     "type": {
       "doc": "文档",
@@ -25261,7 +25405,7 @@
     "embedConvert": "转换为链接",
     "embedCopy": "复制链接",
     "embedDelete": "删除",
-    "moveTo": "移至空间",
+    "moveTo": "移至频道",
     "projectWide": "工作区范围",
     "moved": "产物已移动",
     "moveFailed": "无法移动产物",
@@ -25599,41 +25743,41 @@
       }
     },
     "create": {
-      "title": "创建空间",
+      "title": "创建频道",
       "description": "空间用于整理一个工作领域，例如市场、招聘或运营。成员和智能体在它的话题中协作。",
       "nameLabel": "名称",
       "namePlaceholder": "市场",
-      "slugPlaceholder": "space-name",
+      "slugPlaceholder": "channel-name",
       "descriptionLabel": "描述（可选）",
-      "descriptionPlaceholder": "这个空间的用途",
-      "submit": "创建空间",
-      "created": "空间已创建",
+      "descriptionPlaceholder": "这个频道的用途",
+      "submit": "创建频道",
+      "created": "频道已创建",
       "nameRequired": "请添加名称。",
       "invalidName": "名称中至少要有一个字母或数字。",
       "slugTaken": "<link>#{slug}</link> 已存在。",
-      "failed": "无法创建空间。请重试。",
-      "renameTitle": "重命名空间",
-      "renameDescription": "空间链接会随名称一起改变。",
+      "failed": "无法创建频道。请重试。",
+      "renameTitle": "重命名频道",
+      "renameDescription": "频道链接会随名称一起改变。",
       "save": "保存",
-      "renamed": "空间已重命名",
-      "renameFailed": "无法重命名空间。请重试。",
-      "descriptionPrivate": "只有你添加的人可以查看和使用该空间。",
+      "renamed": "频道已重命名",
+      "renameFailed": "无法重命名频道。请重试。",
+      "descriptionPrivate": "只有你添加的人可以查看和使用该频道。",
       "privateLabel": "私密",
       "privateHint": "只有受邀成员可以看到它。",
-      "privateUnavailable": "此工作区尚未开放私密空间。",
-      "privateLimits": "私密会对其他人隐藏该空间。代码更改（git 分支）和代理自身的工具不是私密的。",
+      "privateUnavailable": "此工作区尚未开放私密频道。",
+      "privateLimits": "私密会对其他人隐藏该频道。代码更改（git 分支）和代理自身的工具不是私密的。",
       "name": "名称",
-      "taken": "空间 #{slug} 已存在。",
+      "taken": "频道 #{slug} 已存在。",
       "about": "描述",
-      "aboutPlaceholder": "此空间的用途",
+      "aboutPlaceholder": "此频道的用途",
       "template": "初始标签页",
-      "error": "无法创建空间"
+      "error": "无法创建频道"
     },
     "view": {
       "welcomeTitle": "欢迎来到 #{name}",
       "welcomeEmpty": "空间用于整理一个工作领域。成员和智能体在这里按话题协作：每条消息都会开启一个话题。",
       "welcomeStart": "这里是 #{name} 的开始。",
-      "dmIntro": "只有你和 {agent} 能看到这个空间。",
+      "dmIntro": "只有你和 {agent} 能看到这个聊天。",
       "today": "今天",
       "yesterday": "昨天",
       "openThread": "打开话题",
@@ -25647,24 +25791,24 @@
       "messageAgent": "发消息给 {agent}",
       "threadsEmptyTitle": "还没有话题",
       "threadsEmpty": "你开始的话题会显示在这里。",
-      "loadError": "无法加载此空间。",
+      "loadError": "无法加载此频道。",
       "threadsLoadError": "无法加载话题。",
       "retry": "重试",
-      "notFound": "此空间不存在。",
-      "notFoundHint": "链接可能有误，或者有人重命名了该空间。",
+      "notFound": "此频道不存在。",
+      "notFoundHint": "链接可能有误，或者有人重命名了该频道。",
       "openDefault": "打开 #{name}",
       "archivedTitle": "#{name} 已归档。",
       "archivedHint": "取消归档后，可以再次在这里阅读和开始话题。",
       "archivedLocked": "只有频道创建者或工作区管理员可以取消归档。",
-      "unarchive": "取消归档空间",
-      "unarchived": "空间已取消归档",
-      "unarchiveFailed": "无法取消归档空间。请重试。",
+      "unarchive": "取消归档频道",
+      "unarchived": "频道已取消归档",
+      "unarchiveFailed": "无法取消归档频道。请重试。",
       "dmFailed": "无法打开此对话。",
-      "archive": "归档空间",
+      "archive": "归档频道",
       "archiveTitle": "归档 #{name}？",
       "archiveDescription": "该空间会从所有成员的侧边栏中消失。它的话题会保留，空间创建者或工作区管理员可以取消归档。",
-      "archived": "空间已归档",
-      "archiveFailed": "无法归档空间。请重试。",
+      "archived": "频道已归档",
+      "archiveFailed": "无法归档频道。请重试。",
       "threadTitle": "话题",
       "closeThread": "关闭话题",
       "sendFailed": "无法开始话题。请重试。",
@@ -25729,8 +25873,8 @@
         "titlePlaceholder": "它是什么",
         "invalidUrl": "请输入有效的链接，例如 example.com。",
         "addFailed": "无法添加链接，请重试。",
-        "limit": "此空间已固定 200 个链接。请先取消固定一个。",
-        "addLimit": "此空间已添加 200 个链接。请先移除一个。",
+        "limit": "此频道已固定 200 个链接。请先取消固定一个。",
+        "addLimit": "此频道已添加 200 个链接。请先移除一个。",
         "added": "添加时间",
         "remove": "移除链接",
         "removeTitle": "移除此链接？",
@@ -25750,7 +25894,7 @@
         "all": "全部",
         "sharedBy": "分享者",
         "earlier": "更早",
-        "pinHint": "固定它。空间中的每个智能体都会读取已固定的链接。",
+        "pinHint": "固定它。频道中的每个智能体都会读取已固定的链接。",
         "unpinHint": "取消固定。智能体将不再读取它。",
         "copyLink": "复制链接",
         "linkCopied": "已复制链接",
@@ -25806,9 +25950,9 @@
         "rememberHint": "每个智能体都会读的笔记"
       },
       "allAgents": "所有智能体",
-      "join": "加入空间",
+      "join": "加入频道",
       "joined": "你已加入 #{name}。",
-      "joinFailed": "无法加入空间，请重试。",
+      "joinFailed": "无法加入频道，请重试。",
       "openFullSession": "Open full session",
       "tabEdit": {
         "kind": {
@@ -25819,10 +25963,10 @@
           "link": "Link"
         },
         "add": "Add tab",
-        "full": "A space holds at most {max} tabs. Remove one first.",
+        "full": "一个频道最多可容纳 {max} 个标签页。请先移除一个。",
         "noArtifacts": "No artifacts yet",
         "noApps": "此工作区中没有 Apps",
-        "spaceFiles": "This space’s files",
+        "spaceFiles": "此频道的文件",
         "otherFolder": "Another folder…",
         "fileItem": "文件…",
         "linkItem": "Link…",
@@ -25858,17 +26002,51 @@
           "description": "它已被删除或重命名，或未与你共享。"
         }
       },
-      "spaceDetails": "{name} 详情"
+      "spaceDetails": "{name} 详情",
+      "moreActions": "更多操作",
+      "copyMessage": "复制消息",
+      "copyMarkdown": "复制为 Markdown",
+      "deleteMessage": "删除消息",
+      "messageCopied": "消息已复制",
+      "memberJoined": "已加入",
+      "findInThread": "在会话中查找",
+      "findPlaceholder": "查找",
+      "findCount": "第 {index} 个，共 {count} 个",
+      "findNone": "无匹配",
+      "findPrevious": "上一个匹配",
+      "findNext": "下一个匹配",
+      "closeFind": "关闭查找",
+      "openInNewWindow": "在新窗口中打开",
+      "copyThreadText": "复制为纯文本",
+      "copyJson": "复制为 JSON",
+      "threadCopied": "已复制",
+      "jump": {
+        "label": "{day}，跳转到日期",
+        "title": "跳转到",
+        "today": "今天",
+        "yesterday": "昨天",
+        "week": "一周前",
+        "month": "一个月前",
+        "first": "第一条消息",
+        "pick": "选择日期…"
+      },
+      "activity": {
+        "joined": "<b>{name}</b> 已加入",
+        "added": "<b>{actor}</b> 添加了 <b>{name}</b>",
+        "addedUnknown": "<b>{name}</b> 已被添加",
+        "removed": "<b>{actor}</b> 移除了 <b>{name}</b>",
+        "removedUnknown": "<b>{name}</b> 已被移除"
+      }
     },
     "details": {
       "about": "关于",
       "members": "成员",
-      "name": "空间名称",
+      "name": "频道名称",
       "description": "描述",
       "noDescription": "添加描述",
       "created": "创建于",
       "editField": "编辑{field}",
-      "archiveTitle": "归档此空间",
+      "archiveTitle": "归档此频道",
       "archiveHint": "它会从所有成员的侧边栏中移除。其中的话题会保留。",
       "archive": "归档",
       "find": "查找成员或智能体",
@@ -25892,9 +26070,9 @@
       "peopleFailed": "无法更新成员，请重试。",
       "personMenu": "{person} 选项",
       "removePerson": "从 #{name} 移除",
-      "leave": "退出空间",
+      "leave": "退出频道",
       "left": "你已退出 #{name}。",
-      "leaveTitle": "退出此空间",
+      "leaveTitle": "退出此频道",
       "leaveHint": "退出后仍可阅读，并可随时重新加入。",
       "visibilityPrivate": "仅限成员",
       "privateNote": "只有成员可以看到 #{name}。",
@@ -25908,7 +26086,7 @@
       "leaveHintPrivate": "你将失去对其线程、文件和记忆的访问权限，包括你自己的线程。需要成员重新添加你。",
       "leavePrivateTitle": "退出 #{name}？",
       "addMembers": "添加成员",
-      "privateLimits": "私密会对其他人隐藏该空间。代码更改（git 分支）和代理自身的工具不是私密的。",
+      "privateLimits": "私密会对其他人隐藏该频道。代码更改（git 分支）和代理自身的工具不是私密的。",
       "agentAdded": "已将 {agent} 添加到 #{name}。"
     },
     "folder": {
@@ -25922,18 +26100,18 @@
       }
     },
     "onboarding": {
-      "reenabled": "空间关闭期间开始的会话都在这里。",
+      "reenabled": "频道关闭期间开始的会话都在这里。",
       "intro": {
-        "title": "欢迎使用空间",
-        "channels": "空间按团队组织工作。",
+        "title": "欢迎使用频道",
+        "channels": "频道按团队组织工作。",
         "threads": "每条新消息都会开始一个话题。",
-        "memory": "智能体会记住每个空间达成的共识。",
+        "memory": "智能体会记住每个频道达成的共识。",
         "gotIt": "知道了",
-        "tabs": "每个空间都有自己的标签页。你可以添加、重命名和重新排序，也可以让 Kortix 来做。"
+        "tabs": "每个频道都有自己的标签页。你可以添加、重命名和重新排序，也可以让 Kortix 来做。"
       },
       "getStarted": {
         "dismiss": "关闭",
-        "channel": "为团队创建一个空间",
+        "channel": "为团队创建一个频道",
         "done": "已完成"
       }
     },
@@ -25962,9 +26140,9 @@
       "noMatches": "没有与“{query}”匹配的项。"
     },
     "privateNotIn": {
-      "row": "你未加入的私有空间",
-      "title": "你未加入的私有空间",
-      "description": "你可以重命名、归档和添加成员。只有成员能阅读空间内容，因此你无法将自己加入。",
+      "row": "你未加入的私有频道",
+      "title": "你未加入的私有频道",
+      "description": "你可以重命名、归档和添加成员。只有成员能阅读频道内容，因此你无法将自己加入。",
       "meta": "{count, plural, =0 {没有成员} other {# 名成员}} · 由 {name} 创建",
       "metaNoCreator": "{count, plural, =0 {没有成员} other {# 名成员}}",
       "archived": "已归档",
@@ -25987,13 +26165,13 @@
     "templates": {
       "board": {
         "brief": "概述",
-        "text": "此空间的用途以及如何提供帮助。",
+        "text": "此频道的用途以及如何提供帮助。",
         "label": "看板和目标",
         "description": "用于简介和链接的看板，然后是目标。"
       },
       "standard": {
         "label": "目标、应用和产物",
-        "description": "关联到此空间的内容。"
+        "description": "关联到此频道的内容。"
       }
     },
     "tabs": {
@@ -26008,7 +26186,7 @@
     },
     "addTab": "添加标签页",
     "gone": {
-      "title": "此空间已不存在",
+      "title": "此频道已不存在",
       "hint": "有人将其从 kortix.yaml 中移除了，或者链接有误。",
       "back": "返回工作区"
     },
@@ -26016,9 +26194,9 @@
     "loadError": "无法加载此标签页",
     "retry": "重试",
     "empty": {
-      "goals": "关联到此空间的目标会显示在这里",
-      "apps": "关联到此空间的应用会显示在这里",
-      "artifacts": "关联到此空间的产物会显示在这里",
+      "goals": "关联到此频道的目标会显示在这里",
+      "apps": "关联到此频道的应用会显示在这里",
+      "artifacts": "关联到此频道的产物会显示在这里",
       "folder": "此文件夹为空",
       "board": "此看板上的区块会显示在这里",
       "boardHint": "让 My Kortix 添加区块：笔记、应用、文件或嵌入页面。"
@@ -26047,7 +26225,7 @@
     },
     "add": {
       "linkTitle": "添加链接",
-      "linkHint": "此空间的成员经常打开的页面。",
+      "linkHint": "此频道的成员经常打开的页面。",
       "folderTitle": "添加文件夹",
       "folderHint": "按路径指定的工作区文件夹。",
       "url": "URL",
@@ -26068,25 +26246,25 @@
       "remove": "移除 {name}"
     },
     "nav": {
-      "title": "空间",
-      "new": "新建空间",
+      "title": "频道",
+      "new": "新建频道",
       "unread": "{count, plural, other {# 条未读消息}}"
     },
     "leave": "离开 {name}",
-    "agents": "此空间中的智能体",
+    "agents": "此频道中的智能体",
     "openAgent": "打开 {name}",
     "needsYou": "需要你处理",
     "newSession": "新会议",
     "askMyKortix": "询问 My Kortix",
-    "askPrompt": "我想修改 {name} 空间（kortix.yaml 中的 `spaces.{slug}`）：它的标签页、标题或其中的智能体。请问我想修改什么。",
+    "askPrompt": "我想修改 {name} 频道（kortix.yaml 中的 `spaces.{slug}`）：它的标签页、标题或其中的智能体。请问我想修改什么。",
     "intro": {
       "title": "这里是 #{name} 的起点",
-      "body": "供所有在此空间工作的人使用的地方。",
+      "body": "供所有在此频道工作的人使用的地方。",
       "agents": "{count, plural, other {{names} 在这里发布更新。}}",
-      "noAgents": "添加到此空间的智能体会在这里发布更新。",
+      "noAgents": "添加到此频道的智能体会在这里发布更新。",
       "addTab": "使用 + 添加标签页，即可在此固定目标、应用、文件或看板。"
     },
-    "filter": "按空间筛选",
+    "filter": "按频道筛选",
     "all": "全部",
     "projectWide": "工作区范围",
     "panel": {
@@ -26096,7 +26274,7 @@
       "private": "私密",
       "rename": "重命名并添加描述",
       "personalDescription": "你与 My Kortix 的私密空间。只有你能看到。",
-      "privateDescription": "只有其中的成员和智能体能看到这个空间。",
+      "privateDescription": "只有其中的成员和智能体能看到这个频道。",
       "noDescription": "还没有描述。",
       "agents": "智能体",
       "addAgent": "添加智能体",
@@ -26105,20 +26283,18 @@
       "people": "成员",
       "addPeople": "添加成员",
       "you": "你",
-      "tabs": "标签页",
-      "addTab": "添加标签页",
       "routines": "例行任务",
       "addRoutine": "添加例行任务",
-      "routinesPrivate": "私密空间暂不支持例行任务。",
+      "routinesPrivate": "私密频道暂不支持例行任务。",
       "proactive": "主动",
-      "proactiveWatch": "留意这个空间",
+      "proactiveWatch": "留意这个频道",
       "proactiveWatchHint": "智能体会阅读这里发生的事，只在重要时发言。",
       "proactiveBrief": "每日简报",
       "proactiveBriefHint": "有新动态的日子在 9:00 发送简短总结。",
       "proactiveFailed": "设置未保存，请重试。",
       "allSettings": "所有设置",
-      "askHint": "你也可以在聊天中直接说：“在这里添加一个智能体”、“把发布文档固定为标签页”。",
-      "noAgentsToAdd": "工作区的所有智能体都已在此空间中。"
+      "noAgentsToAdd": "工作区的所有智能体都已在此频道中。",
+      "members": "成员"
     },
     "profile": {
       "viewProfile": "查看 {name} 的资料",
@@ -26127,7 +26303,7 @@
       "openProfile": "打开资料",
       "you": "(你)",
       "message": "发消息",
-      "messageFailed": "无法打开私密空间。请重试。",
+      "messageFailed": "无法打开私密频道。请重试。",
       "dmSpaceName": "{a} 和 {b}",
       "heading": "资料",
       "close": "关闭资料",
@@ -26139,14 +26315,21 @@
       "projectDefault": "工作区默认",
       "projectDefaultYes": "回复未指定智能体的新话题",
       "email": "邮箱",
-      "sharedSpaces": "共同的空间",
-      "yourSpaces": "你的空间",
+      "sharedSpaces": "共同的频道",
+      "yourSpaces": "你的频道",
       "addTo": "添加到 {space}",
       "addedTo": "已将 {agent} 添加到 {space}",
       "addFailed": "无法添加智能体。请重试。",
-      "spacesIn": "所在空间",
-      "spacesInNone": "尚未加入任何空间",
-      "default": "默认"
+      "spacesIn": "所在频道",
+      "spacesInNone": "尚未加入任何频道",
+      "default": "默认",
+      "paused": "已暂停",
+      "off": "已关闭",
+      "copyLink": "复制链接",
+      "linkCopied": "链接已复制",
+      "roleOwner": "工作区所有者",
+      "roleAdmin": "工作区管理员",
+      "roleMember": "工作区成员"
     },
     "mentions": {
       "people": "成员",
@@ -26157,8 +26340,39 @@
       "askAdd": "将 {agent} 添加到 {space}？",
       "askAddConfirm": "添加",
       "askNotNow": "暂不",
-      "askAdmin": "{agent} 不在 {space} 中。请让空间管理员添加。",
+      "askAdmin": "{agent} 不在 {space} 中。请让频道管理员添加。",
       "dismiss": "关闭"
+    },
+    "agentChat": {
+      "pausedBar": "{name} 已暂停。在你恢复之前，计划和事件不会启动它。",
+      "resume": "恢复",
+      "resumeFailed": "无法恢复 {name}。",
+      "settings": {
+        "settingsButton": "智能体设置",
+        "status": "状态",
+        "active": "运行中",
+        "paused": "已暂停",
+        "off": "已关闭",
+        "pauseFailed": "无法更改智能体的状态。",
+        "description": "描述",
+        "save": "保存",
+        "saveFailed": "无法保存描述。",
+        "model": "模型",
+        "allSettings": "智能体的全部设置",
+        "general": "常规",
+        "appsTab": "应用",
+        "routines": "例程",
+        "workspaceDefault": "工作区默认",
+        "modelDefault": "工作区默认",
+        "modelDefaultNamed": "工作区默认（{model}）",
+        "cancel": "取消",
+        "searchApps": "搜索应用",
+        "noApps": "此工作区还没有连接器。",
+        "noAppsMatch": "没有与“{query}”匹配的应用。",
+        "appsUnavailable": "此智能体的应用在其智能体页面中设置。",
+        "appsFailed": "无法更改智能体的应用。",
+        "role": "角色"
+      }
     }
   },
   "imageGen": {
@@ -26263,6 +26477,25 @@
     "openChat": "打开聊天",
     "turnNote": "在语音通话中说出，并由语音回答。",
     "close": "关闭"
+  },
+  "dictation": {
+    "start": "语音输入消息",
+    "price": "每分钟 {credits, plural, other {# 积分}}",
+    "recording": "语音输入",
+    "discard": "丢弃录音",
+    "finish": "添加文字",
+    "transcribing": "正在转写…",
+    "nothingHeard": "没有听到语音。请靠近麦克风后重试。",
+    "retry": "重试",
+    "failed": "无法转写录音。请重试。",
+    "busy": "暂时无法转写录音。请稍后重试。",
+    "unavailable": "此服务器不提供语音输入。",
+    "limitReached": "录音已在 {minutes} 分钟时停止",
+    "micDenied": "无法使用麦克风。请在浏览器设置中允许此网站使用麦克风。",
+    "micDeniedDesktop": "无法使用麦克风。请在系统隐私设置中允许 Kortix。",
+    "micMissing": "未找到麦克风。请连接麦克风后重试。",
+    "micBusy": "无法使用麦克风。另一个应用正在使用它。",
+    "micUnsupported": "此浏览器无法使用麦克风。"
   },
   "agentMounts": {
     "lead": "此智能体的会话从“文件”中挂载的文件夹。更改立即生效，并适用于所有新会话。",
@@ -26409,6 +26642,7 @@
       },
       "workingFor": "工作中 · {elapsed}",
       "runsAs": "以 {agent} 运行",
+      "stateCount": "{count} {state}",
       "teamRole": "仅限本会话的角色",
       "attention": {
         "question": "有问题要问你",
@@ -27358,6 +27592,10 @@
     "completeDescription": "如果你是在终端中开始设置的，终端中的设置会自动继续。",
     "slackName": "Slack",
     "sectionOpen": "待处理",
+    "sectionOptional": "可选连接器",
+    "skip": "跳过",
+    "skipNamed": "跳过{name}",
+    "showSkipped": "显示已跳过的连接器",
     "doneSummary": "{count} 项已设置",
     "done": "已完成",
     "connect": "连接 {name}",
@@ -27501,5 +27739,31 @@
   "appsList": {
     "search": "搜索应用",
     "noMatch": "没有匹配的应用"
+  },
+  "helpMenu": {
+    "trigger": "帮助",
+    "shortcuts": "键盘快捷键",
+    "status": "状态",
+    "downloadApps": "下载应用",
+    "community": "Discord 社区",
+    "whatsNew": "新功能",
+    "fullChangelog": "完整更新日志"
+  },
+  "questionPrompt": {
+    "submitFailed": "无法提交回答。回答已保存在此处，请重试。",
+    "submitted": "回答已提交",
+    "submitting": "正在提交回答…",
+    "review": "检查回答",
+    "removeCustom": "移除自定义回答：{answer}",
+    "customAnswer": "自定义回答",
+    "customPlaceholder": "输入你的回答",
+    "submitAnswer": "提交回答",
+    "addAnswer": "添加回答",
+    "nextQuestion": "下一个问题",
+    "submitAnswers": "提交回答",
+    "askClarification": "请求说明",
+    "clarificationFailed": "无法发送说明请求，请重试。",
+    "discussionLabel": "讨论问题而不作答",
+    "sendClarification": "发送说明请求"
   }
 }

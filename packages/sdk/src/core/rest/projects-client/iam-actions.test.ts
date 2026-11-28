@@ -2,11 +2,11 @@
  * The project leaf catalog every host asks `useCan` / `useCans` about
  * (KRTX-1720). The API rejects an unknown leaf with 400, so a host that spells
  * a leaf by hand gets no verdict at all. These tests pin the catalog to the
- * API's own `PROJECT_ACTIONS`, and the trigger controls to the leaf each
+ * canonical live `PROJECT_ACTIONS`, and the trigger controls to the leaf each
  * trigger route asserts.
  */
 import { describe, expect, test } from 'bun:test';
-import { PROJECT_ACTIONS as API_PROJECT_ACTIONS } from '../../../../../../apps/api/src/iam/actions';
+import { PROJECT_ACTIONS as LIVE_PROJECT_ACTIONS } from '@kortix/sdk/iam-actions';
 import { WORKSPACE_ACTION_BY_LEGACY as SHARED_WORKSPACE_ACTION_BY_LEGACY } from '../../../../../shared/src/workspace-actions';
 import * as root from '../../../index';
 import {
@@ -25,11 +25,11 @@ import type { ReviewItem } from './review-items';
 const allow = (allowed: boolean) => ({ allowed });
 
 describe('PROJECT_ACTIONS', () => {
-  test('is the API catalog, key for key and leaf for leaf, plus the deprecated Rooms leaves', () => {
+  test('is the canonical live catalog, key for key and leaf for leaf, plus the deprecated Rooms leaves', () => {
     // Rooms were removed (2026-11): the SDK keeps its two leaves, deprecated, until the next major.
     const { PROJECT_ROOM_READ, PROJECT_ROOM_WRITE, ...live } = PROJECT_ACTIONS;
     expect([PROJECT_ROOM_READ, PROJECT_ROOM_WRITE]).toEqual(['project.room.read', 'project.room.write']);
-    expect(live).toEqual(API_PROJECT_ACTIONS);
+    expect(live).toEqual(LIVE_PROJECT_ACTIONS);
   });
 
   test('the root entry exports the catalog, the trigger controls and the review controls', () => {
@@ -253,8 +253,7 @@ describe('reviewVerdictAllowed', () => {
 
 // Workspaces (one scope): every IAM action has one workspace.* name. The API
 // accepts both names forever and answers with both. `@kortix/sdk` is published
-// and cannot import the private `@kortix/shared`, so it carries its own copy of
-// the one alias map; this test holds the copy equal to the source.
+// and shares the lightweight alias map with the private package.
 describe('workspace action names', () => {
   test('the alias map is byte-identical to @kortix/shared/workspace-actions', () => {
     expect(WORKSPACE_ACTION_BY_LEGACY).toEqual(SHARED_WORKSPACE_ACTION_BY_LEGACY);
@@ -283,4 +282,8 @@ describe('workspace action names', () => {
     expect(root.toWorkspaceAction).toBe(toWorkspaceAction);
     expect(root.toLegacyAction).toBe(toLegacyAction);
   });
+});
+
+test('pins published project action keys, values and insertion order', () => {
+  expect(Object.entries(PROJECT_ACTIONS)).toEqual([["PROJECT_READ","project.read"],["PROJECT_WRITE","project.write"],["PROJECT_DELETE","project.delete"],["PROJECT_SESSION_READ","project.session.read"],["PROJECT_SESSION_START","project.session.start"],["PROJECT_SESSION_STOP","project.session.stop"],["PROJECT_SESSION_BINDINGS_WRITE","project.session.bindings.write"],["PROJECT_MEMBERS_READ","project.members.read"],["PROJECT_MEMBERS_MANAGE","project.members.manage"],["PROJECT_TRIGGER_READ","project.trigger.read"],["PROJECT_TRIGGER_CREATE","project.trigger.create"],["PROJECT_TRIGGER_UPDATE","project.trigger.update"],["PROJECT_TRIGGER_DELETE","project.trigger.delete"],["PROJECT_TRIGGER_FIRE","project.trigger.fire"],["PROJECT_GATEWAY_LOGS_READ","project.gateway.logs.read"],["PROJECT_GATEWAY_SPEND_READ","project.gateway.spend.read"],["PROJECT_USAGE_READ","project.usage.read"],["PROJECT_GATEWAY_BUDGET_SET","project.gateway.budget.set"],["PROJECT_GATEWAY_KEYS_MANAGE","project.gateway.keys.manage"],["PROJECT_AGENT_READ","project.agent.read"],["PROJECT_AGENT_WRITE","project.agent.write"],["PROJECT_SKILL_READ","project.skill.read"],["PROJECT_SKILL_WRITE","project.skill.write"],["PROJECT_COMMAND_READ","project.command.read"],["PROJECT_COMMAND_WRITE","project.command.write"],["PROJECT_FILE_READ","project.file.read"],["PROJECT_FILE_WRITE","project.file.write"],["PROJECT_SETTINGS_WRITE","project.settings.write"],["PROJECT_SANDBOX_WRITE","project.sandbox.write"],["PROJECT_MODEL_READ","project.model.read"],["PROJECT_MODEL_WRITE","project.model.write"],["PROJECT_GITOPS_READ","project.gitops.read"],["PROJECT_GITOPS_PUSH","project.gitops.push"],["PROJECT_GITOPS_MERGE","project.gitops.merge"],["PROJECT_GITOPS_REF_ANY","project.gitops.ref.any"],["PROJECT_GITOPS_REF_DELETE","project.gitops.ref.delete"],["PROJECT_SECRET_READ","project.secret.read"],["PROJECT_SECRET_WRITE","project.secret.write"],["PROJECT_CONNECTOR_READ","project.connector.read"],["PROJECT_CONNECTOR_CONNECTIONS_MANAGE","project.connector.connections.manage"],["PROJECT_CONNECTOR_WRITE","project.connector.write"],["PROJECT_APP_READ","project.app.read"],["PROJECT_APP_WRITE","project.app.write"],["PROJECT_APP_DEPLOY","project.app.deploy"],["PROJECT_APP_ADMIN","project.app.admin"],["PROJECT_REVIEW_READ","project.review.read"],["PROJECT_REVIEW_SUBMIT","project.review.submit"],["PROJECT_REVIEW_ACT","project.review.act"],["PROJECT_ROOM_READ","project.room.read"],["PROJECT_ROOM_WRITE","project.room.write"],["PROJECT_ARTIFACT_READ","project.artifact.read"],["PROJECT_ARTIFACT_WRITE","project.artifact.write"],["PROJECT_ARTIFACT_MANAGE","project.artifact.manage"],["PROJECT_ARTIFACT_PUBLIC","project.artifact.public"],["PROJECT_CREDENTIALS_ISSUE","project.credentials.issue"]]);
 });

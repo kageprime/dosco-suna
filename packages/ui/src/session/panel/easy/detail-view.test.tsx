@@ -298,9 +298,15 @@ function toolPartsChildren(props: {
     children: ReactElement<{ children?: ReactNode }>;
   }>;
   const raw = provider.props.children.props.children;
-  return (Array.isArray(raw) ? raw : [raw])
-    .flat()
-    .filter((c): c is ReactElement => !!c && typeof c === 'object' && 'type' in c);
+  const elements = (list: unknown): ReactElement[] =>
+    (Array.isArray(list) ? list : [list])
+      .flat()
+      .filter((c): c is ReactElement => !!c && typeof c === 'object' && 'type' in c);
+  // The rows sit in one list box (it draws the hairline between them): read through it.
+  return elements(raw).flatMap((c) => {
+    const inner = elements((c.props as { children?: unknown }).children);
+    return c.type === 'div' && inner.some((i) => i.type === ToolPartRenderer) ? inner : [c];
+  });
 }
 
 describe('ToolParts summary line (W3, opt-in)', () => {

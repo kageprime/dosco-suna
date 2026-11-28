@@ -72,7 +72,7 @@ type MemberList = { members: { user_id: string }[]; can_add: boolean };
  * outside P. Skips when the target refuses private channels.
  */
 async function openPrivateChannel(ctx: FlowContext, opts: { manifest?: boolean } = {}) {
-  const { team, project, world } = await openWorld(ctx, { manifest: opts.manifest ? 'private-channels' : undefined, features: ['chat'] });
+  const { team, project, world } = await openWorld(ctx, { manifest: opts.manifest ? 'private-channels' : undefined, features: ['channels'] });
   const people: Record<'alice' | 'carol' | 'bob' | 'manager', Principal> = {
     alice: await team.addMember('member'),
     carol: await team.addMember('member'),

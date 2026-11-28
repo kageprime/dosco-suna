@@ -113,6 +113,8 @@ export const projectSecretConsumerEnum = kortixSchema.enum('project_secret_consu
   'git_proxy',
   'http_broker',
   'network',
+  // Website login for the sandbox browser (append only: the order is stored).
+  'browser',
 ]);
 
 export const projectSessionStatusEnum = kortixSchema.enum('project_session_status', [
@@ -1368,7 +1370,10 @@ export const accountSecretResources = kortixSchema.table('account_secret_resourc
   providerAccount: jsonb('provider_account'),
   /** The last check of a provider API key against its provider, run when the
    *  key is saved or rotated and on request: `verified`, `invalid` (the
-   *  provider refused it) or `unknown` (no clean answer). NULL: never checked. */
+   *  provider refused it) or `unknown` (no clean answer). NULL: never checked.
+   *  A Claude login: `invalid` when Anthropic forbade it (403) on a model call;
+   *  the gateway skips it for 15 min after `verified_at`, and the next answer
+   *  Anthropic gives on it clears all three columns. */
   verifyStatus: varchar('verify_status', { length: 16 }),
   verifiedAt: timestamp('verified_at', { withTimezone: true }),
   /** The provider's words for `invalid`, or why the check had no answer. */
@@ -1654,6 +1659,36 @@ export const projectSpaceMembers = kortixSchema.table(
     primaryKey({ columns: [table.spaceId, table.userId] }),
     // "My channels" and the cleanup when someone leaves the account.
     index('idx_project_space_members_user').on(table.userId),
+  ],
+);
+
+/**
+ * A channel's agent changes, for the lines its timeline shows ("Kortix was
+ * added by <person>"). People's joins need no row here: `project_space_members`
+ * keeps `added_by` and `added_at`. Written by the agents PATCH
+ * (`projects/lib/project-space-activity.ts`); read by
+ * `GET /spaces/:spaceId/activity`. Best effort: a failed write is logged,
+ * never a failed PATCH.
+ */
+export const projectSpaceActivity = kortixSchema.table(
+  'project_space_activity',
+  {
+    activityId: uuid('activity_id').primaryKey().defaultRandom(),
+    spaceId: uuid('space_id')
+      .notNull()
+      .references(() => projectSpaces.spaceId, { onDelete: 'cascade' }),
+    /** `agent_added` or `agent_removed`. */
+    kind: text('kind').notNull(),
+    /** The agent's name in kortix.yaml. */
+    agentName: text('agent_name').notNull(),
+    /** Who changed the agent list. Null: not known. */
+    actorUserId: uuid('actor_user_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    check('project_space_activity_kind_check', sql`${table.kind} in ('agent_added', 'agent_removed')`),
+    // The timeline reads one channel's newest lines.
+    index('idx_project_space_activity_space').on(table.spaceId, table.createdAt.desc()),
   ],
 );
 
@@ -10076,8 +10111,26 @@ export const cliDeviceGrants = kortixSchema.table('cli_device_grants', {
  *               project: every member who may read the project
  *               public:  anyone with the link
  */
+/** Gallery organization only. Folder membership never grants access to an artifact. */
+export const artifactFolders = kortixSchema.table('artifact_folders', {
+  folderId: uuid('folder_id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').notNull().references(() => projects.projectId, { onDelete: 'cascade' }),
+  /** The folder this one sits in; null at the gallery root. Same project, no cycles (the API checks both). */
+  parentFolderId: uuid('parent_folder_id').references((): AnyPgColumn => artifactFolders.folderId, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  icon: text('icon'),
+  iconGlyph: jsonb('icon_glyph').$type<{ name: string; color: string }>(),
+  createdByUserId: uuid('created_by_user_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('idx_artifact_folders_project').on(table.projectId),
+  index('idx_artifact_folders_parent').on(table.parentFolderId).where(sql`${table.parentFolderId} is not null`),
+  check('artifact_folders_name_check', sql`char_length(btrim(${table.name})) between 1 and 100`),
+]).enableRLS();
+
 export const artifacts = kortixSchema.table('artifacts', {
   artifactId: uuid('artifact_id').defaultRandom().primaryKey(),
+  galleryFolderId: uuid('gallery_folder_id').references(() => artifactFolders.folderId, { onDelete: 'set null' }),
   projectId: uuid('project_id').notNull(),
   accountId: uuid('account_id').notNull(),
   driveId: uuid('drive_id').notNull(),
@@ -10101,6 +10154,7 @@ export const artifacts = kortixSchema.table('artifacts', {
 }, (table) => [
   foreignKey({ columns: [table.projectId], foreignColumns: [projects.projectId], name: 'artifacts_project_fk' }).onDelete('cascade'),
   foreignKey({ columns: [table.driveId], foreignColumns: [drives.driveId], name: 'artifacts_drive_fk' }).onDelete('cascade'),
+  index('idx_artifacts_gallery_folder').on(table.galleryFolderId).where(sql`${table.galleryFolderId} is not null`),
   index('idx_artifacts_project_updated').on(table.projectId, table.updatedAt),
   uniqueIndex('idx_artifacts_drive_path').on(table.driveId, table.root, table.entry),
   check('artifacts_type_check', sql`${table.type} in ('doc', 'html')`),

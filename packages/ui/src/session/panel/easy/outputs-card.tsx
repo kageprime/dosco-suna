@@ -31,12 +31,11 @@ import {
   PresentationIcon,
   VideoIcon,
 } from '@phosphor-icons/react';
-import { chalkColors } from '@kortix/shared';
 import { useEffect, useState } from 'react';
 import type { OutputItem } from '../shared/derive-panels';
 import { deliverableKindLabel, isScaffoldingOutput } from '../shared/output-priority';
 import { groupOutputsByKind, outputKey } from './easy-panel-logic';
-import { PanelCard } from './panel-card';
+import { PANEL_ROW, PANEL_ROW_ICON, PanelCard } from './panel-card';
 import { Download } from '../../../internal/icons/download';
 
 const KIND_ICON = {
@@ -93,71 +92,30 @@ function ImageThumb({ path, callID, name }: { path: string; callID: string; name
     // `size-4`, like every other leading glyph in this list — the fallback
     // stands where the thumbnail will, so it must not be a smaller mark.
     const Ico = KIND_ICON.image;
-    return <Ico className="text-foreground size-4" />;
+    return <Ico />;
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt={name}
-      className="size-6 rounded-sm object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
+      className="outline-foreground/10 size-5 rounded-xs object-cover outline outline-1 -outline-offset-1"
     />
   );
 }
 
 /**
- * A file gets its real per-extension glyph (the `.md` tile, the `.png` tile) —
- * the same one the files explorer uses, so an output looks like the thing the
- * user will open. A running app and generated media have no filename to key off,
- * so they keep their kind icon — except an image with a path, which gets a real
- * thumbnail (W13): the icon says "picture," the thumb shows which one.
+ * A file gets its real per-extension glyph, the same one the files explorer
+ * uses, in meta ink. An image with a path shows its real pixels instead: the
+ * glyph says "picture", the thumbnail shows which one.
  */
 function OutputIcon({ output }: { output: OutputItem }) {
-  const tile = 'flex size-6 shrink-0 items-center justify-center rounded-sm';
-
   if (output.kind === 'image' && output.path) {
-    return (
-      <span className={tile}>
-        <ImageThumb path={output.path} callID={output.callID} name={output.name} />
-      </span>
-    );
+    return <ImageThumb path={output.path} callID={output.callID} name={output.name} />;
   }
-
-  // The chalk tile Drive uses for a file type: one stable color per extension
-  // (or per kind, for an app or generated media), the glyph in its ink. A list
-  // of eight outputs reads by color before a single name is read.
+  if (output.kind === 'file') return getFileIcon(output.name, { variant: 'monochrome' });
   const Ico = KIND_ICON[output.kind];
-  return (
-    <ChalkTile label={chalkLabel(output)}>
-      {output.kind === 'file' ? (
-        getFileIcon(output.name, { className: 'size-3.5', variant: 'monochrome' })
-      ) : (
-        <Ico className="size-3.5" />
-      )}
-    </ChalkTile>
-  );
-}
-
-/** The chalk key: a file's extension, else its kind. */
-export function chalkLabel(output: { kind: string; name: string }): string {
-  if (output.kind === 'file' && output.name.includes('.')) {
-    return output.name.slice(output.name.lastIndexOf('.') + 1).toUpperCase();
-  }
-  return output.kind.toUpperCase();
-}
-
-/** A 24px chalk tile, fill only (no border); the glyph takes the chalk ink, whatever its own color class. */
-export function ChalkTile({ label, children }: { label: string; children: React.ReactNode }) {
-  const chalk = chalkColors(label);
-  return (
-    <span
-      className="flex size-6 shrink-0 items-center justify-center rounded-sm [&_svg]:text-current!"
-      style={{ backgroundColor: chalk.background, color: chalk.foreground }}
-      aria-hidden
-    >
-      {children}
-    </span>
-  );
+  return <Ico />;
 }
 
 /** An output leads somewhere only if there's something to open: a file has a
@@ -192,23 +150,20 @@ function OutputRow({
 }) {
   const t = useTranslations('sessionUi.panel');
   return (
-    <li className="flex items-center">
+    <li className="flex">
       <button
         type="button"
         disabled={!isOpenable(output)}
         onClick={() => isOpenable(output) && onOpenOutput(output)}
-        // Compact (~34px): a run can make dozens of outputs, and the chalk
-        // tile carries the type, so a row is the tile, the name and at most
-        // one state word. The kind label repeated what the tile already says.
         title={`${output.title ?? output.name} · ${deliverableKindLabel(output)}`}
-        className="hover:bg-accent flex w-full items-center gap-2.5 px-4 py-1.5 text-left transition-[background-color,transform] active:scale-[0.998] disabled:cursor-default"
+        className={PANEL_ROW}
       >
-        <OutputIcon output={output} />
-        <span className="text-foreground min-w-0 flex-1 truncate text-sm">
-          {output.title ?? output.name}
+        <span className={PANEL_ROW_ICON}>
+          <OutputIcon output={output} />
         </span>
+        <span className="text-foreground min-w-0 flex-1 truncate">{output.title ?? output.name}</span>
         {output.fresh === 'new' && (
-          <span className="text-kortix-green shrink-0 text-xs font-medium">{t('outputNew')}</span>
+          <span className="text-muted-foreground shrink-0 text-xs">{t('outputNew')}</span>
         )}
         {output.fresh === 'updated' && (
           <span className="text-muted-foreground shrink-0 text-xs">{t('outputUpdated')}</span>
@@ -265,8 +220,8 @@ export function OutputRows({
             <div key={group.kind}>
               <p
                 className={cn(
-                  'text-muted-foreground px-4 pb-1 text-xs font-medium',
-                  i > 0 && 'pt-2',
+                  'text-muted-foreground px-3 pb-1 text-xs',
+                  i > 0 && 'pt-3',
                 )}
               >
                 {group.label}
@@ -288,17 +243,14 @@ export function OutputRows({
       )}
 
       {hidden > 0 && !showAll && (
+        <div className="flex">
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          // Same rhythm and press feedback as the rows above it. `color` rides
-          // along in the transition list because this row also lightens its
-          // label on hover — `transition-colors` would have swept in
-          // border-color and fill with it.
-          className="text-muted-foreground hover:text-foreground hover:bg-accent mt-0.5 flex w-full cursor-pointer items-center gap-2.5 px-4 py-1.5 text-left text-sm transition-[background-color,color,transform] active:scale-[0.998]"
+          className={cn(PANEL_ROW, 'text-muted-foreground hover:text-foreground cursor-pointer')}
         >
-          <span className="flex size-6 shrink-0 items-center justify-center">
-            <ChevronDown className="size-3.5" />
+          <span className={PANEL_ROW_ICON}>
+            <ChevronDown className="size-3.5!" />
           </span>
           {/* Say what they are, not just how many — "8 more" is a mystery box;
               "8 more files" is a decision the user can make without clicking.
@@ -311,6 +263,7 @@ export function OutputRows({
             {hidden} {tI18nComplete.raw('text187897ce0afc')} {hiddenNoun}
           </span>
         </button>
+        </div>
       )}
     </FadedScrollArea>
   );
@@ -371,23 +324,18 @@ function DownloadAllAction({ outputs }: { outputs: OutputItem[] }) {
 
 export function OutputsCard({
   outputs,
-  defaultExpanded,
   onOpenOutput,
   fill = true,
 }: {
   outputs: OutputItem[];
   fill?: boolean;
-  /** Auto-expands when a run finishes with something to show — the payoff moment. */
-  defaultExpanded: boolean;
   onOpenOutput: (output: OutputItem) => void;
 }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   return (
     <PanelCard
       title={tI18nComplete.raw('texte7ce99764a2d')}
-      count={outputs.length}
       isEmpty={outputs.length === 0}
-      defaultExpanded={defaultExpanded}
       emptyText={tI18nComplete.raw('textd5f2ad00f99b')}
       contentClassName={cn('flex min-h-0 flex-col pb-2', !fill && 'max-h-40 overflow-y-auto')}
       fill={fill}

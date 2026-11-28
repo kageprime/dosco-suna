@@ -9,6 +9,29 @@ import { portUnreachableResponse } from '../sandbox-proxy/routes/preview';
 import { createCorsMiddleware, trustedWebOrigins, webAppFrameAncestors } from './cors';
 
 describe('createCorsMiddleware', () => {
+  test.each(['session-costs', 'cost-by-project'])(
+    'exposes the %s CSV row cap to a cross-origin browser',
+    async (route) => {
+      const app = new Hono();
+      app.use('*', createCorsMiddleware({ internalEnvironment: 'prod', extraOrigins: [] }));
+      app.get(`/v1/usage/${route}`, (context) => {
+        context.header('x-kortix-row-cap', '10000');
+        return context.body('cost\n1\n', 200, { 'Content-Type': 'text/csv' });
+      });
+
+      const response = await app.request(`/v1/usage/${route}?format=csv`, {
+        headers: { Origin: 'https://kortix.com' },
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('access-control-allow-origin')).toBe('https://kortix.com');
+      expect(response.headers.get('x-kortix-row-cap')).toBe('10000');
+      const exposed = response.headers.get('access-control-expose-headers')
+        ?.toLowerCase().split(',').map((name) => name.trim());
+      expect(exposed).toContain('x-kortix-row-cap');
+    },
+  );
+
   test('an allowed origin receives a cacheable authenticated preflight response', async () => {
     const app = new Hono();
     app.use(

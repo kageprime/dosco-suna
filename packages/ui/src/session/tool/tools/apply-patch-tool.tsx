@@ -218,7 +218,7 @@ export function ApplyPatchTool({ call, defaultOpen, forceOpen, locked }: ToolPro
                 </button>
 
                 {isOpen && hasDiff && (
-                  <div className="border-border/60 bg-muted/20 mt-1 mb-1 overflow-hidden rounded-sm border">
+                  <div className="border-border bg-muted/20 mt-1 mb-1 overflow-hidden rounded-sm border">
                     {file.before != null && file.after != null ? (
                       <InlineDiffView
                         oldValue={file.before}

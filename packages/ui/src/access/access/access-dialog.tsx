@@ -1621,7 +1621,7 @@ export function BlastRadiusPreview({
   const connectors = declares.connectors === 'all' ? [] : declares.connectors;
   const nothingExtra = secrets.length === 0 && connectors.length === 0;
   return (
-    <div className="border-border/60 bg-muted/30 space-y-2 rounded-md border p-3">
+    <div className="border-border bg-muted/30 space-y-2 rounded-md border p-3">
       <div className="flex items-center gap-1.5">
         <ArrowElbowDownRightIcon className="text-muted-foreground size-3.5 shrink-0" />
         <span className="text-foreground text-xs font-medium">

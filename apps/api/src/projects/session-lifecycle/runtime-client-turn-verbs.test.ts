@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import * as realRuntimeMapping from '../runtime-session-mapping';
 
-const forwarded: Array<{ method: string; path: string; query: string; body: unknown; headers: Headers }> = [];
+const forwarded: Array<{ method: string; path: string; query: string; body: unknown; headers: Headers; opts: Record<string, unknown> }> = [];
 let forwardStatus = 202;
 let forwardBody: unknown = { message_id: 'msg_1' };
 /** Answers per forwarded path, before the defaults above. */
@@ -19,6 +19,7 @@ mock.module('../../sandbox-proxy/forward', () => ({
     query: string,
     headers: Headers,
     body: ArrayBuffer | undefined,
+    ...rest: unknown[]
   ) => {
     forwarded.push({
       method,
@@ -26,6 +27,7 @@ mock.module('../../sandbox-proxy/forward', () => ({
       query,
       headers,
       body: body ? JSON.parse(new TextDecoder().decode(body)) : null,
+      opts: (rest.at(-1) ?? {}) as Record<string, unknown>,
     });
     const scripted = forwardAnswers[path];
     return scripted ? scripted() : Response.json(forwardBody, { status: forwardStatus });
@@ -100,6 +102,15 @@ describe('postPrompt', () => {
       },
     });
     expect(forwarded[0]!.headers.get('Idempotency-Key')).toBe('idem-1');
+  });
+
+  test('a person\'s prompt hands its author to the proxy, which writes it; the body carries none of its own (KRTX-5121)', async () => {
+    expect(await postPrompt('ext-1', 'ses_1', 'hello', 'user-1', 'sess-1', 'idem-a', { parts: [{ type: 'text', text: 'hello' }], author: 'Bruno Silva' })).toBe('accepted');
+    expect(forwarded[0]!.opts).toMatchObject({ promptAuthor: 'Bruno Silva' });
+    expect(forwarded[0]!.body).not.toHaveProperty('author');
+    // No person wrote it (a trigger, a channel relay): nothing to name.
+    expect(await deliver()).toBe('accepted');
+    expect(forwarded[1]!.opts).toMatchObject({ promptAuthor: null });
   });
 
   test('a duplicate reads as deduplicated; a 404 for the session is a failure, sent once', async () => {
@@ -262,6 +273,15 @@ describe('postPrompt steer (R10)', () => {
     expect(steered[0]!.body).toMatchObject({ message_id: 'msg_s', parts: [{ type: 'text', text: 'also this' }] });
     steerAnswer = () => Response.json({ deduplicated: true }, { status: 200 });
     expect(await steer()).toBe('deduplicated');
+  });
+
+  test('a person\'s steer names its author in the body the box reads (KRTX-5121)', async () => {
+    expect(await postPrompt('ext-1', 'ses_1', 'also this', 'user-1', 'sess-1', 'idem-2:steer', {
+      parts: [{ type: 'text', text: 'also this' }], wireMessageId: 'msg_s', steer: true, author: 'Bruno Silva',
+    })).toBe('accepted');
+    expect(steered[0]!.body).toMatchObject({ message_id: 'msg_s', author: { name: 'Bruno Silva' } });
+    expect(await steer()).toBe('accepted');
+    expect(steered[1]!.body).not.toHaveProperty('author');
   });
 
   test('409 no_active_turn is turn_ended; any other 409 is a plain failure; 501 is unsupported', async () => {

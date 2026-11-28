@@ -44,18 +44,23 @@ export function scheduleSlowPreview(
 }
 
 /**
- * True once a still-pending frame has passed the threshold above.
+ * True once the CURRENT pending cycle of a frame has passed the threshold above.
  *
- * There is no reset branch because there is nothing to reset: `pending` only
- * ever goes true → false (the frame loads, or it errors), and a frame that has
- * settled is covered by `loaded` / `failed`. A remount — a new deployment — gets
- * a fresh `key` from the caller and therefore fresh state.
+ * A frame goes pending more than once on the same component: it loads, then
+ * Refresh (`reloadFrame`) sets the same key back to `'loading'` without a
+ * remount. The cleanup clears `slow` when a cycle ends, so the next cycle
+ * waits the full threshold again instead of painting the spinner at once.
+ * Exported for its own test.
  */
-function useSlowPreview(pending: boolean): boolean {
+export function useSlowPreview(pending: boolean): boolean {
   const [slow, setSlow] = useState(false);
   useEffect(() => {
     if (!pending) return;
-    return scheduleSlowPreview(() => setSlow(true));
+    const cancel = scheduleSlowPreview(() => setSlow(true));
+    return () => {
+      cancel();
+      setSlow(false);
+    };
   }, [pending]);
   return slow;
 }

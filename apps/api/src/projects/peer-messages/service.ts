@@ -55,7 +55,7 @@ import { db } from '../../shared/db';
 import { trackDetached } from '../../shared/drain';
 import { isUuid } from '../../shared/validate';
 import { qualifiedColumn } from '../../shared/sql-qualified-column';
-import { buildSessionTranscriptDigest, lastAssistantAnswer } from '../lib/session-transcript';
+import { readLastTurnAnswer } from '../lib/session-last-answer';
 import { RESULT_EXCERPT_KEY, RESULT_EXCERPT_MAX_CHARS, plainExcerpt, readSessionBoards, sessionInbound, sessionTeamLead } from '../lib/session-board';
 import { projectSessionMetadataMerge } from '../lib/session-metadata-merge';
 import { sessionTitleFromMetadata } from '../lib/session-title-placeholder';
@@ -565,8 +565,7 @@ export async function recordResultExcerpt(sessionId: string): Promise<string | n
   try {
     const session = await loadSession(sessionId);
     if (!session) return null;
-    const transcript = await buildSessionTranscriptDigest({ session, limit: 12, maxChars: RESULT_EXCERPT_MAX_CHARS * 2 });
-    const answer = lastAssistantAnswer(transcript);
+    const answer = await readLastTurnAnswer(session.sessionId, { limit: 12, maxChars: RESULT_EXCERPT_MAX_CHARS * 2 });
     if (!answer || !answer.text) return null;
     const excerpt = plainExcerpt(answer.text).slice(0, RESULT_EXCERPT_MAX_CHARS);
     await db.update(projectSessions)
@@ -648,8 +647,7 @@ export async function firePeerIdleNotices(input: {
 export async function lastTurnAnswer(sessionId: string): Promise<{ id: string | null; text: string } | null> {
   const session = await loadSession(sessionId);
   if (!session) return null;
-  const transcript = await buildSessionTranscriptDigest({ session, limit: 24, maxChars: 40_000 });
-  const answer = lastAssistantAnswer(transcript);
+  const answer = await readLastTurnAnswer(session.sessionId, { limit: 24, maxChars: 40_000 });
   return answer && answer.text ? { id: answer.id, text: answer.text } : null;
 }
 

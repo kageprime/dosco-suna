@@ -810,6 +810,29 @@ export interface EnsureObjectsOptions {
 }
 
 /**
+ * Download the objects a failed git command in `repoPath` named in `stderr`,
+ * as `runGitCapture` does for its own commands: for one a config release tree
+ * thread ran (`config-releases/tree-jobs.ts`). True when any was fetched.
+ */
+export async function faultInFromGitError(repoPath: string, stderr: string): Promise<boolean> {
+  return faultInMissingObjects(repoPath, stderr, new Set());
+}
+
+/**
+ * `ensureStoreObjects`, remembering a fetch over `maxBytes` per store and
+ * `what` (a tree, as `ensureTreeContents` names it): the same fetch is not
+ * tried again with a bound it already passed.
+ */
+export async function ensureStoreObjectsRemembered(
+  repoPath: string,
+  what: string,
+  oids: readonly string[],
+  options: EnsureObjectsOptions = {},
+): Promise<number> {
+  return withOverLimitMemo(repoPath, what, options, () => ensureStoreObjects(repoPath, oids, options));
+}
+
+/**
  * Make `oids` present in the store at `repoPath`, in one authenticated
  * request, and return the bytes received. A tree arrives with its subtrees and without blobs; a blob arrives
  * itself. A no-op for objects already present, for a store that is not

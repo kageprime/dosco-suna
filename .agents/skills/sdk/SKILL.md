@@ -220,9 +220,11 @@ export async function listAccountMembers(accountId: string) { /* … */ }
 - Deprecate only where the new name is an exact equivalent. `getProject` stays
   current: it is one database read, and `getWorkspace` also reads the settings.
 - `src/deprecated-exports.test.ts` (`WORKSPACE_EQUIVALENTS`) asserts each tag.
-- `Removed in the next major.` survives only on the older removal list in that
-  test (`TRANSCRIPT_SHARE_EXPORTS`, the retired billing routes): names whose
+- `Removed in the next major.` survives only on older tags of names whose
   server route no longer exists. Never write it on a new tag.
+- A major that removes names lists them in that test
+  (`REMOVED_V1_TRANSCRIPT_EXPORTS`, the session-log major), which fails when
+  one of them is exported again.
 
 A rename without an alias is not a refactor, it is a breaking change wearing a
 refactor's clothes.

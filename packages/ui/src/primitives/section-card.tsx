@@ -68,7 +68,7 @@ export function SectionCard({
       )}
     >
       {hasHeader && (
-        <div className="border-border/60 flex items-start justify-between gap-3 border-b px-6 py-4">
+        <div className="border-border flex items-start justify-between gap-3 border-b px-6 py-4">
           <div className="min-w-0">
             {title != null && (
               <h2 className="text-foreground text-base font-semibold">

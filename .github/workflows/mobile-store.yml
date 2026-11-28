@@ -14,6 +14,8 @@ name: Mobile Store
 #                             its Kortix Capture or desktop builds counts too:
 #                             deploy-prod-gate.yml)
 #   workflow_dispatch      -> the `prod` branch, never unreleased dev code
+#   schedule (twice a day) -> the `prod` branch with --finish-only: finishes a
+#                             release that stopped halfway, builds nothing
 #
 # Runbook: apps/mobile/BUILD_GUIDE.md ("Release a store version").
 
@@ -23,6 +25,12 @@ on:
     workflows: [Deploy Prod]
     types: [completed]
     branches: [prod]
+  # Apple takes one version at a time: a version released while the one before
+  # it is in review waits, and this run submits it once that one is live. It
+  # also finishes a submission a run could not complete. Only Deploy Prod's
+  # run and a dispatch build on EAS, so a schedule never ships undeployed code.
+  schedule:
+    - cron: '17 5,17 * * *' # 05:17 and 17:17 UTC
   workflow_dispatch:
     inputs:
       dry_run:
@@ -49,14 +57,41 @@ jobs:
       actions: read # the gate reads the jobs of the Deploy Prod run
     uses: ./.github/workflows/deploy-prod-gate.yml
 
+  busy:
+    name: Another store release is queued or running
+    # A scheduled run starts only when no other Mobile Store run is queued or
+    # running. In the `mobile-store` group a newly queued run replaces the one
+    # already pending, so a schedule queued behind a release could replace the
+    # Deploy Prod run waiting there, and a scheduled run never builds.
+    if: github.event_name == 'schedule'
+    runs-on: ${{ vars.CI_RUNNER_S || 'ubuntu-24.04' }}
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      busy: ${{ steps.check.outputs.busy }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          others=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow mobile-store.yml --limit 20 \
+            --json databaseId,status --jq "[.[] | select(.databaseId != $GITHUB_RUN_ID and .status != \"completed\")] | length")
+          echo "Other Mobile Store runs queued or running: $others"
+          if [ "$others" -eq 0 ]; then echo "busy=false" >> "$GITHUB_OUTPUT"; else echo "busy=true" >> "$GITHUB_OUTPUT"; fi
+
   release:
     name: Release to the stores
-    needs: gate
-    # A dispatch, or a Deploy Prod run the gate passed: it succeeded, or only
-    # its Kortix Capture or desktop builds failed (deploy-prod-gate.yml).
+    needs: [gate, busy]
+    # A dispatch, a schedule with no other release queued or running, or a
+    # Deploy Prod run the gate passed: it succeeded, or only its Kortix Capture
+    # or desktop builds failed (deploy-prod-gate.yml).
     if: >-
       !cancelled() &&
-      (github.event_name == 'workflow_dispatch' || needs.gate.outputs.ship == 'true')
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'schedule' && needs.busy.outputs.busy == 'false') ||
+       needs.gate.outputs.ship == 'true')
     runs-on: ${{ vars.CI_RUNNER_M || 'ubuntu-24.04' }}
     # An iOS build (~20 min), Apple processing (up to 60 min) and an Android
     # build run one after another; EAS builds may also queue.
@@ -117,4 +152,20 @@ jobs:
           npm_config_engine_strict: "false"
 
       - name: Release
-        run: node apps/mobile/scripts/store-release.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ "$DRY_RUN" = true ]; then args+=(--dry-run); fi
+          if [ "$EVENT" = schedule ]; then
+            # The script comes from prod. A prod copy without --finish-only
+            # would build on a schedule, so the run stops until prod has it.
+            if ! grep -q -e '--finish-only' apps/mobile/scripts/store-release.mjs; then
+              echo "::notice::The released store-release.mjs has no --finish-only; this scheduled run changes nothing."
+              exit 0
+            fi
+            args+=(--finish-only)
+          fi
+          node apps/mobile/scripts/store-release.mjs "${args[@]}"

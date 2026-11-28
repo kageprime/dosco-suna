@@ -14,7 +14,7 @@
  *
  * IT INTRODUCES NO NEW TRUTH. Every leg calls the SAME function the individual
  * endpoint calls (`readSessionTurnState`, `listInboxPrompts` + `serializePrompt`,
- * `buildSessionTranscriptSyncEnvelope`, `serializeSession`,
+ * `readSessionLogPage`, `serializeSession`,
  * `getAccountModelDefaults` + `resolveEffectiveModel`). A second projection of
  * one fact is how a client ends up holding two disagreeing answers, so there
  * is not one here.
@@ -70,7 +70,6 @@ import type { AppEnv } from '../../types';
 import { readSessionAuditActions } from '../lib/session-audit-read';
 import { sessionApprovalVerdict } from '../lib/http-approval-caller';
 import { serializePrompt } from '../lib/session-prompt-view';
-import { buildSessionTranscriptSyncEnvelope } from '../lib/session-transcript';
 import { readSessionTurnState } from '../lib/session-turn-read';
 import { canStopTurns } from '../session-lifecycle/turn-stop-authority';
 import { isProjectSessionPrincipal } from '../../iam/agent-scope';
@@ -86,11 +85,10 @@ const AUDIT_ACTIONS_LIMIT = 100;
 /** Same ceiling `GET .../prompts` uses. The inbox is a queue, not a log. */
 const PROMPT_LIST_LIMIT = 200;
 
-/** Mirrored messages the bundle carries by default — the SDK's own first-paint
- *  window (`MIRROR_HYDRATE_LIMIT`), so the bundle and the read that replaces it
- *  cover the same span. `?transcript=0` asks for the POINTER only, which is
- *  what a client with a warm store wants: it needs to know WHICH runtime root
- *  and HOW MANY messages, not the bytes it already holds. */
+/** Log messages the bundle's `log` leg carries by default (`?transcript=`, the
+ *  first page of `GET …/log`). `?transcript=0` asks for the POINTER only, which
+ *  is what a client with a warm store wants: it needs to know WHICH threads and
+ *  generation, not the bytes it already holds. */
 const TRANSCRIPT_DEFAULT = 40;
 const TRANSCRIPT_MAX = 200;
 
@@ -175,7 +173,7 @@ const handleSessionSnapshot: RouteHandler<ReturnType<typeof sessionSnapshotRoute
     // paint. Nothing here touches the sandbox, so nothing here can be held up
     // by a box that is asleep.
     const personId = personUserId(c, loaded);
-    const [turn, queue, transcript, models, runtime, audit, log, listState, conversationModels] = await Promise.allSettled([
+    const [turn, queue, models, runtime, audit, log, listState, conversationModels] = await Promise.allSettled([
       // = GET .../turn, `can_stop` included: one prompter read, only while a
       // turn runs for a caller who is not the owner or a manager.
       readSessionTurnState(sessionId).then(async (state) => ({
@@ -187,12 +185,6 @@ const handleSessionSnapshot: RouteHandler<ReturnType<typeof sessionSnapshotRoute
         }),
       })),
       listInboxPrompts(sessionId, PROMPT_LIST_LIMIT),
-      transcriptLimit.value === 0
-        ? Promise.resolve(null)
-        : buildSessionTranscriptSyncEnvelope({
-            session: visible.row,
-            limit: transcriptLimit.value,
-          }),
       (async () => {
         const accountId = loaded.row.accountId as string;
         const [defaults, mayUseManaged] = await Promise.all([
@@ -247,7 +239,7 @@ const handleSessionSnapshot: RouteHandler<ReturnType<typeof sessionSnapshotRoute
         });
       })(),
       // = `GET .../log`, the first page of the root thread. Same window as the
-      // transcript leg; `?transcript=0` reads the pointer only (session,
+      // `?transcript=` window; `?transcript=0` reads the pointer only (session,
       // generation, threads, no messages).
       readSessionLogPage({ sessionId, threadId: null, beforeSeq: null, limit: transcriptLimit.value }),
       // The person's pin and archive, as the read by id serves them (KRTX-2418).
@@ -318,16 +310,10 @@ const handleSessionSnapshot: RouteHandler<ReturnType<typeof sessionSnapshotRoute
             }
           : failed(queue.reason),
 
-      // = GET .../transcript?shape=sync — `toV1` of the session log (an SDK
-      // that reads v1 still asks `transcript=40` and paints this window). `null` when `?transcript=0` asked for
-      // the pointer only; the session projection above still names the runtime
-      // root, which is the identity a client needs to trust its own store.
-      transcript:
-        transcript.status === 'fulfilled'
-          ? transcript.value === null
-            ? { known: true as const, requested: false as const }
-            : { known: true as const, requested: true as const, ...transcript.value }
-          : failed(transcript.reason),
+      // The v1 window (`GET …/transcript?shape=sync`) was removed by session-log plan P8.3: this
+      // leg is the pointer only, whatever `?transcript=` asks. The saved history is the `log`
+      // leg (`GET …/log`'s first page). Kept so a client that reads the field still parses.
+      transcript: { known: true as const, requested: false as const },
 
       // Control-plane composer essentials. Deliberately NOT the `/config`
       // route's freshness answer: that one compiles the manifest and re-reads

@@ -20,10 +20,16 @@
  *  - `log.thread`: the thread head replaces the one held.
  *  - `log.state`: an older `generation` (a zombie box) is ignored; the session fields merge.
  *  - A page carries no revs: a page message never replaces a message the stream delivered,
- *    and never revives a tombstoned one. Within its window (from its first `seq`, or from the
- *    start without `has_more`, up to its `before_seq` for an older page) a page drops a held
- *    message it lacks unless the stream revised it: that message was deleted, or came from
- *    an older saved copy.
+ *    and never revives a tombstoned one. Within its window a page drops a held message it
+ *    lacks unless the stream revised it: that message was deleted, or came from an older saved
+ *    copy. The window starts at the page's first `seq` (at the start without `has_more`) and
+ *    ends at `before_seq` for an older page, at the end of the thread for the box's own page
+ *    (`{ box: true }`), and at its own last `seq` for the API's newest page, which lags the
+ *    box's: a message after that stays. An API page of a newer generation than the thread's
+ *    last newest page (a restarted box) settles the whole tail. Only the box's page settles a
+ *    queued prompt (the API never stores one). A page of an older generation than the thread's
+ *    last newest page changes nothing (`isStaleSessionLogPage`). A page's streaming copy never
+ *    replaces a finished record held.
  *  - `older` keeps each thread's `has_more` from the oldest page read (`useSessionLogOlder`).
  *  - A streaming put (`status: 'streaming'`) is an ordinary put: the deltas that follow
  *    append to its blocks, and the final put (a higher `rev`) replaces it.
@@ -50,6 +56,8 @@ export interface SessionLogState {
   revs: Record<string, number>;
   /** Per thread: the oldest page read said older messages exist (`has_more`). Absent before a page of the thread. */
   older: Record<string, boolean>;
+  /** Per thread: the highest generation of a newest page (not an older one) applied to it. Absent before one (and on a state held before this field existed). */
+  pageGenerations?: Record<string, number>;
 }
 
 /** The `log.*` frame as the store receives it: the runtime event shape, with the wire's own event id. */
@@ -66,7 +74,15 @@ export const EMPTY_SESSION_LOG_STATE: SessionLogState = Object.freeze({
   messages: {},
   revs: {},
   older: {},
+  pageGenerations: {},
 });
+
+/**
+ * The lowest provisional seq of a queued prompt: the box serves the last of n queued prompts at
+ * `Number.MAX_SAFE_INTEGER`, the one before it one lower (kortixd `pi/session-log.ts`, "the
+ * queued seq"). No real seq comes near it.
+ */
+const SESSION_LOG_QUEUED_SEQ_FLOOR = Number.MAX_SAFE_INTEGER - 1_000_000;
 
 type J = Record<string, unknown>;
 const isObj = (v: unknown): v is J => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -161,13 +177,27 @@ export function applySessionLogEvent(state: SessionLogState, event: SessionLogEv
 }
 
 /**
+ * A page of an older generation than the thread's last newest page: a box that was replaced (a
+ * zombie), or a stored log the new box has not journaled to yet. It holds nothing newer, and
+ * {@link applySessionLogPage} ignores it, an older page (`before_seq`) too. A reader that got one
+ * from the box counts it as a failed box read.
+ */
+export function isStaleSessionLogPage(state: SessionLogState, page: SessionLogPage): boolean {
+  return page.thread_id !== null && page.generation < (state.pageGenerations?.[page.thread_id] ?? -Infinity);
+}
+
+/**
  * `beforeSeq`: the page answers `before_seq` (an older page); it then settles only below it.
  * Without it the page is the newest one of its thread.
+ * `options.box`: the page is the box's own (`source: 'box'`: the API relayed `GET /kortix/runtime/log`), which answers for the
+ * thread's tail; without it the page is the API's stored log, which lags the box.
  */
-export function applySessionLogPage(state: SessionLogState, page: SessionLogPage, beforeSeq?: number): SessionLogState {
+export function applySessionLogPage(state: SessionLogState, page: SessionLogPage, beforeSeq?: number, options?: { box?: boolean }): SessionLogState {
+  if (isStaleSessionLogPage(state, page)) return state;
+  const thread = page.thread_id;
+  const pageGenerations = state.pageGenerations ?? {};
   let messages = state.messages;
   let older = state.older;
-  const thread = page.thread_id;
   const held = thread === null ? undefined : messages[thread];
   if (thread !== null) {
     // The page answers for the thread's older messages when it reaches back as far as the
@@ -178,13 +208,29 @@ export function applySessionLogPage(state: SessionLogState, page: SessionLogPage
     if (oldest && state.older[thread] !== page.has_more) older = { ...older, [thread]: page.has_more };
   }
   // The page is the thread's truth from its first seq (from the start without `has_more`) up to
-  // `beforeSeq`: a held message there that it lacks and that the stream never revised was
-  // deleted, or came from an older copy (the device's saved copy). It leaves.
+  // `beforeSeq` (an older page), or to the end (the box's own page): a held message there that
+  // it lacks and that the stream never revised was deleted, or came from an older copy (the
+  // device's saved copy). It leaves. The API's newest page answers only up to its own last seq:
+  // it lags the box's by the journal's post interval (minutes when posts fail), so a message
+  // after its last seq is newer than the page and stays, a reply still streaming there too (a
+  // deletion there comes as a tombstone, or with the box's next page). A queued prompt's
+  // provisional seq is no position in the log: only the box's page settles it (the API never
+  // stores one). An API page of a newer
+  // generation (a box restarted from the stored log) settles the whole tail: a reply the old
+  // box never journaled is gone with it. The generation compared is the thread's last newest
+  // page's, not the state's: the new box's `log.state` frame often arrives before its page.
   if (thread !== null && held) {
     const from = page.has_more ? (page.messages[0]?.seq ?? Infinity) : -Infinity;
+    const last =
+      beforeSeq !== undefined || options?.box || page.generation > (pageGenerations[thread] ?? page.generation)
+        ? Infinity
+        : page.messages.reduce((max, m) => (m.seq < SESSION_LOG_QUEUED_SEQ_FLOOR ? Math.max(max, m.seq) : max), -Infinity);
     const to = beforeSeq ?? Infinity;
     const kept = new Set(page.messages.map((m) => m.message_id));
-    const settled = held.filter((m) => m.seq < from || m.seq >= to || kept.has(m.message_id) || state.revs[m.message_id] !== undefined);
+    // The API never stores a queued prompt: only the box's page answers for one.
+    const queued = (m: SessionLogMessage) => m.seq >= SESSION_LOG_QUEUED_SEQ_FLOOR;
+    const vouched = (m: SessionLogMessage) => m.seq >= from && m.seq < to && (queued(m) ? !!options?.box : m.seq <= last);
+    const settled = held.filter((m) => !vouched(m) || kept.has(m.message_id) || state.revs[m.message_id] !== undefined);
     if (settled.length !== held.length) messages = { ...messages, [thread]: settled };
   }
   for (const message of page.messages) {
@@ -194,6 +240,9 @@ export function applySessionLogPage(state: SessionLogState, page: SessionLogPage
     // put held the reply's partial text forever. Its rev stays, so a late streaming put cannot win.
     const finishesStreaming = message.status !== 'streaming' && heldStreaming(state, message);
     if (state.revs[message.message_id] !== undefined && !finishesStreaming) continue;
+    // A page's streaming copy is older than a finished record held (a lagging page read mid-turn),
+    // as a streaming put is (`applyMessage`).
+    if (message.status === 'streaming' && heldFinished(state, message)) continue;
     messages = put(messages, message);
   }
   const threads = { ...state.threads };
@@ -208,6 +257,11 @@ export function applySessionLogPage(state: SessionLogState, page: SessionLogPage
     threads,
     messages,
     older,
+    // Only the newest page answers for the tail; an older page (`beforeSeq`) does not move it.
+    pageGenerations:
+      thread === null || beforeSeq !== undefined || (pageGenerations[thread] ?? -1) >= page.generation
+        ? pageGenerations
+        : { ...pageGenerations, [thread]: page.generation },
   };
 }
 

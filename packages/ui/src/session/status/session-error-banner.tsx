@@ -383,7 +383,7 @@ export function describeTurnErrorRow({
   }
   const hasMeta = Boolean(gateway?.provider || gateway?.code || gateway?.requestId);
   const hasAttempts = Boolean(gateway?.attemptFailures?.length);
-  return { kind: 'checkpoint', expandable: hasMeta || hasAttempts || Boolean(raw) };
+  return { kind: 'checkpoint', expandable: hasMeta || hasAttempts || Boolean(raw?.trim() && raw.trim().toLowerCase() !== 'unknown') };
 }
 
 /**
@@ -449,7 +449,8 @@ function TurnErrorCheckpoint({
     modelOptions,
   );
   const failures = gateway?.attemptFailures ?? [];
-  const canOpen = describeTurnErrorRow({ text, gateway, raw }).expandable;
+  const detail = raw?.trim().toLowerCase() === 'unknown' ? undefined : raw;
+  const canOpen = describeTurnErrorRow({ text, gateway, raw: detail }).expandable;
 
   const displayText = /^\s*(?:\d{3}\s+)?<(?:!doctype|html|head|body)\b/i.test(text)
     ? (text.includes('application-error') || text.includes('Application Error')
@@ -517,9 +518,9 @@ function TurnErrorCheckpoint({
               {failures.length > 0 ? (
                 <FailureList failures={failures} className="text-muted-foreground list-decimal space-y-1 pl-4 text-xs wrap-anywhere" />
               ) : null}
-              {raw ? (
+              {detail ? (
                 <pre className="bg-muted text-muted-foreground max-h-40 overflow-auto rounded-md px-3 py-2 font-mono text-xs whitespace-pre-wrap wrap-anywhere">
-                  {raw}
+                  {detail}
                 </pre>
               ) : null}
             </div>

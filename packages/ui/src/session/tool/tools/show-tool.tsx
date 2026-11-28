@@ -332,7 +332,7 @@ export function ShowTool({ call, sessionId }: ToolProps) {
                 />
               </div>
               {description && !title && !fileUnavailable && (
-                <div className="border-border/15 shrink-0 border-t px-5 py-3">
+                <div className="border-border shrink-0 border-t px-5 py-3">
                   <p className="text-muted-foreground text-xs">{description}</p>
                 </div>
               )}

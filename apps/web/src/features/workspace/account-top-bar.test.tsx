@@ -90,15 +90,6 @@ describe('AccountTopBar Inbox button', () => {
     const page = await readSource('../../app/[locale]/(app)/inbox/page.tsx');
     expect(page).toContain('inbox={false}');
   });
-
-  test('the Inbox button is a client-only chunk that links to /inbox', async () => {
-    const code = await readSource(BAR_SOURCE);
-    expect(code).toContain("import('@/features/notifications/inbox-button')");
-    expect(code).toContain('{ ssr: false }');
-    const button = await readSource('../notifications/inbox-button.tsx');
-    expect(button).toContain("ACCOUNT_INBOX_HREF = '/inbox'");
-    expect(button).toContain('href={ACCOUNT_INBOX_HREF}');
-  });
 });
 
 /**

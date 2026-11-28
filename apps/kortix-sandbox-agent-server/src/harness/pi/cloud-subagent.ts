@@ -16,8 +16,8 @@
  * `metadata.spawned_by_session`). That same link authorizes every later read
  * of the child from this box (`agentSessionStanding`, connectors/share.ts):
  * the session row, its stored session log (`GET …/sessions/:id/log`), a
- * follow-up prompt, a stop. No read goes through the v1 transcript route
- * (`GET …/transcript`), which P8.3 of the session-log plan removes.
+ * follow-up prompt, a stop. The v1 transcript route (`GET …/transcript`) was
+ * removed by P8.3 of the session-log plan; a daemon older than this file read it.
  *
  * The return shape is `SpawnSessionResult`, identical to the in-process path:
  * the tool part carries the child id in `metadata.sessionId` and the output
@@ -101,6 +101,7 @@ import { SUBAGENT_NOTIFY_PARENT_KEY } from '@kortix/api-contract/runtime-relay'
 import { toV1, type SessionLog, type SessionLogPage } from '@kortix/api-contract/session-log'
 import { logger } from '@/lib/log/logger'
 import type { SpawnSessionInput, SpawnSessionResult, SubagentSession } from './extensions/subagents'
+import { AGENT_CHAT_CONTEXT_KEY } from './agent-chat'
 import { FRONT_CONTEXT_KEY, FRONT_THREAD_CONTEXT_KEY } from './front'
 import { WATCHER_CONTEXT_KEY } from './watcher'
 import { withWorkspaceRouteFallback } from '@/lib/kortix-api/workspace-routes'
@@ -212,6 +213,8 @@ export interface SubagentContext {
   frontThread?: boolean
   /** A space's watcher (`kortix.watcher`, watcher.ts): no tools, one JSON decision per turn. */
   watcher?: boolean
+  /** A thread of a person's chat with an agent (`kortix.agent_chat`, agent-chat.ts): its reply leads with a short overview. */
+  agentChat?: boolean
   /** An inline agent's instructions ({@link AGENT_INSTRUCTIONS_CONTEXT_KEY}): the base system prompt. */
   instructions?: string
 }
@@ -240,6 +243,7 @@ export function subagentContextFrom(raw: string | undefined): SubagentContext {
     ...(record[FRONT_CONTEXT_KEY] === true ? { front: true } : {}),
     ...(record[FRONT_THREAD_CONTEXT_KEY] === true ? { frontThread: true } : {}),
     ...(record[WATCHER_CONTEXT_KEY] === true ? { watcher: true } : {}),
+    ...(record[AGENT_CHAT_CONTEXT_KEY] === true ? { agentChat: true } : {}),
     ...(instructions ? { instructions } : {}),
   }
   const rawTools = record[SUBAGENT_TOOLS_KEY]

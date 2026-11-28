@@ -56,6 +56,24 @@ export {
 } from './defaults';
 
 /**
+ * `~/.agent-browser/config.json` in every sandbox: the `kortix` credential
+ * plugin. agent-browser loads plugins only from this user config (or an
+ * explicit `--config`), never from a project's `./agent-browser.json`.
+ */
+export const AGENT_BROWSER_PLUGIN_CONFIG = {
+  plugins: [
+    {
+      name: 'kortix',
+      command: '/usr/local/bin/kortix',
+      args: ['secrets', 'browser-plugin'],
+      capabilities: ['credential.read'],
+    },
+  ],
+} as const;
+/** The config as the base64 a Dockerfile `printf | base64 -d` writes. */
+export const AGENT_BROWSER_PLUGIN_CONFIG_B64 = btoa(JSON.stringify(AGENT_BROWSER_PLUGIN_CONFIG));
+
+/**
  * Hardcoded "platform default" Dockerfile. Used when a session boots from
  * Kortix's default template — no user customization, just Ubuntu plus the
  * Kortix runtime layer on top. The workspace gets cloned at boot.
@@ -180,7 +198,7 @@ export function kortixWorkstationTooling(opts: KortixToolchainLayerOpts): string
     // bake a real Chromium into the image and wire agent-browser to it TWO
     // independent ways:
     //   1. AGENT_BROWSER_EXECUTABLE_PATH → a stable user-local chromium
-    //      symlink (the documented API; verified working on agent-browser 0.27.0).
+    //      symlink (the documented API; verified working on agent-browser 0.27.0 and 0.43.0).
     //   2. a symlink into agent-browser's OWN browser cache (chrome-linux64),
     //      which its auto-detect finds even if the env var is ever ignored again
     //      — it WAS, historically (vercel-labs/agent-browser#422). Belt + braces.
@@ -215,6 +233,13 @@ export function kortixWorkstationTooling(opts: KortixToolchainLayerOpts): string
     'ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \\',
     '    AGENT_BROWSER_EXECUTABLE_PATH=/home/kortix/.local/bin/chromium \\',
     '    AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage,--test-type,--disable-infobars \\',
+    // agent-browser 0.32+ closes an idle headless browser after 1 h and drops
+    // its cookies. 0 keeps the always-on daemon every sandbox had before.
+    '    AGENT_BROWSER_IDLE_TIMEOUT_MS=0 \\',
+    // agent-browser 0.43 checks Chrome's release feed on every launch and warns
+    // that the pinned Playwright Chromium is behind stable. The pin is
+    // deliberate (runtime-versions.json); the warning is noise in every tool call.
+    '    AGENT_BROWSER_NO_VERSION_CHECK=1 \\',
     // Playwright's browser download defaults to a 30s socket timeout
     // (NET_DEFAULT_TIMEOUT in playwright-core), which a ~150MB Chrome-for-Testing
     // fetch can miss under any network hiccup / contended CDN — observed live as
@@ -259,6 +284,13 @@ export function kortixWorkstationTooling(opts: KortixToolchainLayerOpts): string
     // "Launch test" may itself fail under cross-arch QEMU emulation; we read the
     // detection line, not the launch verdict, so the gate is emulation-safe.
     "    && env -u AGENT_BROWSER_EXECUTABLE_PATH agent-browser doctor 2>&1 | grep -qE 'pass.+chrome-linux64/chrome'",
+    '',
+    // The `kortix` credential plugin: `agent-browser auth login … --credential-provider
+    // kortix --item NAME` types a website login the agent never sees
+    // (`kortix secrets browser-plugin`, apps/api/src/projects/lib/browser-logins.ts).
+    // Its own RUN, below Chromium and deterministic, so the browser layer stays cached.
+    `RUN printf %s ${AGENT_BROWSER_PLUGIN_CONFIG_B64} | base64 -d > /home/kortix/.agent-browser/config.json \\`,
+    '    && agent-browser plugin list 2>&1 | grep -q kortix',
     '',
     // anydoc (Firecrawl) — the document→Markdown converter the
     // convert-documents-to-markdown skill drives (Word/PowerPoint/Excel/ODF/

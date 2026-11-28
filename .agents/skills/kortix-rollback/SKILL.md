@@ -1,6 +1,6 @@
 ---
 name: kortix-rollback
-description: "How to roll Kortix PRODUCTION back to an older already-released version — the inverse of a release. Covers the one-dispatch rollback-prod.yml engine (--ref prod, shares the deploy-prod concurrency group), the per-surface mechanics (api with KORTIX_PROCESS_ROLE=all and the worker scaled to 0, gateway and ECS frontend = immutable :X.Y.Z image; Vercel frontend = promote), what undoes a rollback (any deploy-prod run, any push to prod), the DB/migration-drift check that is the real blocker, and how a later promote returns prod to latest. Load WHENEVER the user wants to roll back / revert / downgrade / 'go back a version' on prod, asks how the rollback or the frontend rebuild-skip behavior works, or needs to run rollback-prod.yml. Pairs with kortix-release (the forward direction)."
+description: "How to roll Kortix PRODUCTION back to an older already-released version — the inverse of a release. Covers the one-dispatch rollback-prod.yml engine (--ref prod, shares the deploy-prod concurrency group), the per-surface mechanics (api with KORTIX_PROCESS_ROLE=all and the worker scaled to 0, gateway = immutable :X.Y.Z image; Vercel frontend = promote), what undoes a rollback (any deploy-prod run, any push to prod), the DB/migration-drift check that is the real blocker, and how a later promote returns prod to latest. Load WHENEVER the user wants to roll back / revert / downgrade / 'go back a version' on prod, asks how the rollback or the frontend rebuild-skip behavior works, or needs to run rollback-prod.yml. Pairs with kortix-release (the forward direction)."
 ---
 
 # Kortix Rollback
@@ -29,17 +29,18 @@ gh workflow run rollback-prod.yml --repo kortix-ai/CompanyOS --ref prod \
 that roll ends. GitHub keeps one pending run per group: a rollback dispatched
 while a `deploy-prod` run waits replaces the waiting run.
 
-It plans each surface from the images that exist for `X.Y.Z` (a surface with no
-`:X.Y.Z` image is skipped), then rolls in this order, one step after the other:
+It plans each backend surface from the images that exist for `X.Y.Z` (a surface
+with no `:X.Y.Z` image is skipped), then rolls in this order, one step after the
+other:
 
 1. **api (ECS)**: `ecs-deploy.sh prod kortix/kortix-api:X.Y.Z --process-role all`.
    The api tasks run the scheduled jobs. After that rollout is stable the script
    scales `kortix-prod-worker` to 0. The worker is never rolled here.
 2. **gateway (ECS)**: `kortix/kortix-gateway:X.Y.Z`.
-3. **frontend (ECS)**: `kortix/kortix-frontend:X.Y.Z`, verified on
-   `prod-fe-ecs.kortix.com/api/health`.
-4. **frontend (Vercel)**: promotes the production deployment whose commit message
-   names `release vX.Y.Z`. Skipped without `VERCEL_TOKEN`.
+3. **frontend (Vercel)**: promotes the production deployment whose commit message
+   names `release vX.Y.Z`. Skipped without `VERCEL_TOKEN`; fails when no such
+   deployment exists. kortix.com runs on Vercel only: the parallel ECS frontend
+   (`prod-fe-ecs.kortix.com`) was removed in 2026-11.
 
 A failed step stops the run: the surfaces before it are on `X.Y.Z`, the ones
 after it are on the current version. Read the step log, not the summary table:
@@ -54,8 +55,7 @@ What it does **not** do:
 
 ## 2. Per-surface mechanics
 
-**Backend (API, worker, gateway) and the ECS frontend run immutable images on
-ECS Fargate.** `infra/scripts/ecs-deploy.sh` registers a new task-definition
+**The backend (API, worker, gateway) runs immutable images on ECS Fargate.** `infra/scripts/ecs-deploy.sh` registers a new task-definition
 revision that points at the `:X.Y.Z` image and waits until the service is
 stable. The image is frozen, so the roll is exact.
 
@@ -71,10 +71,10 @@ Nothing records that prod is rolled back: the state lives only in ECS and
 Vercel. Each of these returns prod to the version in `prod:VERSION`:
 
 - **Any `deploy-prod.yml` run.** A push to `prod` (a release merge) or a manual
-  dispatch (`rebuild_desktop`, a re-run) rolls worker, api, gateway and web to
-  `prod:VERSION` and switches the api back to `KORTIX_PROCESS_ROLE=web`. Do not
-  dispatch `deploy-prod.yml` while prod is rolled back, unless you mean to roll
-  forward.
+  dispatch (`rebuild_desktop`, a re-run) rolls worker, api and gateway to
+  `prod:VERSION`, redeploys the Vercel frontend, and switches the api back to
+  `KORTIX_PROCESS_ROLE=web`. Do not dispatch `deploy-prod.yml` while prod is
+  rolled back, unless you mean to roll forward.
 - **Vercel never builds on a push.** The Vercel project has no Git connection,
   and `apps/web/vercel.json` sets `git.deploymentEnabled: false`. kortix.com
   changes only through `deploy-prod.yml` (`deploy-web-vercel`), so a Vercel
@@ -178,5 +178,5 @@ up, and builds and deploys the latest Vercel frontend.
   (learnings ledger, 2026-11-01): the workflow's concurrency group does not see
   a local roll. Use this workflow.
 - **Verify after:** `api.kortix.com/v1/health` (version), ECS service health,
-  `prod-fe-ecs.kortix.com/api/health`, and the live Vercel production deployment
+  `kortix.com/api/health` (version), and the live Vercel production deployment
   (`/v9/projects/{id}` → `targets.production`).

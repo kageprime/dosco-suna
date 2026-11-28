@@ -1397,6 +1397,12 @@
     "saving": "Guardando…",
     "openError": "No se puede abrir este artefacto",
     "more": "Acciones del artefacto",
-    "unavailable": "Los artefactos no están disponibles en este espacio de trabajo"
+    "unavailable": "Los artefactos no están disponibles en este espacio de trabajo",
+    "moveToFolder": "Mover a carpeta",
+    "folderRoot": "Sin carpeta",
+    "movedToFolder": "Movido a {{name}}",
+    "moveFailed": "No se pudo mover el artefacto",
+    "emptyFolder": "No hay artefactos en esta carpeta",
+    "emptyUnfiled": "No hay artefactos sin carpeta"
   }
 }

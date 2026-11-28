@@ -1,7 +1,11 @@
 import { toolCallBlock } from '@kortix/sdk';
+import { qk } from '@kortix/sdk/react';
+import { SessionIdsProvider } from '../../../providers/session-ids';
+import { WorkFoldContext } from '../../turn/turn-work-accordion';
 import './register';
 import { TooltipProvider } from '../../../primitives/tooltip';
 import { ToolRunningContext } from '../shared/infrastructure';
+import { ToolSurfaceContext } from '../shared/infrastructure';
 import { ToolRegistry } from '../shared/registry';
 import type { ToolPart } from '../../../internal/session-types';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -144,6 +148,65 @@ describe('send_message', () => {
     expect(text).not.toContain('Sent to reviewer.');
   });
 
+  test('on the side panel a message is a timeline: to whom, what it said, then what became of it', () => {
+    const Component = ToolRegistry.get('send_message')!;
+    const html = render(
+      <ToolSurfaceContext.Provider value="panel">
+        <Component call={done('send_message', SENT)} />
+      </ToolSurfaceContext.Provider>,
+    );
+    const text = textOf(html);
+    expect(html).toContain('<ol');
+    expect(text).toContain('To');
+    expect(text).toContain('reviewer');
+    expect(text).toContain('Migration finished');
+    expect(text).toContain('The schema migration finished. Rebase now.');
+    // The last node says what became of it, after the message.
+    expect(text.indexOf('Delivered')).toBeGreaterThan(text.indexOf('Rebase now.'));
+    // A timeline, not a fold: nothing to open.
+    expect(html).not.toContain('aria-expanded');
+  });
+
+  test('a note to a colleague of this session that is still working reads Working, then Delivered once it stops', () => {
+    const drawnWith = (working: boolean, folded = false, child: Record<string, unknown> = { session_id: 'ses-reviewer', agent_handle: 'reviewer' }) => {
+      const client = new QueryClient();
+      client.setQueryData(qk.project.sessionChildren('p1', 's1'), {
+        pages: [{ items: [{ ...child, work_state: working ? 'running' : 'idle' }], next_cursor: null }],
+        pageParams: [null],
+      });
+      const Component = ToolRegistry.get('send_message')!;
+      intlErrors = [];
+      const html = renderToStaticMarkup(
+        <IntlTestProvider locale="en" fallback={false} onError={(error) => intlErrors.push(error)}>
+          <QueryClientProvider client={client}>
+            <SessionIdsProvider projectId="p1" sessionId="s1">
+              <TooltipProvider>
+                <WorkFoldContext.Provider value={folded}>
+                  <Component call={done('send_message', SENT)} />
+                </WorkFoldContext.Provider>
+              </TooltipProvider>
+            </SessionIdsProvider>
+          </QueryClientProvider>
+        </IntlTestProvider>,
+      );
+      expect(intlErrors).toEqual([]);
+      return html;
+    };
+    const live = drawnWith(true);
+    expect(live).toContain('data-agent-status="running"');
+    expect(textOf(live)).toContain('Working');
+    const stopped = drawnWith(false);
+    expect(stopped).toContain('data-agent-status="done"');
+    expect(textOf(stopped)).toContain('Delivered');
+    // An older note, folded with its settled turn, keeps its own state while the colleague works on a newer one.
+    const older = drawnWith(true, true);
+    expect(older).toContain('data-agent-status="done"');
+    expect(textOf(older)).toContain('Delivered');
+    // An unnamed colleague has no handle of its own: the session the note reached decides.
+    const unnamed = drawnWith(true, false, { session_id: 'ses-reviewer', agent_handle: null });
+    expect(unnamed).toContain('data-agent-status="running"');
+  });
+
   test('a held or refused message says so, with the reason', () => {
     const held = { ...SENT, card: { title: 'Waiting for @reviewer', status: 'needs_you' }, data: { ...SENT.data, status: 'held', note: 'Held until their person approves it.' } };
     const heldHtml = drawn('send_message', done('send_message', held), { open: true });
@@ -179,10 +242,10 @@ describe('list_agents', () => {
       },
     };
     const text = textOf(drawn('list_agents', done('list_agents', result), { open: true }));
-    expect(text).toContain('@reviewer');
+    expect(text).toContain('reviewer');
     expect(text).toContain('Teammate');
     expect(text).toContain('Needs input');
-    expect(text).toContain('@writer');
+    expect(text).toContain('writer');
     expect(text).toContain('Helper');
     expect(text).toContain('Done');
     expect(text).toContain('Can’t receive messages');
@@ -204,7 +267,7 @@ describe('list_agents', () => {
       },
     };
     const text = textOf(drawn('list_agents', done('list_agents', result), { open: true }));
-    expect(text).toContain('@site');
+    expect(text).toContain('site');
     expect(text).toContain('Build the site · Helper');
     expect(text).not.toContain('subagent)');
     expect(text).not.toContain('Show details');

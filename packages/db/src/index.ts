@@ -105,6 +105,7 @@ export {
   projectSpaces,
   projectSpaceLinks,
   projectSpaceMembers,
+  projectSpaceActivity,
   projectSpaceWatchers,
   projectSpaceEvents,
   projectGoals,
@@ -198,6 +199,7 @@ export {
   sessionPeerMessages,
   sessionTasks,
   // Artifacts: published HTML pages (flag artifacts)
+  artifactFolders,
   artifacts,
   artifactCommentThreads,
   artifactComments,

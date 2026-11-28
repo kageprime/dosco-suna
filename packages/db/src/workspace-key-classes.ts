@@ -168,6 +168,7 @@ export const WORKSPACE_KEY_CLASSES = {
     'usage_events',
   ],
   project_only: [
+    'artifact_folders',
     // The workspace calendar (flag `calendar`, 2026-11-14): items and their comments carry project_id only.
     'calendar_comments',
     'calendar_item_people',

@@ -14,13 +14,18 @@
 
 project_id = "kortix-local"
 
-# ─── API (PostgREST) ─────────────────────────────────────────────────────────
+# ─── API gateway (Kong); PostgREST (the Data API) does not run ───────────────
+# Every `supabase start` in this repo passes `-x postgrest`. Kong still serves
+# /auth/v1 and /storage/v1 on `port`, and /rest/v1 answers 503. Nothing in
+# Kortix calls the Data API: the API reaches Postgres directly. Hosted dev,
+# staging and prod have it off too, since 2026-11-23 (flow SEC-K checks it).
+# With PostgREST on, `supabase start` also waited its 30 s health timeout on
+# every fresh database: the exposed `kortix` schema exists only after
+# migrations. Keep `enabled = true`: the pinned CLI (2.116) prints API_URL in
+# `supabase status` only when it is.
 [api]
 enabled = true
 port = 54321
-schemas = ["public", "kortix"]
-extra_search_path = ["public", "extensions"]
-max_rows = 1000
 
 # ─── Database ─────────────────────────────────────────────────────────────────
 [db]
@@ -52,6 +57,12 @@ verify_enabled = true
 [auth.email]
 enable_signup = true
 enable_confirmations = false
+
+# Native targets retain GoTrue's confirmation URL. Web links use the public
+# site URL's /auth/confirm adapter, which preserves callback query parameters.
+[auth.email.template.confirmation]
+subject = "Confirm your email address"
+content_path = "./supabase/templates/confirmation.html"
 
 # GitHub OAuth — "Sign in with GitHub" on /auth, and NOTHING else.
 #

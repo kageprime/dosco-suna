@@ -272,7 +272,7 @@ export function VideoRenderer({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-12 w-12 rounded-full bg-white/90 shadow-lg hover:bg-white dark:bg-black/90 dark:hover:bg-black"
+                className="h-12 w-12 rounded-full bg-white/90 shadow-md hover:bg-white dark:bg-black/90 dark:hover:bg-black"
                 onClick={togglePlay}
               >
                 {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="ml-0.5 h-6 w-6" />}

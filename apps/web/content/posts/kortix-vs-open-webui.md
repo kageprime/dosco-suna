@@ -38,7 +38,7 @@ A new teammate clones it and inherits the same working setup. An agent is a Mark
 
 Session work reaches `main` through a change request. Merge is default-deny for agents. Thousands of agents in parallel on one config, each on its own cloud computer. Each session has its own isolated machine and branch.
 
-The self-hosted install is a single Compose stack: a frontend, an API, an LLM gateway and Supabase. Sessions themselves run on Platinum, the compute provider every new session lands on. Install the CLI with `curl -fsSL https://kortix.com/install | bash`, then `kortix self-host init` to set the stack up, and `kortix self-host start` to boot it. Nothing on the first run wants a model key; it asks six questions. ([self-hosting docs](https://kortix.com/docs/host))
+The self-hosted install is a single Compose stack: a frontend, an API, an LLM gateway and Supabase. Sessions themselves run on [Platinum](https://www.platinum.dev), the compute provider every new session lands on. Install the CLI with `curl -fsSL https://kortix.com/install | bash`, then `kortix self-host init` to set the stack up, and `kortix self-host start` to boot it. Nothing on the first run wants a model key; it asks six questions. ([self-hosting docs](https://kortix.com/docs/host))
 
 ## Where Open WebUI is the better pick
 

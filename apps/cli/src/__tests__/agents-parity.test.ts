@@ -100,7 +100,7 @@ const THREE_AGENTS: FakeAgent[] = [
 
 function startServer(
   agents: FakeAgent[] = DEFAULT_AGENTS,
-  opts: { detailStatus?: number } = {},
+  opts: { detailStatus?: number; picker?: object; access?: object } = {},
 ): string {
   let defaultAgent = 'default';
   const agentModelPins: Record<string, string> = {};
@@ -123,6 +123,15 @@ function startServer(
             agents,
           },
         });
+      }
+      // GET /projects/:id/model-picker: what the caller can run, so what a
+      // pin can name. Unset: the route 404s like an older API.
+      if (p === '/model-picker' && req.method === 'GET' && opts.picker) {
+        return Response.json(opts.picker);
+      }
+      // GET /projects/:id/model-access: explicit denials, which PUT enforces.
+      if (p === '/model-access' && req.method === 'GET' && opts.access) {
+        return Response.json(opts.access);
       }
       if (p === '/default-agent' && req.method === 'PUT') {
         const wanted = (body as { agent: string }).agent;
@@ -317,6 +326,19 @@ describe('kortix agents — default, scope, config', () => {
     const r = await runCli(['agents', 'default', 'ghost', '--project', PROJECT], config);
     expect(r.code).toBe(1);
     expect(r.stderr).toContain('Agent "ghost" is not declared');
+  });
+
+  // kortix.yaml: an omitted grant grants nothing (apps/api projects/agents/parse.ts, compile-agent-config.ts).
+  // `scope --show` said `all` for secrets, skills and Kortix permissions, so My Kortix told people a
+  // new helper could read every secret (QualiLoop on dev, "Gave the support agent broad access").
+  test('scope --show on a block that omits a grant reports none, as the runtime grants it', async () => {
+    const config = writeConfig(startServer());
+    const json = await runCli(['agents', 'scope', 'egress', '--show', '--json', '--project', PROJECT], config);
+    expect(json.code).toBe(0);
+    expect(JSON.parse(json.stdout)).toMatchObject({ agent: 'egress', secrets: 'none', apps: 'none', skills: 'none', kortix_permissions: 'none', kortix_cli: 'none' });
+    const text = await runCli(['agents', 'scope', 'egress', '--show', '--project', PROJECT], config);
+    expect(text.stdout).not.toContain('all (default)');
+    expect(text.stdout).toContain('none (default)');
   });
 
   test('scope and config on My Kortix print the built-in grant, not the block defaults', async () => {
@@ -661,6 +683,122 @@ describe('kortix agents — default, scope, config', () => {
     expect(r.code).toBe(0);
     expect(r.stdout).toContain('No agents declared in this workspace.');
     expect(r.stdout).not.toContain('Agents (');
+  });
+
+  describe('the pin hint follows what the workspace can serve (KRTX-1665)', () => {
+    const PIN_HINT = 'Pin one: kortix agents model <agent> <model-id>';
+    const NONE_SERVED = 'No model can be pinned yet';
+
+    test('no runnable model: ls names how to get one instead of a pin that 409s', async () => {
+      // Free tier, no provider connected: the picker serves nothing, so
+      // PUT /model-defaults answers 409 model_not_servable for every id.
+      const config = writeConfig(startServer(THREE_AGENTS, { picker: { models: {} } }));
+      const r = await runCli(['agents', 'ls', '--project', PROJECT], config);
+      expect(r.code).toBe(0);
+      expect(r.stdout).toContain('No per-agent model pins — every agent follows the default.');
+      expect(r.stdout).not.toContain(PIN_HINT);
+      expect(r.stdout).toContain(NONE_SERVED);
+      expect(r.stdout).toContain('kortix providers set <provider>');
+      expect(r.stdout).toContain('upgrade');
+    });
+
+    test('a served model whose provider is not connected does not count as pinnable', async () => {
+      const config = writeConfig(
+        startServer(THREE_AGENTS, {
+          picker: { models: { 'openai/gpt-5.5': { available: false } } },
+        }),
+      );
+      const r = await runCli(['agents', 'ls', '--project', PROJECT], config);
+      expect(r.code).toBe(0);
+      expect(r.stdout).not.toContain(PIN_HINT);
+      expect(r.stdout).toContain(NONE_SERVED);
+    });
+
+    test('no runnable model and no /detail: the pre-detail output gets the same guidance', async () => {
+      const config = writeConfig(
+        startServer(THREE_AGENTS, { detailStatus: 500, picker: { models: {} } }),
+      );
+      const r = await runCli(['agents', 'ls', '--project', PROJECT], config);
+      expect(r.code).toBe(0);
+      expect(r.stdout).not.toContain(PIN_HINT);
+      expect(r.stdout).toContain(NONE_SERVED);
+    });
+
+    test('a runnable model keeps the pin hint', async () => {
+      const config = writeConfig(
+        startServer(THREE_AGENTS, {
+          picker: { models: { 'glm-5.3-flash': {}, 'openai/gpt-5.5': { available: false } } },
+        }),
+      );
+      const r = await runCli(['agents', 'ls', '--project', PROJECT], config);
+      expect(r.code).toBe(0);
+      expect(r.stdout).toContain(PIN_HINT);
+      expect(r.stdout).not.toContain(NONE_SERVED);
+    });
+
+    test('a served model the workspace denies explicitly does not count as pinnable', async () => {
+      // PUT /model-defaults refuses a model or provider in /model-access.
+      for (const access of [
+        { disabledProviders: ['openai'], disabledModels: [] },
+        { disabledProviders: [], disabledModels: ['openai/gpt-5.5'] },
+      ]) {
+        const r = await runCli(
+          ['agents', 'ls', '--project', PROJECT],
+          writeConfig(
+            startServer(THREE_AGENTS, {
+              picker: { models: { 'openai/gpt-5.5': { available: true, enabled: false } } },
+              access,
+            }),
+          ),
+        );
+        expect(r.stdout).not.toContain(PIN_HINT);
+        expect(r.stdout).toContain(NONE_SERVED);
+        server?.stop(true);
+      }
+    });
+
+    test('a model hidden only from the picker stays pinnable', async () => {
+      // `enabled: false` with no access denial is display-only: the pin works.
+      const config = writeConfig(
+        startServer(THREE_AGENTS, {
+          picker: { models: { 'openai/gpt-5.5': { available: true, enabled: false } } },
+          access: { disabledProviders: [], disabledModels: [] },
+        }),
+      );
+      const r = await runCli(['agents', 'ls', '--project', PROJECT], config);
+      expect(r.stdout).toContain(PIN_HINT);
+    });
+
+    test('a connected Claude account makes its allowed models pinnable', async () => {
+      const claude = (connected: boolean) => ({
+        models: {},
+        claudeSubscription: {
+          connected,
+          models: [{ id: 'claude-agent/opus', connected, enabled: false }],
+        },
+      });
+      const cases: Array<[boolean, object, string]> = [
+        [true, { disabledProviders: [], disabledModels: [] }, PIN_HINT],
+        [false, { disabledProviders: [], disabledModels: [] }, NONE_SERVED],
+        [true, { disabledProviders: ['claude-agent'], disabledModels: [] }, NONE_SERVED],
+        [true, { disabledProviders: [], disabledModels: ['claude-agent/opus'] }, NONE_SERVED],
+      ];
+      for (const [connected, access, expected] of cases) {
+        const r = await runCli(
+          ['agents', 'ls', '--project', PROJECT],
+          writeConfig(startServer(THREE_AGENTS, { picker: claude(connected), access })),
+        );
+        expect(r.stdout).toContain(expected);
+        server?.stop(true);
+      }
+    });
+
+    test('an unreadable picker fails open to the pin hint', async () => {
+      const config = writeConfig(startServer(THREE_AGENTS));
+      const r = await runCli(['agents', 'ls', '--project', PROJECT], config);
+      expect(r.code).toBe(0);
+      expect(r.stdout).toContain(PIN_HINT);
+    });
   });
 
   describe('when /detail is unavailable (fail open to the pre-detail output)', () => {

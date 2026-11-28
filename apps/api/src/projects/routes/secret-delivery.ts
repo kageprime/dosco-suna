@@ -10,8 +10,6 @@ import { isGatewayManagedEnv } from '../../llm-gateway/sandbox-credentials';
 import { createRoute, z } from '@hono/zod-openapi';
 import { UpdateSecretStrategyInputSchema } from '@kortix/api-contract';
 import { parseEgressPolicy, secretStrategyLockHolds } from '../../secrets/strategy';
-import { featureDisabledBody } from '../../feature-flags/gate';
-import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { networkBoundaryPolicyError } from '../../secrets/network-boundary';
 import { projectSecrets, projectSessionSecretHandles } from '@kortix/db';
 import { and, eq, isNull } from 'drizzle-orm';
@@ -183,6 +181,18 @@ export function registerSecretDeliveryRoutes(): void {
         )
         .limit(1);
       if (!existing) return c.json({ error: 'Not found' }, 404);
+      // A website login is typed only by the sandbox browser
+      // (projects/lib/browser-logins.ts). Any other delivery would hand its
+      // `{ username, password }` to the env, a handle or a server.
+      if (existing.consumer === 'browser') {
+        return c.json(
+          {
+            error: `${identifier} is a website login. Only the sandbox browser uses it; its delivery cannot change.`,
+            code: 'browser_login_delivery',
+          },
+          409,
+        );
+      }
       // Provider keys live in one store, the named accounts of Models →
       // Providers (secrets/llm-credential-move.ts). A secret is never moved
       // into the legacy gateway delivery.
@@ -191,17 +201,6 @@ export function registerSecretDeliveryRoutes(): void {
           error: 'An LLM provider key is added in Models → Providers (or with `kortix providers set`), not by moving a secret to the gateway.',
           code: 'provider_key_store',
         }, 409);
-      }
-      // Network-Enforced Secrets (`secrets_egress`) is experimental and off by
-      // default. Moving a secret INTO egress delivery needs the flag; a secret
-      // already on egress can still be edited or moved OFF it, so turning the
-      // flag off never strands one.
-      if (
-        parsed.data.strategy === 'egress' &&
-        existing.strategy !== 'egress' &&
-        !resolveFeatureFlag(loaded.row.metadata, 'secrets_egress')
-      ) {
-        return c.json(featureDisabledBody('secrets_egress'), 403);
       }
       if (secretStrategyLockHolds(existing) && existing.strategy !== parsed.data.strategy) {
         return c.json(

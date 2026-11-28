@@ -104,6 +104,7 @@ async function sessionReadResponse(c: Context<AppEnv>, projectId: string, sessio
   const visible = await loadVisibleSession(loaded, sessionId, c.get('sessionId') ?? null, callerKortixSessionId(c), {
     spawnAncestorRead: true,
     triggerReaderRead: true,
+    personRead: true,
   });
   if (!visible) return c.json({ error: 'Not found' }, 404);
   // A soft-deleted session is gone for a read-by-id, exactly as it is for the

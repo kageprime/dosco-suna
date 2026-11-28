@@ -54,6 +54,7 @@ const NON_PAGE_PREFIXES = [
   '/download/',
   '/loops/',
   '/auth/callback',
+  '/auth/confirm',
   '/auth/mobile/callback',
 ];
 

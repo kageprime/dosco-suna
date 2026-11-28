@@ -223,7 +223,8 @@ async function listAgents(host: MessagingHost, params: ListParams, signal?: Abor
     action: scope,
     card: {
       title: agents.length === 0 ? 'No other sessions to reach' : `${agents.length} ${agents.length === 1 ? 'session' : 'sessions'} you can reach`,
-      subtitle: [reachable?.self ? `This session is ${reachable.self.handle}.` : null, working ? `${working} working.` : null].filter(Boolean).join(' ') || undefined,
+      // The person reads the card: how many work now, not this session's own handle (the model reads `self` in `data`).
+      subtitle: working ? `${working} working` : undefined,
       status: 'done',
       rows: agents.map(agentRow),
     },

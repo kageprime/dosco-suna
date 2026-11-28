@@ -43,15 +43,34 @@ runs hourly in the billing worker, on prod only (`INTERNAL_KORTIX_ENV=prod`).
 - A row is open from the first sweep that sees it on prod until its effective
   date. The release has 7 days to reach prod, so every customer gets 30 to 37
   days.
-- Each open notice goes once to the owners and admins of every paid account
-  (`credit_accounts.tier` not `free` or `none`). Reply-To is
-  privacy@kortix.com: a reply is an objection.
-- Each notified account gets an audit event `legal.subprocessor_notice.sent`
-  (`resource_id` = `addedOn`, `output_summary` = recipient count, effective
-  date, vendor names). The customer sees it in the account's audit log.
-- privacy@kortix.com gets one report per sweep that sent. Subject "Subprocessor
+- Each open notice goes once to each owner and admin of every paid account
+  (`credit_accounts.tier` not `free` or `none`): one email per person, listing
+  their paid workspaces. Reply-To is privacy@kortix.com: a reply is an
+  objection. Claim rows in `kortix.chat_event_dedup`
+  (`legal:subprocessor-notice:<addedOn>:…`, per account, per person as a
+  SHA-256 of the address, and per report) keep every email once-only across
+  sweeps, replicas and retries. A person has a short send claim while a sweep
+  sends (taken over after 15 minutes if that sweep died) and a `:sent` row once
+  delivered; only the `:sent` row counts as notified. An account whose
+  manager's email is still in flight in another sweep is left to the next
+  sweep.
+- An account that turns paid later in the window is covered by a later sweep.
+  A manager who already has the notice gets no second email.
+- A delivery failure is retried by the next sweep for that recipient only.
+  The one exception is an address the transport itself refuses (a reserved
+  address): it is not retried and is counted as `undelivered`. Every provider
+  error (any status, a 422 included, since it does not prove the address is
+  bad) is retried hourly until the notice takes effect.
+- Each covered account gets one audit event `legal.subprocessor_notice.sent`
+  (`resource_id` = `addedOn`, `output_summary` = `recipients` delivered,
+  `previously_notified` = managers who had it from an earlier sweep,
+  `undelivered`, effective date, vendor names). It is written once no
+  temporary failure is left. The customer sees it in the account's audit log.
+- privacy@kortix.com gets one report per notice, for the sweep that started
+  its coverage (the `report-due` claim row keeps that time). A failed report
+  is retried by later sweeps with the same notice period. Subject "Subprocessor
   notice gave only N days" means the release took more than 7 days: hold the
-  vendor until 30 days after that report and move `addedOn`.
+  vendor until 30 days after the first notice email and move `addedOn`.
 
 ## Evidence for an auditor
 
@@ -70,7 +89,8 @@ where action = 'legal.subprocessor_notice.sent' and resource_id = '<addedOn>'
 order by created_at;
 ```
 
-The privacy@kortix.com reports give the per-sweep totals.
+The privacy@kortix.com report gives the first sweep's total; the audit events
+give every account.
 
 ## Tests
 

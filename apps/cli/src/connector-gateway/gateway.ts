@@ -142,8 +142,9 @@ export async function mintConnectLink(opts: {
   hostArg?: string;
   /**
    * WHO the account this link creates belongs to: `me` (the human who opens
-   * the link, the server-side default) or `project` (shared with every member,
-   * which the API gates on project.connector.write).
+   * the link, the server-side default; any member) or `project` (shared with
+   * every member, which the API gates on project.connector.write and
+   * project.connector.connections.manage).
    *
    * Sent only when named. A shipped CLI talks to whatever API version its host
    * runs and the connect-request body is `.strict()`, so an unrequested `owner`

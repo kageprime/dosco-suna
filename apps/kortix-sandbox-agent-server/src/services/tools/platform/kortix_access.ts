@@ -9,8 +9,10 @@ import { cliJson, fail, managesWorkspace, membersHref, ok, projectId, projectMan
 const TOOL = 'kortix_access' as const
 const ACTIONS = ['me', 'who_can_grant'] as const
 
+/** `kortix whoami --json`: the signed-in person is `user_email`. */
 interface Me {
   user_id?: string
+  user_email?: string
   email?: string
   accounts?: Array<{ account_id?: string; name?: string; role?: string; account_role?: string }>
 }
@@ -18,6 +20,7 @@ interface Me {
 async function me(context: PlatformToolContext) {
   const read = await cliJson<Me>(['whoami', '--json'], context)
   if ('error' in read) return fail(TOOL, 'me', 'Could not read your access', read.error, context)
+  const email = read.value.user_email ?? read.value.email ?? null
   const roster = (await projectRoster(context)) ?? []
   const self = roster.find((member) => member.user_id === read.value.user_id)
   const accountRole = self?.account_role ?? read.value.accounts?.[0]?.role ?? read.value.accounts?.[0]?.account_role ?? null
@@ -35,13 +38,13 @@ async function me(context: PlatformToolContext) {
         ? 'You can change its agents, connectors, schedules and people. So can I, for you.'
         : 'You can use its agents and start work. Changing its settings needs a workspace manager.',
       rows: [
-        ...(read.value.email ? [{ title: 'Signed in as', detail: read.value.email }] : []),
+        ...(email ? [{ title: 'Signed in as', detail: email }] : []),
         ...(role ? [{ title: 'Workspace role', detail: role }] : []),
       ],
       links: [{ label: 'Members', href: membersHref(context.env) }],
     },
     {
-      email: read.value.email ?? null,
+      email,
       workspace_role: role,
       account_role: accountRole,
       project_role: projectRole,

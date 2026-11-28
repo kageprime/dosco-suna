@@ -41,6 +41,8 @@ function expectAuthBounce(response: Response) {
   const location = new URL(response.headers.get('location') ?? '');
   expect(location.pathname).toBe('/auth');
   expect(location.searchParams.get('redirect')).toBe('/workspaces');
+  // The request carried a session, so /auth must say it ended (KRTX-1978).
+  expect(location.searchParams.get('reason')).toBe('session_ended');
 }
 
 function expectRetained(request: NextRequest, value: string, response: Response) {
@@ -104,6 +106,30 @@ describe('middleware leaves session refresh to the browser', () => {
       }
     });
   }
+
+  // KRTX-1978: a hover prefetch can be the request that clears a dead session.
+  // The router drops that bounce, so the next click arrives with no session
+  // cookie at all — and must still tell /auth the session ended.
+  test('a navigation after a dropped self-heal response still says the session ended', async () => {
+    const { request } = sessionRequest(3600);
+    // What auth-js 2.x returns for GoTrue's `session_not_found`: it rethrows it
+    // as AuthSessionMissingError (400, no code) and clears the cookie itself.
+    getUser.mockResolvedValue({
+      data: { user: null },
+      error: Object.assign(new Error('Auth session missing!'), {
+        name: 'AuthSessionMissingError',
+        status: 400,
+      }),
+    });
+    const prefetch = await middleware(request);
+
+    const next = new NextRequest('https://example.test/workspaces');
+    for (const cookie of prefetch.cookies.getAll()) {
+      if (cookie.value) next.cookies.set(cookie.name, cookie.value);
+    }
+    expect(next.cookies.has(KORTIX_SUPABASE_AUTH_COOKIE)).toBe(false);
+    expectAuthBounce(await middleware(next));
+  });
 });
 
 test('blocking maintenance redirects signed-in locale-prefixed app routes', async () => {

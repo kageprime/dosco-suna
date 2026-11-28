@@ -8,11 +8,13 @@ import { ConnectingScreen } from '@/components/dashboard/connecting-screen';
 import { Button } from '@kortix/ui/button';
 import { Input } from '@kortix/ui/input';
 import { FieldError, FieldLabel } from '@kortix/ui/internal/auth/auth-primitives';
+import { useDoscoAuthFrame } from '@/features/auth/dosco-auth-frame';
 import { AuthCardShell, BackToSignIn } from '@kortix/ui/internal/auth/auth-card-shell';
 import { submitAuthForm } from '@/lib/auth/submit-auth';
 
 function ForgotPasswordContent() {
   const t = useTranslations('auth.passwordReset');
+  const frame = useDoscoAuthFrame();
   const [pending, setPending] = useState(false);
   const inFlight = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -50,6 +52,7 @@ function ForgotPasswordContent() {
   if (sentTo) {
     return (
       <AuthCardShell
+        frame={frame}
         title={t('sent.title')}
         description={t.rich('sent.address', {
           email: sentTo,
@@ -62,6 +65,7 @@ function ForgotPasswordContent() {
 
   return (
     <AuthCardShell
+        frame={frame}
       title={t('request.title')}
       description={t('request.description')}
       footer={<BackToSignIn />}

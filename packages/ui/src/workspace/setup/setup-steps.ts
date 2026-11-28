@@ -62,10 +62,10 @@ export function setupSteps({
 }
 
 /**
- * The open steps this viewer can finish: a secret needs secret write; a
- * connector sign-in and Slack need connector write (the Slack install route
- * checks `project.connector.write`). The home banner counts these.
+ * The required open steps this viewer can finish. Installed connectors are optional.
+ * A required secret needs secret write; Slack needs connector write.
+ * Task-requested connector sign-ins live in the session transcript instead.
  */
 export function openStepsFor(steps: SetupStep[], can: { connect: boolean; setSecrets: boolean }): SetupStep[] {
-  return steps.filter((step) => !step.done && (step.kind === 'secret' ? can.setSecrets : can.connect));
+  return steps.filter((step) => !step.done && step.kind !== 'connector' && (step.kind === 'secret' ? can.setSecrets : can.connect));
 }

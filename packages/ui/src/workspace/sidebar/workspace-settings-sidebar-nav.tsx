@@ -54,8 +54,11 @@ export function WorkspaceSettingsSidebarNav({
   projectId,
   shown,
   onNavigate,
+  hideBack = false,
 }: {
   projectId: string;
+  /** The icon rail (`sidebar_rail`): no Back row (the rail is the way out) and no Help footer (the rail has Help). */
+  hideBack?: boolean;
   /**
    * The layer is on screen. Hidden, its links do not prefetch: under reduced
    * motion the hidden layer only fades, so it stays inside the viewport.
@@ -81,6 +84,7 @@ export function WorkspaceSettingsSidebarNav({
   // The page's settings landmark moved here with the rail.
   return (
     <nav aria-label={tSettings('title')} className="flex h-full min-h-0 flex-col space-y-2">
+      {hideBack ? null : (
       <SidebarGroup className="py-0">
         <SidebarMenu>
           <SidebarMenuItem>
@@ -95,6 +99,7 @@ export function WorkspaceSettingsSidebarNav({
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarGroup>
+      )}
 
       {rail ? (
         <SettingsSearch projectId={projectId} rail={rail} active={active} shown={shown} onNavigate={onNavigate} />
@@ -104,9 +109,10 @@ export function WorkspaceSettingsSidebarNav({
         </div>
       )}
 
-      {rail?.footer ? (
+      {rail?.footer && !hideBack ? (
         // Help sits under the groups, outside the scrolling list, behind a
-        // hairline: it must not read as a row of the last group.
+        // hairline: it must not read as a row of the last group. Not on the
+        // icon rail (`sidebar_rail`): the rail has its own Help button.
         <div className="border-sidebar-border shrink-0 border-t">
           <RailGroup group={rail.footer} active={active} prefetch={shown} onNavigate={onNavigate} />
         </div>

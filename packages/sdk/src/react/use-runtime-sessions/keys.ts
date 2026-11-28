@@ -51,10 +51,7 @@ export type {
  * Shape returned by `client.session.messages()`:
  * `Array<{ info: Message; parts: Part[] }>`
  */
-export interface MessageWithParts {
-  info: Message;
-  parts: Part[];
-}
+export type { MessageWithParts } from '../../transcript';
 
 /**
  * Provider list response — matches the actual SDK response from `client.provider.list()`.

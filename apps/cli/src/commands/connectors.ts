@@ -1067,8 +1067,9 @@ export async function runConnectors(argv: string[]): Promise<number> {
           return missing('--expires <positive minutes>');
         }
         // WHO the new account belongs to. `me` is the default — the human
-        // authorizes themselves — and `project` shares the account with every
-        // member (the API gates that on project.connector.write). The field is
+        // authorizes themselves, which any member may — and `project` shares
+        // the account with every member (the API gates that on
+        // project.connector.write and connections.manage). The field is
         // sent ONLY when asked for: a shipped CLI talks to whatever API version
         // its host runs and the connect body is `.strict()`, so an unrequested
         // `owner` would 400 the whole command against an API that predates it.

@@ -22,6 +22,7 @@ import {
   SpaceLinkPinResultSchema,
   SpaceLinkSchema,
   SpaceListSchema,
+  SpaceActivityListSchema,
   SpaceMemberListSchema,
   SpaceMembersAddInputSchema,
   SpaceSchema,
@@ -53,6 +54,7 @@ import {
   type LinkViewer,
 } from '../lib/project-space-links';
 import { addChannelsMark, channelsOnboarding, generalNotice } from '../lib/channels-onboarding';
+import { listSpaceActivity } from '../lib/project-space-activity';
 import {
   addSpaceMembers,
   isSpaceMember,
@@ -143,12 +145,12 @@ async function sessionSpaceEditor(c: Context<AppEnv>, loaded: LoadedProject, spa
   const bound = callerKortixSessionId(c)!;
   const { row } = loaded;
   const person = await sessionPerson(row.projectId, bound);
-  if (!person) return c.json({ error: 'This session works for no person, so it cannot change a space.', code: 'forbidden' }, 403);
+  if (!person) return c.json({ error: 'This session works for no person, so it cannot change a channel.', code: 'forbidden' }, 403);
   const space = isUuid(spaceId) ? await findLiveSpace(row.projectId, spaceId) : null;
   const bare = await spaceViewer(c, loaded);
   if (!space || (space.kind === 'dm' && space.dmUserId !== person) || !canSeeSpace(space, bare.access)) return c.json(SPACE_NOT_FOUND, 404);
   if (!(await mayEditSpaceTabs(space, bare, person))) {
-    return c.json({ error: 'Only an agent working in this space can change it.', code: 'forbidden' }, 403);
+    return c.json({ error: 'Only an agent working in this channel can change it.', code: 'forbidden' }, 403);
   }
   // The token is the person's, bounded by its grant: its verdict is the person's standing.
   const manager = await projectCapabilityAllowed(c, person, row.accountId, row.projectId, PROJECT_ACTIONS.PROJECT_MEMBERS_MANAGE);
@@ -345,7 +347,7 @@ function registerSpaceRoutes(): void {
       description:
         'Only the channel’s creator or a project manager (`project.members.manage`) may edit it; anyone else gets 403 `forbidden`. ' +
         'A session token (an agent in a thread) may for its person, with that person\'s standing, when the session is filed in the ' +
-        'space or works for a person in it; it may not change `visibility` (403 `session_bound_caller`). ' +
+        'channel or works for a person in it; it may not change `visibility` (403 `session_bound_caller`). ' +
         'A DM is 400 `dm_not_editable`. `agents` replaces the channel’s agent list (the first is its default): a repeated name or ' +
         'a name that is not an agent of the project is 400 `invalid_agents`.',
       ...auth,
@@ -406,13 +408,13 @@ function registerSpaceRoutes(): void {
       method: 'put',
       path: '/{workspaceId}/spaces/{spaceId}/tabs',
       tags: ['spaces'],
-      summary: 'Replace the tabs of a space',
+      summary: 'Replace the tabs of a channel',
       description:
         'The whole ordered list after Chat (Chat is always first and is never stored): add, remove, rename and reorder in one call. ' +
         'At most 20 tabs. Every tab needs a `ref`: a Drive file path (`file`), a Drive folder path (`folder`), an artifact id, an App slug or an https URL (`link`). ' +
         'The server fetches a new link URL once (public addresses only, 5 s) and sets `embeddable`: false when the page refuses framing or cannot be reached. ' +
-        'A person may when they may edit the channel (`can_edit`) or own the DM. A session token may for a session filed in the space ' +
-        'or working for a person in it. Anyone else gets 403 `forbidden`; a space the caller may not see is 404 `space_not_found`.',
+        'A person may when they may edit the channel (`can_edit`) or own the DM. A session token may for a session filed in the channel ' +
+        'or working for a person in it. Anyone else gets 403 `forbidden`; a channel the caller may not see is 404 `space_not_found`.',
       ...auth,
       request: {
         params: spaceParams,
@@ -437,7 +439,7 @@ function registerSpaceRoutes(): void {
       if (!canSeeSpace(space, viewer.access)) return c.json(SPACE_NOT_FOUND, 404);
       if (!(await mayEditSpaceTabs(space, viewer, person))) {
         return c.json(
-          { error: 'Only the space’s creator, a workspace manager, the DM’s owner or an agent working in the space can change its tabs.', code: 'forbidden' },
+          { error: 'Only the channel’s creator, a workspace manager, the DM’s owner or an agent working in the channel can change its tabs.', code: 'forbidden' },
           403,
         );
       }
@@ -618,6 +620,29 @@ function registerSpaceMemberRoutes(): void {
     },
   );
 
+  // GET /v1/projects/:projectId/spaces/:spaceId/activity — who joined, who was added, which agents changed.
+  projectsApp.openapi(
+    createRoute({
+      method: 'get',
+      path: '/{workspaceId}/spaces/{spaceId}/activity',
+      tags: ['spaces'],
+      summary: 'List a channel’s activity',
+      description:
+        'The lines a channel’s timeline draws between messages, newest first, at most 200: a person who joined ' +
+        '(`member_joined`), a person someone added (`member_added`, `actor` is who added them), and an agent added ' +
+        'to or removed from the channel (`agent_added`, `agent_removed`). `#general` has no member lines. ' +
+        'Anyone who may read the channel may read it. Names are display names, never emails.',
+      ...auth,
+      request: { params: spaceParams },
+      responses: { 200: json(SpaceActivityListSchema, 'The channel’s activity, newest first'), ...errors(403, 404) },
+    }),
+    async (c) => {
+      const channel = await loadChannel(c, { managerMay: false });
+      if (channel instanceof Response) return channel;
+      return c.json(await listSpaceActivity(channel.space), 200);
+    },
+  );
+
   // POST /v1/projects/:projectId/spaces/:spaceId/members — add people in one request.
   projectsApp.openapi(
     createRoute({
@@ -627,7 +652,7 @@ function registerSpaceMemberRoutes(): void {
       summary: 'Add people to a channel',
       description:
         'A member of the channel, its creator or a project manager may add; anyone else gets 403 `forbidden`. ' +
-        'A session token (an agent in a thread of the space) adds for its person, with that person\'s standing. ' +
+        'A session token (an agent in a thread of the channel) adds for its person, with that person\'s standing. ' +
         'A manager outside a private channel adds other people, never themself (403 `manager_self_add`). ' +
         'Every id must be a member of the project, else 400 `not_project_member` names them and nobody is added. ' +
         'Someone already in the channel is skipped. `#general` is 400 `default_channel`.',
@@ -665,7 +690,7 @@ function registerSpaceMemberRoutes(): void {
       description:
         'A project manager removes anyone. The channel’s creator removes anyone but themself. A member removes only ' +
         'themself (Leave; `me` names the caller). The creator is removed only by a manager (403 `creator_not_removable`); other refusals are ' +
-        'the same for a session token (an agent in a thread of the space), which removes for its person, with that person\'s standing; ' +
+        'the same for a session token (an agent in a thread of the channel), which removes for its person, with that person\'s standing; ' +
         '403 `forbidden`. `#general` is 400 `default_channel`.',
       ...auth,
       request: { params: spaceParams.extend({ userId: z.string() }) },

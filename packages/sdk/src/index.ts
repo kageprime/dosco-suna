@@ -336,11 +336,6 @@ export type {
   ProjectSession, WorkspaceSession,
   SessionPublicShare,
   SessionAudit,
-  SessionTranscript,
-  SessionTranscriptMessage,
-  SessionTranscriptSource,
-  SessionTranscriptSyncEnvelope,
-  SessionTranscriptSyncMessage,
   // Change requests / git
   ChangeRequest,
   ChangeRequestDiffResponse,
@@ -540,7 +535,6 @@ export {
   type SavedSessionCopy,
   isEmptyConversation,
   readSavedSessionCopy,
-  savedCopyEmptyRoot,
 } from './core/session-sync/saved-transcript';
 export * from './core/session/url';
 /** The authenticated `/p/{externalId}/{port}` proxy URL of a session's sandbox port. */

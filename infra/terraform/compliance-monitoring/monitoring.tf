@@ -37,10 +37,9 @@ locals {
       dimension = replace(arn, "/^.*:loadbalancer\\//", "")
     }
   }
-  euw2_compliance_waf_albs = {
-    for arn, alb in local.euw2_albs : arn => alb
-    if !contains(["kortix-prod-web-alb", "kortix-staging-euw2-web-alb"], alb.name)
-  }
+  # Every eu-west-2 ALB. The prod and staging web ALBs that owned their own
+  # association were destroyed on 2026-11-24 (Vercel serves both frontends).
+  euw2_compliance_waf_albs = local.euw2_albs
   alarm_tags = {
     ManagedBy = "kortix-compliance"
     Control   = "DCF-86"

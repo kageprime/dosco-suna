@@ -35,11 +35,13 @@ const artifacts = [
   artifact('a-beta', 'Beta doc', 'user-2', true, 'private'),
 ];
 
+let serverPlaceholder = false;
+let serverConfirmed = false;
 const realSdkReact = await import('@kortix/sdk/react');
 mock.module('@kortix/sdk/react', () => ({
   ...realSdkReact,
-  useArtifacts: (id: string | null) =>
-    id ? { data: artifacts, isLoading: false, isError: false, refetch: async () => {} } : { data: undefined, isLoading: false, isError: false },
+  useArtifacts: (id: string | null, filter?: { q?: string }) =>
+    id && filter?.q ? { data: serverPlaceholder ? [] : undefined, isLoading: !serverPlaceholder, isPlaceholderData: serverPlaceholder && !serverConfirmed, isError: false } : id ? { data: artifacts, isLoading: false, isError: false, refetch: async () => {} } : { data: undefined, isLoading: false, isError: false },
   useArtifactMutations: () => ({
     create: { mutateAsync: async () => ({ artifact_id: 'new' }), isPending: false },
     update: { mutate: () => {}, isPending: false },
@@ -58,6 +60,8 @@ mock.module('@/features/providers/auth-provider', () => ({
 const realNav = await import('next/navigation');
 mock.module('next/navigation', () => ({
   ...realNav,
+  useSearchParams: () => new URLSearchParams(''),
+  usePathname: () => '/workspaces/p1/artifacts',
   useRouter: () => ({ push: () => {}, replace: () => {}, prefetch: () => {}, back: () => {} }),
 }));
 const realUiProvider = { ...(await import('@kortix/ui/providers/ui-provider')) };
@@ -123,4 +127,31 @@ test('the Pinned scope tab keeps the same cards mounted and hides the unpinned o
   expect(cardLinks().map((a) => a.textContent)).toEqual(['Alpha doc', 'Beta doc']);
   expect(hiddenWrapperOf('Alpha doc')).not.toBeNull();
   expect(hiddenWrapperOf('Beta doc')).toBeNull();
+});
+
+test('a cold server search at the page limit keeps existing previews mounted', async () => {
+  const extras = Array.from({ length: 98 }, (_, i) => artifact(`extra-${i}`, `Extra ${i}`, 'user-1', false, 'private'));
+  artifacts.push(...extras);
+  try {
+    await act(render);
+    const previewLink = linkOf('Beta doc');
+    await type('beta');
+    expect(linkOf('Beta doc')).toBe(previewLink);
+    expect(cardLinks()).toHaveLength(100);
+    expect(hiddenWrapperOf('Alpha doc')).not.toBeNull();
+    expect(hiddenWrapperOf('Beta doc')).toBeNull();
+    await type('not-on-loaded-page');
+    expect(linkOf('Beta doc')).toBe(previewLink);
+    expect(cardLinks()).toHaveLength(100);
+    expect(hiddenWrapperOf('Beta doc')).not.toBeNull();
+    expect(document.querySelector('#artifact-gallery-panel [role="status"]')).not.toBeNull();
+    serverPlaceholder = true;
+    await type('warm-query-pending');
+    expect(document.querySelector('#artifact-gallery-panel [role="status"]')).not.toBeNull();
+    expect(container.textContent).not.toContain('No artifacts match');
+    serverConfirmed = true;
+    await type('confirmed-empty');
+    expect(document.querySelector('#artifact-gallery-panel [role="status"]')).toBeNull();
+    expect(container.textContent).toContain('No artifacts match');
+  } finally { serverPlaceholder = false; serverConfirmed = false; artifacts.splice(2); }
 });

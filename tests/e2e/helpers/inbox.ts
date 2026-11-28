@@ -57,7 +57,8 @@ interface ResendInboxSummary {
 function extractAuthAction(text: string): AuthEmailAction | null {
   const decoded = text.replaceAll("&amp;", "&");
   const urls = decoded.match(/https?:\/\/[^\s<>"')]+/g) ?? [];
-  const verifyLink = urls.find((url) => url.includes("/auth/v1/verify?"));
+  // The signup confirmation links to the web callback with a token hash.
+  const verifyLink = urls.find((url) => url.includes("/auth/v1/verify?") || /[?&]token_hash=/.test(url));
   if (verifyLink) return { kind: "link", value: verifyLink };
 
   const code = decoded.match(/(?:^|\D)(\d{6})(?:\D|$)/)?.[1];

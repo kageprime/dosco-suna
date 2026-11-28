@@ -6,6 +6,8 @@ import { authorize, PROJECT_ACTIONS } from '../iam';
 import { assertAuthorized } from '../iam/authorize';
 import { actorOf } from '../iam/actor';
 import { loadProjectForUser } from '../projects/lib/access';
+import { loadVisibleSession } from '../projects/surface';
+import { callerKortixSessionId } from '../middleware/caller-session';
 import { reconcileStoredSessionAgentGrant } from '../projects/lib/session-token-grant';
 import { db } from '../shared/db';
 import { isUuid } from '../shared/validate';
@@ -40,9 +42,10 @@ export interface ConnectorRouterAuth {
     c: Context,
     projectId: string,
   ): Promise<{ accountId: string; userId: string } | null>;
-  /** Read-tier auth for the connectors LIST: `project.connector.read` is in the
-   *  member baseline (the Connectors/Channels rail sections gate on it), so the
-   *  list must not require connector.write like the mutations do. Falls back to
+  /** Read-tier auth for the connectors LIST: `project.connector.read`, so the
+   *  list does not require connector.write like the mutations do. The built-in
+   *  project `member` role does not hold it: a plain member reads the accounts
+   *  they can use through `GET /projects/:id/connections`. Falls back to
    *  resolveAdmin when a deps implementation doesn't provide it. */
   resolveReader?(
     c: Context,
@@ -67,6 +70,22 @@ export interface ConnectorRouterAuth {
     c: Context,
     projectId: string,
   ): Promise<{ accountId: string; userId: string } | null>;
+  /**
+   * A person acting on their OWN private connector account (`owner: "me"`):
+   * start its sign-in, finish it, read what their session waits on. The gate
+   * every own-account route already has (`POST /connections/me`, a member
+   * row's `/connections/:id/connect|revoke`): the caller may use the workspace
+   * (`project.read`) and is a person, never a direct service account.
+   * Connector administration (`project.connector.write`) and the shared
+   * account (`project.connector.connections.manage`) keep their own gates.
+   * Null → 403. Absent → the route uses `resolveAdmin`.
+   */
+  resolveAccountHolder?(
+    c: Context,
+    projectId: string,
+  ): Promise<{ accountId: string; userId: string } | null>;
+  /** True when the caller may open `sessionId` (the session read rule). */
+  sessionVisibleTo?(c: Context, projectId: string, sessionId: string): Promise<boolean>;
 }
 
 export async function resolvePrincipal(c: Context): Promise<ConnectorPrincipal | null> {
@@ -233,7 +252,10 @@ async function resolveProjectUserWith(
 async function assertProjectUserWith(
   c: Context,
   projectId: string,
-  action: typeof PROJECT_ACTIONS.PROJECT_CONNECTOR_WRITE | typeof PROJECT_ACTIONS.PROJECT_CONNECTOR_CONNECTIONS_MANAGE,
+  action:
+    | typeof PROJECT_ACTIONS.PROJECT_READ
+    | typeof PROJECT_ACTIONS.PROJECT_CONNECTOR_WRITE
+    | typeof PROJECT_ACTIONS.PROJECT_CONNECTOR_CONNECTIONS_MANAGE,
 ): Promise<{ accountId: string; userId: string } | null> {
   if (!isUuid(projectId)) return null;
   const userId = c.get('userId') as string | undefined;
@@ -263,6 +285,49 @@ export async function resolveConnectionsManager(
   return assertProjectUserWith(c, projectId, PROJECT_ACTIONS.PROJECT_CONNECTOR_CONNECTIONS_MANAGE);
 }
 
+// A person's own private account is theirs to connect, finish and disconnect:
+// the rule of `POST /connections/me` and of a member row's
+// `/connections/:id/{connect,revoke}`. `project.connector.write` is connector
+// administration and never gated this; the built-in project `member` role does
+// not hold it, so a plain member could not connect their own account.
+//
+// `project.read` is the one leaf every session holds of its own workspace
+// (AGENT_GRANT_EXEMPT_ACTIONS), so an agent session acting for a person gets
+// the person's answer. The agent gains nothing from it: it hands the person a
+// sign-in link, the person signs in, and the account it creates is private:
+// reachable only by that person, only in their private sessions
+// (`connectionIsReachable`), and only by an agent whose grant names the
+// connector (`agentMayUseConnector`).
+export async function resolveAccountHolder(
+  c: Context,
+  projectId: string,
+): Promise<{ accountId: string; userId: string } | null> {
+  // A service account has no account of its own: no private account is ever
+  // reachable by one, so a row started for it would be dead on arrival.
+  if (c.get('authType') === 'service_account') {
+    throw new HTTPException(403, {
+      message: 'A service account has no account of its own to connect. Connect the workspace account (owner "project") instead.',
+    });
+  }
+  return assertProjectUserWith(c, projectId, PROJECT_ACTIONS.PROJECT_READ);
+}
+
+// What a session waits on is listed only to the people who can open that
+// session. An unknown or hidden session reads the same as one that waits on
+// nothing, so the route cannot probe for sessions.
+export async function sessionVisibleTo(c: Context, projectId: string, sessionId: string): Promise<boolean> {
+  if (!isUuid(sessionId)) return false;
+  const loaded = await loadProjectForUser(c, projectId, 'read');
+  if (!loaded) return false;
+  const visible = await loadVisibleSession(
+    loaded,
+    sessionId,
+    (c.get('sessionId') as string | undefined) ?? null,
+    callerKortixSessionId(c),
+  );
+  return visible !== null;
+}
+
 export async function resolveSecretBindingAdmin(
   c: Context,
   projectId: string,
@@ -281,10 +346,10 @@ export async function resolveSecretBindingAdmin(
   return secretAdmin ? connectorAdmin : null;
 }
 
-// The connectors LIST is read-tier: project.connector.read is in the member
-// baseline (the Connectors/Channels rail sections gate visibility on it), so a
-// plain member can see which connectors exist and their status. The list never
-// carries credential values — only whether one is set.
+// The connectors LIST is read-tier: project.connector.read (the Connectors and
+// Channels sections gate on it), not the connector.write the mutations need.
+// The built-in project `member` role does not hold it. The list never carries
+// credential values — only whether one is set.
 export async function resolveReader(
   c: Context,
   projectId: string,

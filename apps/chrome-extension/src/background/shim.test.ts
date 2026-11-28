@@ -5,7 +5,7 @@ type Out = Record<string, any>;
 function fake() {
   const tabs = new Map<number, TabInfo>();
   const sends: { tabId: number; child?: string; method: string; params: any }[] = [];
-  const log = { attached: [] as number[], detached: [] as number[], pointer: [] as any[], activated: [] as number[], closed: [] as number[] };
+  const log = { attached: [] as number[], detached: [] as number[], pointer: [] as any[], activated: [] as number[], closed: [] as number[], active: [] as (number | undefined)[] };
   let next = 1;
   let scope: 'own' | 'all' = 'own';
   const hang = new Set<string>();
@@ -39,6 +39,7 @@ function fake() {
     paused: () => paused,
     pointer: async (_t, p) => { log.pointer.push(p); onPointer?.(p); },
     touched: () => {},
+    interaction: (id) => { log.active.push(id); },
   };
   const out: Record<string, Out[]> = {};
   const shim = new Shim(host, (c, m) => (out[c] ??= []).push(m));
@@ -355,5 +356,59 @@ describe('uploads', () => {
     expect(f.sends[0].method).toBe('DOM.resolveNode');
     expect(f.sends[1].method).toBe('Runtime.callFunctionOn');
     expect((f.sends[1].params as any).arguments).toEqual([{ value: files }]);
+  });
+});
+
+// CDP clients attach to every discovered page; attachment is not interaction.
+describe('interaction target', () => {
+  const attach = async (c = '1', targetId = 'T1') => (await f.call(c, 'Target.attachToTarget', { targetId })).result.sessionId;
+  test('discovery and debugger attachment do not highlight tabs; commands switch the target', async () => {
+    f.add('https://a.test');
+    f.add('https://b.test');
+    const a = await attach('1', 'T1');
+    const b = await attach('1', 'T2');
+    await f.call('1', 'Runtime.enable', {}, b);
+    await f.call('1', 'Page.enable', {}, b);
+    expect(f.log.active).toEqual([]);
+    await f.call('1', 'Input.dispatchMouseEvent', { type: 'mouseMoved', x: 0, y: 0 }, a);
+    expect(f.log.active.at(-1)).toBe(1);
+    await f.call('1', 'Runtime.evaluate', { expression: 'document.title' }, b);
+    expect(f.log.active.at(-1)).toBe(2);
+    await f.call('1', 'Target.detachFromTarget', { sessionId: a });
+    expect(f.log.active.at(-1)).toBe(2);
+    f.shim.closeAll();
+    expect(f.log.active.at(-1)).toBeUndefined();
+  });
+  test('activation selects a target and debugger loss clears it', async () => {
+    f.add('https://a.test');
+    await attach();
+    await f.call('1', 'Target.activateTarget', { targetId: 'T1' });
+    expect(f.log.active.at(-1)).toBe(1);
+    f.shim.onDebuggerDetach(1);
+    expect(f.log.active.at(-1)).toBeUndefined();
+  });
+});
+
+describe('unattached activation cleanup', () => {
+  test('last client disconnect clears a target activated without a debugger session', async () => {
+    f.add('https://a.test');
+    await f.call('1', 'Target.activateTarget', { targetId: 'T1' });
+    expect(f.log.active).toEqual([1]);
+    f.shim.closeClient('1');
+    expect(f.log.active).toHaveLength(2);
+    expect(f.log.active.at(-1)).toBeUndefined();
+  });
+  test('closeAll clears an unattached target with multiple clients', async () => {
+    f.add('https://a.test');
+    f.shim.openClient('2');
+    await f.call('1', 'Target.activateTarget', { targetId: 'T1' });
+    f.shim.closeClient('1');
+    expect(f.log.active).toEqual([1]);
+    f.shim.closeAll();
+    expect(f.log.active).toHaveLength(2);
+    expect(f.log.active.at(-1)).toBeUndefined();
+    f.shim.closeAll();
+    expect(f.log.active).toHaveLength(2);
+    expect(f.log.active.at(-1)).toBeUndefined();
   });
 });

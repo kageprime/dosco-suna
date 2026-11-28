@@ -2,8 +2,8 @@
  * Drives the real stored-log read handlers to prove KRTX-4696: the per-session
  * read guard answers 429 (with `Retry-After`) once a session's log polls pass
  * `KORTIX_SESSION_LOG_READS_PER_MIN`, other sessions keep reading, and the
- * sibling stored-log reads (`GET …/transcript`, `GET …/snapshot` and its
- * `/open-bundle` alias) share the same (caller, session) budget — a poller
+ * sibling stored-log reads (`GET …/snapshot` and its `/open-bundle` alias)
+ * share the same (caller, session) budget — a poller
  * cannot escape the ceiling by switching routes.
  *
  * Prod 2026-11-10 23:38–23:42 UTC: one CLI client polled the stored log of one
@@ -73,8 +73,6 @@ projectsApp.use('*', async (c, next) => {
 });
 const { registerSessionLogRoutes } = await import('./session-log');
 registerSessionLogRoutes();
-const { registerSessionTranscriptsRoutes } = await import('./session-transcripts');
-registerSessionTranscriptsRoutes();
 const { registerSessionOpenBundleRoutes } = await import('./session-open-bundle');
 registerSessionOpenBundleRoutes();
 
@@ -129,10 +127,10 @@ describe('GET …/log under the per-session read guard', () => {
 
 describe('sibling stored-log reads share the same (caller, session) budget', () => {
   // The default caller's bucket on SESSION_ID was drained by the first describe
-  // block through GET …/log alone — the transcript and snapshot routes 429 on
+  // block through GET …/log alone — the snapshot route and its alias 429 on
   // the SAME key, so a poller cannot escape the ceiling by switching routes.
-  test('transcript and snapshot answer 429 on the drained bucket, with the same denial body', async () => {
-    for (const route of ['transcript', 'snapshot', 'open-bundle']) {
+  test('snapshot and open-bundle answer 429 on the drained bucket, with the same denial body', async () => {
+    for (const route of ['snapshot', 'open-bundle']) {
       const res = await projectsApp.request(`/${PROJECT_ID}/sessions/${SESSION_ID}/${route}`);
       expect(res.status).toBe(429);
       expect(Number(res.headers.get('retry-after'))).toBeGreaterThanOrEqual(1);

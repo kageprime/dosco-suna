@@ -101,11 +101,26 @@ through review again.
 5. The store fetches the Homepage and Support URLs before it allows a submit. A 404 blocks it
    ("Support URL is not reachable"). The listing uses `https://kortix.com/support`.
 6. Reviewers sign in at kortix.com, so prod must serve `/v1/chrome/connections` (401, not 404).
-   `deploy-prod.yml` sets `KORTIX_CHROME_ENABLED=true`. The `chrome` flag is on by default.
+   `deploy-prod.yml` sets `KORTIX_CHROME_ENABLED=true`.
    Give the reviewer the prod reviewer account in the Test instructions tab
    ([references/store-listing.md](references/store-listing.md#test-instructions-tab)).
 7. A brand-new item needs `key.pem` at the zip root on its first upload only:
    `dotenvx get BROWSER_EXTENSION_KEY_PEM_B64 -f apps/api/.env | base64 -d > key.pem`.
+
+## Availability: one deployment switch, no feature flag
+
+`chrome` graduated from the feature flags on 2026-11-24. No project can turn Kortix in Chrome
+off. `KORTIX_CHROME_ENABLED` on the API is the only switch: dev, staging and prod set it, a
+self-hosted server does not (`/v1/chrome/*` answers 404 there).
+
+- The API still lists `chrome` in the box's `KORTIX_FEATURE_FLAGS` where the switch is on
+  (`apps/api/src/projects/lib/feature-flag-env.ts`). kortixd withholds the kortix-chrome skill
+  (`kortix-feature-flag: chrome`) and the CLI hides `kortix chrome` without it.
+- The project row sends `experimental.chrome` = the switch, for older web, SDK and CLI builds.
+  Outside a box, the CLI reads it there.
+- Each person still decides per browser: they add the extension, set **Access**
+  (always / ask / off), and press Stop or `Alt+Shift+K`.
+- A stored `experimental.chrome` override from the flag era is inert.
 
 ## Extension surfaces
 

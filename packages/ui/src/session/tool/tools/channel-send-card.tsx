@@ -43,7 +43,7 @@ export function ChannelSendCard({ send }: { send: ChannelSend }) {
   const channelName = binding ? slackConversationName(binding) : null;
   const text = channelSendText(send);
   return (
-    <div className="border-border/60 bg-muted/40 flex max-w-[80%] flex-col gap-1.5 rounded-lg border px-4 py-2.5">
+    <div className="border-border bg-muted/40 flex max-w-[80%] flex-col gap-1.5 rounded-lg border px-4 py-2.5">
       <div className="flex items-center gap-2">
         <ChannelBrandMark platform={send.platform} />
         <span className="text-xs font-medium" style={{ color }}>

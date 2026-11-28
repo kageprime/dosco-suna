@@ -126,8 +126,8 @@ export default function DebugConnectingPage() {
       {screen}
 
       {/* Control panel — fixed, out of the way of the centered content */}
-      <div className="border-border/50 bg-background/95 pointer-events-auto fixed top-5 right-5 z-[100] w-[260px] overflow-hidden rounded-2xl border shadow-2xl shadow-black/20 backdrop-blur-xl">
-        <div className="border-border/40 border-b px-4 py-3">
+      <div className="border-border bg-background/95 pointer-events-auto fixed top-5 right-5 z-[100] w-[260px] overflow-hidden rounded-2xl border shadow-md shadow-black/20 backdrop-blur-xl">
+        <div className="border-border border-b px-4 py-3">
           <p className="text-muted-foreground text-xs font-medium tracking-[0.18em] uppercase">
             {tHardcodedUi.raw('appDebugConnectingPage.line93JsxTextConnectingScreen')}
           </p>
@@ -170,7 +170,7 @@ export default function DebugConnectingPage() {
           ))}
         </div>
 
-        <div className="border-border/40 border-t px-4 py-3">
+        <div className="border-border border-t px-4 py-3">
           <p className="text-muted-foreground text-xs leading-relaxed">
             {tHardcodedUi.raw('appDebugConnectingPage.line135JsxTextNotLinkedFromTheAppVisit')}{' '}
             <code className="bg-foreground/[0.06] rounded px-1 font-mono text-xs">

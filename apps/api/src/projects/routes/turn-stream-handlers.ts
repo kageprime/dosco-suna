@@ -567,8 +567,12 @@ export async function settleTurnEnd(
   // After the promotion: a prompt queued for this child starts its next turn
   // first, so the child is not finished yet. Tracked, never awaited.
   // A teammate (agent teams: `team_lead`) always tells its lead.
+  // Also for `already_closed` while no turn runs, as below: the parent's agents
+  // line polls its children, and that session-list read closes the child's turn
+  // just before this frame. The notice key carries the turn id, so a re-sent end
+  // writes nothing.
   if (
-    settled.turnCompletion.outcome === 'closed' &&
+    turnEndWorkDue(settled.turnCompletion) &&
     ctx.childSession &&
     (ctx.turnStreamMetadata[SUBAGENT_NOTIFY_PARENT_KEY] === true || typeof ctx.turnStreamMetadata[TEAM_LEAD_KEY] === 'string')
   ) {

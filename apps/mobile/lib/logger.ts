@@ -1,15 +1,12 @@
 /**
  * Structured logger with queryable format for easy filtering and parsing
  * 
- * Format: [KTX] [USER:abc123] [LEVEL:info] [COMPONENT:RC] message
+ * Format: [KTX] [USER:abc123] [LEVEL:info] message
  * 
  * Usage:
  *   import { log, setLoggerUserId } from '@/lib/logger';
  *   log.info('Something happened');
  *   // Output: [KTX] [USER:abc12345] [LEVEL:info] Something happened
- * 
- *   log.rc('SDK initialized');
- *   // Output: [KTX] [USER:abc12345] [LEVEL:info] [COMPONENT:RC] SDK initialized
  * 
  *   log.error('Failed!', error);
  *   // Output: [KTX] [USER:abc12345] [LEVEL:error] Failed! <error>
@@ -24,9 +21,6 @@
  * 
  *   # Filter by level
  *   idevicesyslog | grep "\[LEVEL:error\]"
- * 
- *   # Filter by component
- *   idevicesyslog | grep "\[COMPONENT:RC\]"
  * 
  *   # Filter by user AND level
  *   idevicesyslog | grep "\[USER:abc12345\]" | grep "\[LEVEL:error\]"
@@ -137,14 +131,6 @@ export const log = {
   warn: make('warn', 'warn'),
   /** Error level */
   error: make('error', 'error'),
-  /** RevenueCat-specific logs (level: info) */
-  rc: make('log', 'info', 'RC'),
-  /** RevenueCat debug */
-  rcDebug: make('debug', 'debug', 'RC'),
-  /** RevenueCat warning */
-  rcWarn: make('warn', 'warn', 'RC'),
-  /** RevenueCat error */
-  rcError: make('error', 'error', 'RC'),
 };
 
 export default log;

@@ -82,17 +82,6 @@ export type { SessionListState } from '@kortix/sdk';
 export type { SessionMessageAuthor, SessionMessageAuthors, SessionParticipant, SessionParticipants } from '@kortix/sdk';
 export { getSessionMessageAuthors, getSessionParticipants } from '@kortix/sdk';
 
-// ── Session public shares (KRTX-248: the public transcript link) ────────────
-// `createSessionPublicShare(pid, sid, { transcript: true })` returns the live
-// transcript share when one exists (200) or mints one (201).
-export type { SessionPublicShare } from '@kortix/sdk';
-export {
-  createSessionPublicShare,
-  findActiveTranscriptShare,
-  listSessionPublicShares,
-  revokeSessionPublicShare,
-} from '@kortix/sdk';
-
 export type { SessionStartStage, SessionStartResult } from '@kortix/sdk';
 
 /**

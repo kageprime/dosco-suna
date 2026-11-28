@@ -201,14 +201,16 @@ describe('runPrePromptEnvSync — a Claude subscription turn needs a usable Clau
     new TextEncoder().encode(JSON.stringify({ parts: [{ type: 'text', text: 'hello' }], ...(model ? { model } : {}) })).buffer as ArrayBuffer;
   const json = new Headers({ 'content-type': 'application/json' });
 
-  test('no login → 409 claude_subscription_required before any title, bind or env work', async () => {
+  test('no usable account → 409 claude_subscription_required with the gate\'s reason, before any title, bind or env work', async () => {
     const log: string[] = [];
     const seen: unknown[] = [];
+    const reason = 'Anthropic refuses the Claude account "Team": Your organization has disabled Claude subscription access for Claude Code. ' +
+      'An admin of its Claude organization must turn Claude Code back on, or share another Claude account with everyone in this workspace.';
     const deps: PrePromptEnvSyncDeps = {
       ...recordingDeps(log),
       claudeSubscriptionMissing: async (input) => {
         seen.push(input);
-        return input.promptModel;
+        return { model: input.promptModel!, message: reason };
       },
     };
     const res = await runPrePromptEnvSync(
@@ -217,8 +219,8 @@ describe('runPrePromptEnvSync — a Claude subscription turn needs a usable Clau
     );
     expect(res?.status).toBe(409);
     expect(await res!.json()).toEqual({
-      error: 'Connect your Claude subscription to use Claude models.',
-      message: 'Connect your Claude subscription to use Claude models.',
+      error: reason,
+      message: reason,
       code: 'claude_subscription_required',
       provider_id: 'claude-agent',
       model: 'claude-agent/opus',
@@ -245,7 +247,7 @@ describe('runPrePromptEnvSync — a Claude subscription turn needs a usable Clau
       ...recordingDeps(log),
       claudeSubscriptionMissing: async () => {
         asked = true;
-        return 'claude-agent/opus';
+        return { model: 'claude-agent/opus', message: 'Connect your Claude subscription to use Claude models.' };
       },
     };
     const res = await runPrePromptEnvSync(

@@ -14,7 +14,6 @@
 # because .github/workflows/tests.yml sets SUPABASE_INTERNAL_IMAGE_REGISTRY.
 ghcr.io/supabase/postgres:17.6.1.165
 ghcr.io/supabase/gotrue:v2.196.0
-ghcr.io/supabase/postgrest:v16.1
 ghcr.io/supabase/kong:2.8.1
 ghcr.io/supabase/storage-api:v1.70.3
 ghcr.io/supabase/postgres-meta:v0.98.0

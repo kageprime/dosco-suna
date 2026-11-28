@@ -26,7 +26,7 @@ import { codexConversationHeaders, resolveCandidates } from './resolution/resolv
 import { MAX_ACCOUNT_SECRET_REST_SECONDS, coolDownAccountSecret } from '../secrets/account-resource';
 import { refreshRefusedCodexAccountLogin } from './credentials/codex';
 import { SubscriptionUsageSchema, noteModelQuotaLimit, recordSubscriptionUsage } from './subscription-usage';
-import { claudeCredentialsForGateway, markClaudeAccountRefused } from '../claude-subscription/accounts';
+import { claudeCredentialsForGateway, markClaudeAccountForbidden, markClaudeAccountRefused } from '../claude-subscription/accounts';
 import { refreshRefusedOpencodeLogin } from './credentials/opencode-console';
 import { codexDescriptor } from './resolution/descriptors';
 import { resolveGatewayRoute } from './routing';
@@ -166,14 +166,16 @@ export function createInternalGatewayRoutes() {
   });
 
   // A subscription login's plan usage from a model response's headers. Keyed
-  // by the account and the secret alone, like the rest above.
+  // by the account and the secret alone, like the rest above. The provider
+  // answered on this login, so the report also clears a Claude account's 403
+  // reason (the gateway sends no report for a 403).
   app.post('/pool-usage', async (c) => {
     const parsed = z.object({
       principal: z.object({ accountId: z.string().uuid() }),
       secretId: z.string().uuid(), usage: SubscriptionUsageSchema,
     }).safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: 'Invalid pool usage' }, 400);
-    await recordSubscriptionUsage(parsed.data.secretId, parsed.data.principal.accountId, parsed.data.usage);
+    await recordSubscriptionUsage(parsed.data.secretId, parsed.data.principal.accountId, parsed.data.usage, { served: true });
     return c.json({ ok: true });
   });
 
@@ -216,6 +218,20 @@ export function createInternalGatewayRoutes() {
     }).safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: 'Invalid Claude refusal' }, 400);
     const marked = await markClaudeAccountRefused(parsed.data.principal.accountId, parsed.data.secretId, parsed.data.failedKeySha256);
+    return c.json({ ok: true, marked });
+  });
+
+  // Anthropic forbade a Claude account (403), for example when its organization
+  // turned Claude Code off. Only the digest and Anthropic's words cross.
+  app.post('/claude-forbidden', async (c) => {
+    const parsed = z.object({
+      principal: z.object({ accountId: z.string().uuid() }),
+      secretId: z.string().uuid(),
+      failedKeySha256: z.string().regex(/^[0-9a-f]{64}$/),
+      message: z.string().trim().min(1).max(500),
+    }).safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: 'Invalid Claude refusal' }, 400);
+    const marked = await markClaudeAccountForbidden(parsed.data.principal.accountId, parsed.data.secretId, parsed.data.failedKeySha256, parsed.data.message);
     return c.json({ ok: true, marked });
   });
 

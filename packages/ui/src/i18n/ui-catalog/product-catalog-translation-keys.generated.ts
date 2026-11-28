@@ -145,6 +145,9 @@ export const PRODUCT_CATALOG_TRANSLATION_KEYS: Readonly<Record<string, string>> 
   'Spent by an authorized connector. It never enters the sandbox.': 'texte285582d2b8c',
   Git: 'textb949c922b6ef',
   'Spent for repository access. It never enters the sandbox.': 'text5fb0b5e63db5',
+  'Website login': 'text041fb4e77d8e',
+  'Typed by the session browser on its sites only. It never enters the environment.':
+    'text93d50ea93ca0',
   'Model provider': 'textea70384c465d',
   'This key signs requests locally; egress enforcement cannot apply.': 'text99fbfee11e96',
 };

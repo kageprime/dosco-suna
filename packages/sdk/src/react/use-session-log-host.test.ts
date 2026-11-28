@@ -77,7 +77,7 @@ beforeEach(() => {
       const all = page();
       return Response.json(before === null ? { ...all, messages: all.messages.slice(4), has_more: true } : { ...all, messages: all.messages.slice(0, 4), has_more: false });
     }
-    // The box's own page (`runtime.log.v1`): the API's page.
+    // The box's own page (`runtime.log.v1`): no client reads it any more (the API does, for `live`).
     if (path.endsWith('/kortix/runtime/log')) return Response.json(page());
     if (path.endsWith('/kortix/runtime/pending')) return Response.json({ statuses: {}, permissions: [], questions: [] });
     if (path.endsWith('/kortix/health')) return Response.json({ capabilities: ['runtime.actions.v1', 'runtime.log.v1'] });
@@ -335,10 +335,12 @@ describe('useSession with its chat engine: the session log owns the history once
       await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
     };
 
-    test('the box page is read; no v1 transcript, session record, status, permission, question or diagnostics read goes to the box', async () => {
+    // One read endpoint: the API reads the box's page (GET …/log?live=1); the client never reads the box's log itself.
+    test('the newest page is read live through the API; no log, v1 transcript, session record, status, permission, question or diagnostics read goes to the box', async () => {
       await open(['session.log.v2', 'runtime.actions.v1', 'runtime.log.v1']);
+      expect(urls).toContain(`/workspaces/${PROJECT_ID}/sessions/${SESSION_ID}/log?limit=40&live=1`);
       const reads = boxReads();
-      expect(reads).toContain('/kortix/runtime/log');
+      expect(reads).not.toContain('/kortix/runtime/log');
       expect(reads.filter((r) => !r.startsWith('/kortix/'))).toEqual([]);
     });
 
@@ -346,8 +348,9 @@ describe('useSession with its chat engine: the session log owns the history once
     // reason to fall back: the open reads the box log and no v1 route.
     test('a ready answer whose capability list lacks runtime.log.v1 reads the same, and no v1 route', async () => {
       await open(['session.log.v2', 'runtime.actions.v1']);
+      expect(urls).toContain(`/workspaces/${PROJECT_ID}/sessions/${SESSION_ID}/log?limit=40&live=1`);
       const reads = boxReads();
-      expect(reads).toContain('/kortix/runtime/log');
+      expect(reads).not.toContain('/kortix/runtime/log');
       expect(reads.filter((r) => !r.startsWith('/kortix/'))).toEqual([]);
     });
   });

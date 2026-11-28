@@ -1473,7 +1473,7 @@ export function SqliteRenderer({
             else e.stopPropagation();
           }}
         >
-          <div className="bg-background border-border/60 flex max-h-[70vh] w-full max-w-xl flex-col overflow-hidden rounded-md border shadow-xl">
+          <div className="bg-background border-border flex max-h-[70vh] w-full max-w-xl flex-col overflow-hidden rounded-md border shadow-md">
             {/* Header */}
             <div className="flex items-center justify-between border-b px-4 py-2.5">
               <div className="flex min-w-0 items-center gap-2">

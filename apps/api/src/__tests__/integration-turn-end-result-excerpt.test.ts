@@ -22,17 +22,18 @@ import { projectSessions } from '@kortix/db';
 import { eq, sql } from 'drizzle-orm';
 
 const ANSWER = "You're in #general.";
-const transcriptMessages: Array<{ role: string; text: string }> = [];
+const transcriptMessages: Array<{ role: 'user' | 'assistant'; text: string }> = [];
 
 mock.module('../projects/session-lifecycle/forwarded-strand-reconcile', () => ({
   reconcileForwardedTurnsAtEnd: async () => undefined,
 }));
 const realPush = await import('../notifications/session-push');
 mock.module('../notifications/session-push', () => ({ ...realPush, notifySessionEvent: async () => undefined }));
-const realTranscript = await import('../projects/lib/session-transcript');
-mock.module('../projects/lib/session-transcript', () => ({
-  ...realTranscript,
-  buildSessionTranscriptDigest: async () => ({ available: true, messages: [...transcriptMessages] }),
+const realLogRead = await import('../projects/session-log-read');
+const { logPageOf } = await import('./helpers/log-page');
+mock.module('../projects/session-log-read', () => ({
+  ...realLogRead,
+  readSessionLogPage: async () => logPageOf([...transcriptMessages]),
 }));
 // Collect the detached turn-end work, so each test awaits it instead of a clock.
 // Copied before the mock: `mock.module` rewrites the live namespace.

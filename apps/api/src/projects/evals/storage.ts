@@ -13,7 +13,7 @@
  * sandbox mounts this folder, so there is one writer per file.
  */
 import { ensureProjectDrive, getDrive, readDriveVolume, writeDriveVolume, type DriveRow } from '../../drives/service';
-import { listVolumeFiles, readVolumeFile, removeVolumeFile, writeVolumeFiles } from '../../drives/volumes';
+import { isKortixInternalPath, listVolumeFiles, readVolumeFile, removeVolumeFile, writeVolumeFiles } from '../../drives/volumes';
 
 export const EVALS_FOLDER = '/Evals';
 export const jobFolder = (jobName: string): string => `${EVALS_FOLDER}/${jobName}`;
@@ -47,7 +47,7 @@ export async function listEvalFiles(driveId: string | null, folder: string): Pro
   if (!drive) return [];
   const entries = await readDriveVolume(drive, (volume) => listVolumeFiles(volume, folder, true), () => []);
   return entries
-    .filter((entry) => entry.type === 'file')
+    .filter((entry) => entry.type === 'file' && !isKortixInternalPath(entry.path))
     .map((entry) => ({ path: entry.path.startsWith(`${folder}/`) ? entry.path.slice(folder.length + 1) : entry.path, size: entry.size }))
     .sort((a, b) => a.path.localeCompare(b.path));
 }

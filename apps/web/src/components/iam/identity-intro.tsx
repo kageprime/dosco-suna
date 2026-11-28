@@ -35,7 +35,7 @@ export function IdentityIntro({ accountId }: { accountId: string }) {
   if (providerQuery.data || (tokensQuery.data ?? []).length > 0) return null;
 
   return (
-    <div className="border-border/60 bg-muted/20 space-y-1.5 rounded-md border px-4 py-3">
+    <div className="border-border bg-muted/20 space-y-1.5 rounded-md border px-4 py-3">
       <p className="text-foreground text-xs font-medium">{tI18nComplete.raw('texta731e5385a6a')}</p>
       <p className="text-muted-foreground text-xs leading-relaxed">
         <span className="text-foreground font-medium">{tI18nComplete.raw('text405e739d53d2')}</span>{' '}

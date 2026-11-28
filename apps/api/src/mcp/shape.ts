@@ -157,8 +157,7 @@ export function shapeTranscript(
     JSON.stringify({
       ...summary,
       last_turn_error: lastAssistant?.error ?? null,
-      // The v1 wire says `mirror` for the stored copy; since P8 that copy is the session log.
-      transcript_source: t.source === 'mirror' ? 'log' : t.source,
+      transcript_source: t.source,
       transcript_note: t.reason ?? undefined,
       message_count: t.message_count,
       complete: t.complete,

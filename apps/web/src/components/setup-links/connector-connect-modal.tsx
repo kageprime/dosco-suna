@@ -35,7 +35,7 @@ import {
 import { useProjectAccountId } from '@kortix/sdk/react';
 import { CheckIcon, WarningIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { ConnectorHandshake } from '@kortix/ui/markdown/setup-links/connector-handshake';
 import { useConnectorIntake } from './connector-intake';
@@ -141,6 +141,7 @@ function AddAccountDialogBody({
 }: DialogBodyProps & { info: ConnectorSetupLinkInfo; projectId: string }) {
   const copy = useLocalizedUiCatalog(COPY);
   const tSharing = useTranslations('accessSharing');
+  const tSignIn = useTranslations('connectSignIn');
   const headline = connectorHeadline(info);
   const app = headline.app || fallbackName || copy.fallbackApp;
   const accountId = useProjectAccountId(projectId);
@@ -178,6 +179,15 @@ function AddAccountDialogBody({
   const [authorizedId, setAuthorizedId] = useState<string | null>(null);
   const { user } = useAuth();
   const managed = useAddManagedAccount(projectId, info.slug, accountId, () => undefined);
+  // A dialog closed while finalize runs must not complete: the card would
+  // report an account the person walked away from.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const labelTaken = newAccountLabelTaken(draft, rows);
   const ready =
@@ -199,6 +209,10 @@ function AddAccountDialogBody({
         { backendUrl: setupLinkApiBase() },
         { connectionId },
       );
+      if (!mounted.current) return;
+      // 200 `{connected:false}`: the provider has not confirmed the account yet.
+      // The retry finalizes the same account again.
+      if (!done.connected) throw new Error(tSignIn('signInUnfinished'));
       setLanded({
         connectionId,
         label: done.label ?? draft.label.trim(),
@@ -209,6 +223,7 @@ function AddAccountDialogBody({
       // The new row, with its grants, so the summary names the audience.
       void connectionsQuery.refetch();
     } catch (cause) {
+      if (!mounted.current) return;
       setError(cause instanceof Error ? cause.message : tSharing('connectFailed'));
       setPhase('form');
     }

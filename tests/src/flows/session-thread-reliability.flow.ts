@@ -16,8 +16,8 @@
  * (planLocalFlows), and it runs for real against a deployed target.
  *
  * RUN-9, SESS-23 and SESS-24 run on pi (`harnessFlow`) and read the
- * conversation through `GET .../transcript`: live while the session runs, the
- * durable mirror once it is stopped (`source` says which). The client Stop is
+ * conversation from the stored session log (`GET …/log`, `readTranscript`),
+ * which the box journals at most 5 s behind a running turn. The client Stop is
  * the runtime abort the web sends (`abortTurn`, fixtures/session-run.ts); no
  * Kortix abort route exists yet. The abort `POST /stop` performs first
  * (`abortLiveTurnBeforeStop`, apps/api/src/projects/reaping/stop-box.ts) is a
@@ -75,7 +75,7 @@ harnessFlow(
       'GET /v1/workspaces/:projectId/sessions/:sessionId',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
     ],
   },
   async (ctx, harness) => {
@@ -193,7 +193,7 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/stop',
     ],
   },
@@ -331,8 +331,8 @@ harnessFlow(
 // read (the exact snapshot the web's "persisted-pin paint" instant-switch
 // fix reads) keeps serving that session's own mirrored data after its
 // runtime is stopped — proving the cached-paint read path works without a
-// live runtime. The transcript route then serves the durable mirror rather
-// than attempting a live read from the stopped sandbox.
+// live runtime. The stored session log then serves the conversation, with
+// no read from the stopped sandbox.
 harnessFlow(
   'SESS-24',
   {
@@ -343,7 +343,7 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'GET /v1/workspaces/:projectId/sessions/:sessionId',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/stop',
     ],
   },
@@ -431,13 +431,7 @@ harnessFlow(
       "each session's live transcript contains only its OWN reply marker, never the other session's",
       async () => {
         transcriptSnapshotA = await waitFor(
-          async () => {
-            const r = await owner.get('/v1/workspaces/:projectId/sessions/:sessionId/transcript', {
-              params: { projectId: project.id, sessionId: sessionA.id },
-            });
-            r.status(200);
-            return r.json<any>();
-          },
+          async () => readTranscript(ctx, project.id, sessionA.id),
           {
             until: (t) =>
               Boolean(t?.available) &&
@@ -454,13 +448,7 @@ harnessFlow(
         }
 
         const transcriptB = await waitFor(
-          async () => {
-            const r = await owner.get('/v1/workspaces/:projectId/sessions/:sessionId/transcript', {
-              params: { projectId: project.id, sessionId: sessionB.id },
-            });
-            r.status(200);
-            return r.json<any>();
-          },
+          async () => readTranscript(ctx, project.id, sessionB.id),
           {
             until: (t) =>
               Boolean(t?.available) &&
@@ -480,18 +468,11 @@ harnessFlow(
 
     await ctx.step("session A's completed turn has a durable transcript before stopping", async () => {
       await waitFor(
-        async () => {
-          const r = await owner.get('/v1/workspaces/:projectId/sessions/:sessionId/transcript', {
-            params: { projectId: project.id, sessionId: sessionA.id },
-            query: { shape: 'sync' },
-          });
-          r.status(200);
-          return r.json<any>();
-        },
+        async () => readTranscript(ctx, project.id, sessionA.id),
         {
           until: (t) =>
             t?.available === true &&
-            t?.source === 'mirror' &&
+            t?.source === 'log' &&
             t?.complete === true &&
             JSON.stringify(t?.messages ?? []).includes(markerA),
           timeoutMs: 180_000,
@@ -590,13 +571,10 @@ harnessFlow(
     );
 
     await ctx.step(
-      "the stopped session's transcript read serves its durable mirror, not the stopped sandbox",
+      "the stopped session's stored log serves its conversation, not the stopped sandbox",
       async () => {
-        const r = await owner.get('/v1/workspaces/:projectId/sessions/:sessionId/transcript', {
-          params: { projectId: project.id, sessionId: sessionA.id },
-        });
-        r.status(200).body().has('$.available', true).has('$.source', 'mirror');
-        const body = r.json<any>();
+        const body = await readTranscript(ctx, project.id, sessionA.id);
+        if (!body.available || body.source !== 'log') throw new Error(`stored log read: available ${body.available}, source ${body.source}`);
         const text = (body.messages ?? []).map((m: any) => m.text).join('\n');
         if (!text.includes(markerA)) {
           throw new Error(`session A's durable mirror lost its own marker: ${text}`);
@@ -610,11 +588,8 @@ harnessFlow(
     await ctx.step(
       "session B, still running, is unaffected by session A's stop — its transcript is still live and still contains only its own marker",
       async () => {
-        const r = await owner.get('/v1/workspaces/:projectId/sessions/:sessionId/transcript', {
-          params: { projectId: project.id, sessionId: sessionB.id },
-        });
-        r.status(200).body().has('$.available', true);
-        const body = r.json<any>();
+        const body = await readTranscript(ctx, project.id, sessionB.id);
+        if (!body.available) throw new Error('session B has no stored log');
         const text = (body.messages ?? []).map((m: any) => m.text).join('\n');
         if (!text.includes(markerB)) {
           throw new Error(`session B's transcript no longer contains its own marker: ${text}`);
@@ -887,7 +862,7 @@ harnessFlow(
       'GET /v1/workspaces/:projectId/sessions/:sessionId/prompts',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts/hold',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
     ],
   },
   async (ctx, harness) => {
@@ -993,7 +968,7 @@ harnessFlow(
       'GET /v1/workspaces/:projectId/sessions/:sessionId/prompts',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts/hold',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
     ],
   },
   async (ctx, harness) => {

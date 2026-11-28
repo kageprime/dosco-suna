@@ -17,6 +17,8 @@ import { useLocalizedUiCatalog } from '@kortix/ui/i18n';
 import {
   agentHoursForCredits,
   COMPUTE_RATES_USD,
+  CREDITS_PLAN_MAX_USD,
+  CREDITS_PLAN_MIN_USD,
   DEFAULT_COMPUTE_CREDITS_PER_HOUR,
   DEFAULT_COMPUTE_SPEC,
   DEFAULT_TIER_USD,
@@ -24,8 +26,8 @@ import {
   FREE_MONTHLY_CREDITS,
   MINUTES_PER_CREDIT,
   monthlyCreditsForUsd,
+  PLAN_BONUS_STEPS,
   PLATFORM_FEE_PERCENT,
-  TOP_UP_BONUS_STEPS,
 } from '@kortix/ui/internal/billing/compute-pricing';
 import { SolidCheckIcon } from '@kortix/ui/internal/icons/solid-check-icon';
 import { PlusIcon } from '@phosphor-icons/react';
@@ -206,8 +208,9 @@ export default function PricingPage() {
   // Every number on this page comes from compute-pricing.ts, so the page
   // cannot drift from the billing code.
   const tierCredits = monthlyCreditsForUsd(DEFAULT_TIER_USD);
-  const bonusSmallest = TOP_UP_BONUS_STEPS[TOP_UP_BONUS_STEPS.length - 1];
-  const bonusLargest = TOP_UP_BONUS_STEPS[0];
+  const bonusFirst = PLAN_BONUS_STEPS[PLAN_BONUS_STEPS.length - 1];
+  const bonusTop = PLAN_BONUS_STEPS[0];
+  const count = (credits: number) => new Intl.NumberFormat(locale).format(credits);
   const facts = {
     freeCredits: new Intl.NumberFormat(locale).format(FREE_MONTHLY_CREDITS),
     creditsPerHour: DEFAULT_COMPUTE_CREDITS_PER_HOUR,
@@ -216,10 +219,14 @@ export default function PricingPage() {
     fee: PLATFORM_FEE_PERCENT,
     tierUsd: formatWholeUsd(DEFAULT_TIER_USD, locale),
     hours: new Intl.NumberFormat(locale).format(agentHoursForCredits(tierCredits)),
-    smallestBonus: bonusSmallest.percent,
-    smallestBonusUsd: formatWholeUsd(bonusSmallest.minUsd, locale),
-    largestBonus: bonusLargest.percent,
-    largestBonusUsd: formatWholeUsd(bonusLargest.minUsd, locale),
+    minUsd: formatWholeUsd(CREDITS_PLAN_MIN_USD, locale),
+    minCredits: count(monthlyCreditsForUsd(CREDITS_PLAN_MIN_USD)),
+    maxUsd: formatWholeUsd(CREDITS_PLAN_MAX_USD, locale),
+    maxCredits: count(monthlyCreditsForUsd(CREDITS_PLAN_MAX_USD)),
+    firstBonus: bonusFirst.percent,
+    firstBonusUsd: formatWholeUsd(bonusFirst.minUsd, locale),
+    topBonus: bonusTop.percent,
+    topBonusUsd: formatWholeUsd(bonusTop.minUsd, locale),
     vcpuRate: formatRateUsd(COMPUTE_RATES_USD.vcpuHour, locale),
     memoryRate: formatRateUsd(COMPUTE_RATES_USD.memoryGbHour, locale),
     diskRate: formatRateUsd(COMPUTE_RATES_USD.diskGbMonth, locale),

@@ -12,7 +12,7 @@ import { flow } from '../core/flow';
 import { waitFor } from '../core/poll';
 import type { Client } from '../core/client';
 import type { FlowContext, Principal } from '../core/types';
-import { setFeatureAsOperator } from '../fixtures/feature-flags';
+import { asPlatformAdmin } from '../fixtures/enterprise-access';
 import { openFlowDb, seedTurnSession } from '../fixtures/turn-end';
 
 const form = (fields: Record<string, string>) => {
@@ -454,6 +454,7 @@ flow(
       'POST /v1/oauth/register',
       'POST /v1/oauth/token',
       'PUT /v1/admin/api/projects/:id/features',
+      'GET /v1/workspaces/:projectId',
     ],
   },
   async (ctx) => {
@@ -471,10 +472,20 @@ flow(
     const attach = (extra: Record<string, unknown> = {}) => session.sandbox.post('/v1/chrome/attach', { ticket, ...extra });
     let attachmentId = '';
     try {
-      await ctx.step("the project's chrome flag off → attach 403 feature_disabled; cleared, it is on by default again (the next step attaches)", async () => {
-        await setFeatureAsOperator(ctx, project.id, 'chrome', false);
-        (await attach()).status(403).body().has('$.code', 'feature_disabled').has('$.feature', 'chrome');
-        await setFeatureAsOperator(ctx, project.id, 'chrome', null);
+      await ctx.step('chrome is no flag: the operator route refuses the key 400 and a stored flag-era `chrome: false` is inert (the next step attaches)', async () => {
+        // Graduated 2026-11-24: KORTIX_CHROME_ENABLED is the only switch.
+        (await asPlatformAdmin(ctx).put('/v1/admin/api/projects/:id/features', { feature: 'chrome', enabled: false }, { params: { id: project.id } })).status(400);
+        const seeded = await db.query(
+          `UPDATE kortix.projects
+           SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+             'experimental', COALESCE(metadata->'experimental', '{}'::jsonb) || '{"chrome":false}'::jsonb)
+           WHERE project_id = $1
+           RETURNING metadata->'experimental'->'chrome' AS chrome`,
+          [project.id],
+        );
+        if (seeded.rows.length !== 1 || seeded.rows[0].chrome !== false) throw new Error('the flag-era chrome:false was not stored');
+        (await ctx.client.as(owner).get('/v1/workspaces/:projectId', { params: { projectId: project.id } }))
+          .status(200).body().has('$.experimental.chrome', true);
       });
 
       await ctx.step('mode always: attach → 200; the extension gets an attach frame without a prompt', async () => {
@@ -502,11 +513,8 @@ flow(
         if (s.sessionId !== session.sessionId || s.title !== 'Refactor the billing page') throw new Error(JSON.stringify(s));
       });
 
-      await ctx.step('release → 204 with the flag off too; the extension gets detach; activeSessions empties', async () => {
-        // A session can always let go: release is not behind the flag.
-        await setFeatureAsOperator(ctx, project.id, 'chrome', false);
+      await ctx.step('release → 204; the extension gets detach; activeSessions empties', async () => {
         (await session.sandbox.post('/v1/chrome/release', { attachmentId })).status(204);
-        await setFeatureAsOperator(ctx, project.id, 'chrome', true);
         const frame = await control.take((f) => f.type === 'detach');
         if (frame.attachmentId !== attachmentId) throw new Error(JSON.stringify(frame));
         const mine = (await listOf(ctx.client.as(owner))).find((b) => b.id === chrome.id);

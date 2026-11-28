@@ -143,6 +143,28 @@ export function getTurnErrorDetails(turn: TurnLike): ReturnType<typeof extractGa
 // Status text computation
 // ============================================================================
 
+const TOOL_STATUS = new Map<string, string>([
+  ...['task', 'session_spawn', 'session_start_background', 'session-spawn', 'session-start-background', 'agent_spawn', 'agent-spawn', 'agent_task', 'agent-task'].map((tool): [string, string] => [tool, 'Handing off to an agent...']),
+  ...['agent_task_update', 'agent-task-update', 'task_update', 'task-update', 'task_done', 'task-done'].map((tool): [string, string] => [tool, 'Updating progress...']),
+  ...['agent_message', 'agent-message', 'agent_task_message', 'agent-task-message', 'task_message', 'task-message'].map((tool): [string, string] => [tool, 'Checking in with an agent...']),
+  ...['task_create', 'task-create', 'task_start', 'task-start'].map((tool): [string, string] => [tool, 'Starting a new task...']),
+  ...['task_list', 'task-list'].map((tool): [string, string] => [tool, 'Reviewing the task list...']),
+  ...['todowrite', 'todoread'].map((tool): [string, string] => [tool, 'Planning...']),
+  ['read', 'Reading files...'],
+  ...['list', 'grep', 'glob'].map((tool): [string, string] => [tool, 'Searching files...']),
+  ...['webfetch', 'scrape-webpage', 'scrape_webpage'].map((tool): [string, string] => [tool, 'Reading a web page...']),
+  ...['websearch', 'web-search', 'web_search'].map((tool): [string, string] => [tool, 'Searching the web...']),
+  ...['image-search', 'image_search'].map((tool): [string, string] => [tool, 'Searching for images...']),
+  ...['image-gen', 'image_gen'].map((tool): [string, string] => [tool, 'Creating an image...']),
+  ...['video-gen', 'video_gen'].map((tool): [string, string] => [tool, 'Creating a video...']),
+  ...['presentation-gen', 'presentation_gen'].map((tool): [string, string] => [tool, 'Creating a presentation...']),
+  ...['show', 'show-user', 'show_user'].map((tool): [string, string] => [tool, 'Sharing the result...']),
+  ...['edit', 'write', 'morph_edit', 'apply_patch'].map((tool): [string, string] => [tool, 'Making changes...']),
+  ['bash', 'Working on the computer...'],
+  ...['prune', 'distill', 'compress'].map((tool): [string, string] => [tool, 'Tidying up memory...']),
+  ['context_info', 'Refreshing memory...'],
+]);
+
 /**
  * Derive human-readable status from a part.
  * Matches SolidJS computeStatusFromPart — session-turn.tsx:83-119
@@ -151,87 +173,7 @@ export function computeStatusFromPart(part: PartLike | undefined): string | unde
   if (!part) return undefined;
 
   if (isToolPart(part)) {
-    switch ((part as PartLike as ToolPartLike).tool) {
-      case 'task':
-      case 'session_spawn':
-      case 'session_start_background':
-      case 'session-spawn':
-      case 'session-start-background':
-        return 'Handing off to an agent...';
-      case 'agent_spawn':
-      case 'agent-spawn':
-      case 'agent_task':
-      case 'agent-task':
-        return 'Handing off to an agent...';
-      case 'agent_task_update':
-      case 'agent-task-update':
-      case 'task_update':
-      case 'task-update':
-        return 'Updating progress...';
-      case 'agent_message':
-      case 'agent-message':
-      case 'agent_task_message':
-      case 'agent-task-message':
-      case 'task_message':
-      case 'task-message':
-        return 'Checking in with an agent...';
-      case 'task_create':
-      case 'task-create':
-      case 'task_start':
-      case 'task-start':
-        return 'Starting a new task...';
-      case 'task_list':
-      case 'task-list':
-        return 'Reviewing the task list...';
-      case 'task_done':
-      case 'task-done':
-        return 'Updating progress...';
-      case 'todowrite':
-      case 'todoread':
-        return 'Planning...';
-      case 'read':
-        return 'Reading files...';
-      case 'list':
-      case 'grep':
-      case 'glob':
-        return 'Searching files...';
-      case 'webfetch':
-      case 'scrape-webpage':
-        return 'Reading a web page...';
-      case 'websearch':
-      case 'web-search':
-      case 'web_search':
-        return 'Searching the web...';
-      case 'image-search':
-        return 'Searching for images...';
-      case 'image-gen':
-        return 'Creating an image...';
-      case 'video-gen':
-        return 'Creating a video...';
-      case 'presentation-gen':
-        return 'Creating a presentation...';
-      case 'show':
-      case 'show-user':
-        return 'Sharing the result...';
-      case 'edit':
-      case 'write':
-      case 'morph_edit':
-        return 'Making changes...';
-      case 'bash':
-        return 'Working on the computer...';
-      case 'apply_patch':
-        return 'Making changes...';
-      case 'prune':
-        return 'Tidying up memory...';
-      case 'distill':
-        return 'Tidying up memory...';
-      case 'compress':
-        return 'Tidying up memory...';
-      case 'context_info':
-        return 'Refreshing memory...';
-      default:
-        return 'Working on it...';
-    }
+    return TOOL_STATUS.get((part as ToolPartLike).tool) ?? 'Working on it...';
   }
 
   if (isReasoningPart(part)) {

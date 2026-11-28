@@ -1,6 +1,7 @@
 import { useId, useState, type CSSProperties, type ReactNode } from 'react';
 
 import { genuiA11yText, type GenuiNode } from '../index';
+import { osmLink } from '../urls';
 import type { GenuiComponentMap, GenuiComponentProps } from './genui-block';
 
 /**
@@ -178,7 +179,7 @@ const Map = ({ node, props }: GenuiComponentProps) => (
     <ul style={{ margin: 0, paddingLeft: 18 }}>
       {kids(props.markers).map((m) => (
         <li key={m.id}>
-          <a href={`https://www.openstreetmap.org/?mlat=${m.props.lat}&mlon=${m.props.lng}#map=15/${m.props.lat}/${m.props.lng}`} target="_blank" rel="noopener noreferrer">
+          <a href={osmLink(m.props.lat, m.props.lng)} target="_blank" rel="noopener noreferrer">
             {String(m.props.label)}
           </a>
           {m.props.description ? ` — ${String(m.props.description)}` : ''}

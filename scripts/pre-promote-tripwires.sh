@@ -45,6 +45,8 @@ check "api tripwires" bash -c 'cd apps/api && bash scripts/test.sh \
   src/__tests__/unit-request-primitives-tripwire.test.ts \
   src/__tests__/unit-catch-database-error-echo-guard.test.ts \
   src/__tests__/unit-mock-module-targets.test.ts \
+  src/__tests__/unit-skills-offered.test.ts \
+  src/__tests__/unit-workspace-route-params.test.ts \
   src/shared/sql-correlated-subquery-guard.test.ts'
 check "api lint" pnpm --filter kortix-api lint
 
@@ -73,6 +75,10 @@ check "kortixd boundaries" bash -c 'cd apps/kortix-sandbox-agent-server && bun t
 # Repository-wide.
 check "learnings index" bash .agents/skills/learnings/scripts/index.sh --check
 check "GHSA advisories (root lockfile)" node scripts/ghsa-audit.mjs
+# The release gate's gitleaks check scans every commit since prod. A reviewed
+# false positive gets a fingerprint in .gitleaksignore (fix-forward-traps.md).
+check "gitleaks (prod..HEAD)" bash -c 'command -v gitleaks >/dev/null || { echo "install gitleaks (brew install gitleaks)"; exit 1; }
+  git fetch -q origin prod && gitleaks git --log-opts="origin/prod..HEAD" --redact --no-banner'
 
 echo
 if ((${#failed[@]})); then

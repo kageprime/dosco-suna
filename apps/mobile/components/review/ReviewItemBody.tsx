@@ -18,7 +18,8 @@ import { Text } from '@/components/ui/text';
 import type { ChangeRequestDiff } from '@/lib/projects/projects-client';
 import { splitFilePath } from '@/lib/review/review-detail';
 import { formatApprovalExpiresIn } from '@/lib/review/review-meta';
-import { openLink } from '@/lib/utils/open-link';
+import { openExternalLink } from '@/lib/utils/open-link';
+import { isSafeExternalLink } from '@/lib/markdown/safe-link';
 
 /** Files listed before "N more files": the rest are one tap away on the web. */
 const MAX_FILE_ROWS = 50;
@@ -156,12 +157,13 @@ export function ReviewBody({
               </Text>
             ) : null}
           </Section>
-          {item.detail.previewUrl ? (
+          {/* An agent-supplied link: only a safe external URL becomes a row. */}
+          {isSafeExternalLink(item.detail.previewUrl) ? (
             <SettingsGroup>
               <SettingsRow
                 label="Open preview"
                 external
-                onPress={() => void openLink(item.detail.previewUrl!).catch(() => {})}
+                onPress={() => openExternalLink(item.detail.previewUrl)}
               />
             </SettingsGroup>
           ) : null}

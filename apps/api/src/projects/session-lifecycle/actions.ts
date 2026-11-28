@@ -538,8 +538,8 @@ async function restartProviderBox(restart: InPlaceRestart): Promise<void> {
       ),
     );
   await provider.start(externalId, {
-    // A restore from cold storage runs inside start() and can outlast
-    // the restart lease; keep it, fenced to this restart.
+    // A restore from cold storage, or a wait for host capacity, runs inside
+    // start() and can outlast the restart lease; keep it, fenced to this restart.
     onProgress: async () => {
       const leaseExpiresAt = new Date(Date.now() + RUNTIME_RESTART_LEASE_MS);
       await db

@@ -37,7 +37,7 @@ flow(
     routes: [
       'PUT /v1/workspaces/:projectId/sessions/:sessionId/sharing',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
     ],
   },
   async (ctx) => {

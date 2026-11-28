@@ -109,10 +109,10 @@ variable "manage_dns" {
 
 variable "api_task_count" {
   description = <<-EOT
-    API task floor (desired_count and min_capacity). 6 is staging's release
-    sizing. The staging database allows 120 connections and each API task
+    API task floor (desired_count and min_capacity). Autoscaling adds tasks
+    up to 8. The staging database allows 120 connections and each API task
     holds up to 9.
   EOT
   type        = number
-  default     = 6
+  default     = 2
 }

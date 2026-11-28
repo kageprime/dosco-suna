@@ -47,7 +47,11 @@ Subcommands:
   diff <cr> [--no-color] [--json]        Show the CR's unified diff.
   open --head <ver> [--base <ver>]       Open a new CR.
        --title "<text>" [--description "<text>"]
-  merge <cr> [--message "<text>"]        Merge an open CR into its base.
+  merge <cr> [--message "<text>"]        Merge an open CR into its base. A merge
+        [--allow-secrets]                that adds what looks like a key or token
+                                         is refused (409, file:line and rule);
+                                         --allow-secrets merges anyway after a
+                                         person checked it. Agent sessions get 403.
   merge-preview <cr> [--json]            Can it merge? Lists any conflicts.
   request-changes <cr> --message "<t>"   Ask the agent that opened it to revise.
   close <cr>                             Close an open CR without merging.
@@ -398,8 +402,10 @@ async function crOpen(argv: string[], opts: CtxOpts): Promise<number> {
 
 async function crMerge(argv: string[], opts: CtxOpts): Promise<number> {
   let message: string | undefined;
+  let allowSecrets = false;
   try {
     message = takeFlagValue(argv, ['--message', '-m']);
+    allowSecrets = takeFlagBool(argv, ['--allow-secrets']);
   } catch (err) {
     return fail((err as Error).message);
   }
@@ -412,7 +418,7 @@ async function crMerge(argv: string[], opts: CtxOpts): Promise<number> {
   try {
     result = await ctx.client.post<ChangeRequestMergeResponse>(
       `/workspaces/${ctx.projectId}/change-requests/${cr.cr_id}/merge`,
-      message ? { message } : {},
+      { ...(message ? { message } : {}), ...(allowSecrets ? { allow_secrets: true } : {}) },
     );
   } catch (err) {
     return surfaceApiError(err);

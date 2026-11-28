@@ -1,7 +1,15 @@
 import { describe, expect, test } from 'bun:test';
 
 import type { AttachedFile } from './attachments';
-import { firstPromptSeed, SEED_BUSY_WATCHDOG_MS, seedUndelivered } from './first-prompt-seed';
+import {
+  firstPromptSeed,
+  forgetSeededPrompt,
+  rememberSeededPrompt,
+  SEED_BUSY_WATCHDOG_MS,
+  seedEchoed,
+  seededPromptOf,
+  seedUndelivered,
+} from './first-prompt-seed';
 import { mintWireMessageId } from './wire-message-id';
 
 const ROOT = 'ses_runtime_root';
@@ -84,5 +92,93 @@ describe('seedUndelivered', () => {
 
   test('the watchdog waits 30 s', () => {
     expect(SEED_BUSY_WATCHDOG_MS).toBe(30_000);
+  });
+});
+
+describe('seedEchoed', () => {
+  const SEED = { id: 'msg_seed', text: 'research the company' };
+  type Msg = Parameters<typeof seedEchoed>[0] extends readonly (infer M)[] | undefined ? M : never;
+  const user = (message_id: string, text: string, kind: Msg['kind'] = 'turn') =>
+    ({ message_id, role: 'user', kind, blocks: [{ type: 'text', id: `${message_id}-t`, text }] }) as Msg;
+  const reply = (message_id: string) =>
+    ({ message_id, role: 'assistant', kind: 'turn', blocks: [{ type: 'text', id: `${message_id}-t`, text: 'ok' }] }) as Msg;
+  const seedRow = user(SEED.id, SEED.text);
+  const onlySeedOptimistic = (id: string) => id === SEED.id;
+
+  test('the seed alone is not echoed', () => {
+    expect(seedEchoed([seedRow], SEED, onlySeedOptimistic)).toBe(false);
+  });
+
+  test('the log holding the prompt under the server id echoes the seed', () => {
+    // The thread a v2 session renders: the log's prompt, its reply, and the seed the log never names.
+    const thread = [user('msg_server', SEED.text), reply('msg_reply'), seedRow];
+    expect(seedEchoed(thread, SEED, onlySeedOptimistic)).toBe(true);
+  });
+
+  test('a queued follow-up that reaches the log first does not echo the seed', () => {
+    const thread = [seedRow, user('msg_followup', 'and their funding')];
+    expect(seedEchoed(thread, SEED, onlySeedOptimistic)).toBe(false);
+    expect(seedEchoed([...thread, user('msg_server', SEED.text)], SEED, onlySeedOptimistic)).toBe(true);
+  });
+
+  test('another optimistic send from this device does not echo the seed', () => {
+    const thread = [seedRow, user('msg_next', SEED.text)];
+    expect(seedEchoed(thread, SEED, (id) => id === SEED.id || id === 'msg_next')).toBe(false);
+  });
+
+  test('a reply alone or a context message does not echo the seed', () => {
+    expect(seedEchoed([seedRow, reply('msg_reply')], SEED, onlySeedOptimistic)).toBe(false);
+    expect(seedEchoed([user('msg_ctx', SEED.text, 'context'), seedRow], SEED, onlySeedOptimistic)).toBe(false);
+  });
+
+  test('a follow-up that contains the seed text does not echo it', () => {
+    const seed = { id: SEED.id, text: 'ship' };
+    expect(seedEchoed([user(SEED.id, 'ship'), user('msg_followup', 'dont ship yet')], seed, onlySeedOptimistic)).toBe(false);
+  });
+
+  test('a files-only seed is echoed by a user turn without text, not by a text follow-up', () => {
+    const filesOnly = { id: SEED.id, text: '' };
+    const fileTurn = {
+      message_id: 'msg_server',
+      role: 'user',
+      kind: 'turn',
+      blocks: [{ type: 'attachment', id: 'att_1', name: 'a.png', mime: 'image/png', url: 'https://x/a.png' }],
+    } as unknown as Msg;
+    const synthetic = {
+      message_id: 'msg_synthetic',
+      role: 'user',
+      kind: 'turn',
+      blocks: [{ type: 'text', id: 'msg_synthetic-t', text: 'continue', synthetic: true }],
+    } as unknown as Msg;
+    expect(seedEchoed([user(SEED.id, ''), user('msg_followup', 'wait')], filesOnly, onlySeedOptimistic)).toBe(false);
+    expect(seedEchoed([synthetic, user(SEED.id, '')], filesOnly, onlySeedOptimistic)).toBe(false);
+    expect(seedEchoed([fileTurn, user(SEED.id, '')], filesOnly, onlySeedOptimistic)).toBe(true);
+  });
+
+  test('an upload the runtime wrote as a <file> tag still matches the seed text', () => {
+    const tag = '<file path="/workspace/uploads/.kortix-inbox/a.png" mime="image/png" filename="a.png">\nThis file has been uploaded and is available at the path above.\n</file>';
+    expect(seedEchoed([user('msg_server', `${SEED.text}\n\n${tag}`), user(SEED.id, SEED.text)], SEED, onlySeedOptimistic)).toBe(true);
+    expect(seedEchoed([user('msg_server', tag), user(SEED.id, '')], { id: SEED.id, text: '' }, onlySeedOptimistic)).toBe(true);
+  });
+
+  test('the echo matches after the server repairs a NUL or a lone surrogate, and around whitespace', () => {
+    const seed = { id: SEED.id, text: 'a\u0000b \uD83D c' };
+    const echo = user('msg_server', '  a\uFFFDb \uFFFD c\n');
+    expect(seedEchoed([echo, user(SEED.id, seed.text)], seed, onlySeedOptimistic)).toBe(true);
+  });
+
+  test('no thread is not echoed', () => {
+    expect(seedEchoed(undefined, SEED, onlySeedOptimistic)).toBe(false);
+  });
+});
+
+describe('seeded prompt registry', () => {
+  test('remembers the seed per runtime root until it is forgotten', () => {
+    expect(seededPromptOf('root_a')).toBeUndefined();
+    rememberSeededPrompt('root_a', { id: 'msg_a', text: 'hi' });
+    expect(seededPromptOf('root_a')).toEqual({ id: 'msg_a', text: 'hi' });
+    expect(seededPromptOf('root_b')).toBeUndefined();
+    forgetSeededPrompt('root_a');
+    expect(seededPromptOf('root_a')).toBeUndefined();
   });
 });

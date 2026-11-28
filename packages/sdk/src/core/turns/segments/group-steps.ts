@@ -12,6 +12,7 @@ import type { ToolPart } from '../../runtime/client';
 import { asToolPart } from '../../session-log/tool-call';
 import type { ToolCallBlock } from '../../session-log/types';
 import { isInvisibleActivityPart, isNoGroupActivityTool } from './session-activity-groups';
+import { retriedAgentFailures } from './retried-agent-failures';
 import { type StepFamily, familyForTool, narrateFailedStep, narrateStep } from './narration';
 
 /** A step of v1 tool parts, or of session-log tool call blocks: `parts` holds what `groupSteps` was given. */
@@ -80,8 +81,11 @@ export function groupSteps<P extends ToolPart | ToolCallBlock = ToolPart>(given:
     buffer = [];
   };
 
+  // A colleague start the model retried counts once, as the retry (see `segmentTurn`).
+  const retried = retriedAgentFailures(given.map(asToolPart));
   for (const item of given) {
     const part = asToolPart(item);
+    if (retried.has(part.callID)) continue;
     const f = familyForTool(part.tool);
     if (f === 'hidden') continue; // dropped, and must not split a run
 

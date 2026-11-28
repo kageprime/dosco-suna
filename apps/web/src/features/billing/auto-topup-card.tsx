@@ -28,7 +28,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, m } from 'motion/react';
 import { useLocale, useTranslations } from '@/i18n/use-translations';
-import { formatWholeUsd, monthlyCreditsForUsd, TOP_UP_BONUS_STEPS, topUpBonusCredits } from '@kortix/ui/internal/billing/compute-pricing';
+import { creditsForUsd, formatWholeUsd } from '@kortix/ui/internal/billing/compute-pricing';
 import { autoTopupFailureNotice } from './auto-topup-failure-notice';
 
 /**
@@ -327,14 +327,7 @@ export function AutoTopupCard({
 
             {!bufferError && !showMissingCardWarning && (
               <p className="text-muted-foreground mt-2.5 text-xs tabular-nums">
-                {topUpBonusCredits(amountNum) > 0
-                  ? t('bonusHint', {
-                      credits: formatCredits(monthlyCreditsForUsd(amountNum), { locale }),
-                      bonus: formatCredits(topUpBonusCredits(amountNum), { locale }),
-                    })
-                  : t('bonusFrom', {
-                      min: formatWholeUsd(TOP_UP_BONUS_STEPS[TOP_UP_BONUS_STEPS.length - 1].minUsd, locale),
-                    })}
+                {t('creditsHint', { credits: formatCredits(creditsForUsd(amountNum), { locale }) })}
               </p>
             )}
           </m.div>

@@ -82,7 +82,7 @@ import { useAppsModalStore } from '@kortix/ui/internal/stores/apps-modal-store';
 import { getProject } from '@kortix/sdk';
 import { contract, qk, useNotificationInbox } from '@kortix/sdk/react';
 import { tabUnreadCount } from '@kortix/ui/internal/notifications/notification-rows';
-import { ACCOUNT_INBOX_HREF } from '@/features/notifications/inbox-button';
+import { InboxLink } from '@/features/notifications/inbox-link';
 import { useAuth } from '@/features/providers/auth-provider';
 import {
   ArrowsLeftRightIcon,
@@ -256,7 +256,7 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
         // no permanent row.
         return (
           <DropdownMenuItem asChild onSelect={() => setMenuOpen(false)} size="sm">
-            <Link href={ACCOUNT_INBOX_HREF} prefetch>
+            <InboxLink prefetch>
               <BellIcon />
               {tNotifications('inbox.title')}
               {inboxCount > 0 ? (
@@ -267,7 +267,7 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
                   aria-label={tNotifications('inbox.unreadCount', { count: inboxCount })}
                 />
               ) : null}
-            </Link>
+            </InboxLink>
           </DropdownMenuItem>
         );
       case 'preferences':
@@ -388,7 +388,7 @@ export function WorkspaceSwitcher({ projectId }: { projectId: string }) {
               align="start"
               side="bottom"
               sideOffset={6}
-              className="border-foreground/10 w-[16rem] space-y-0.5 overflow-hidden shadow-lg"
+              className="border-foreground/10 w-[16rem] space-y-0.5 overflow-hidden shadow-md"
             >
               {menuGroups.map((group, index) => (
                 <React.Fragment key={group.join('-')}>

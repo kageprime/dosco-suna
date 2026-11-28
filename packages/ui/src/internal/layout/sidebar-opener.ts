@@ -79,6 +79,8 @@ export function shouldShowPageSidebarOpener({
 export function useShowPageSidebarOpener(): boolean {
   const sidebar = useOptionalSidebar();
   const shell = useDesktopShell();
+  // A desktop icon rail carries the toggle: no second opener in the page.
+  if (sidebar?.rail && !sidebar.isMobile) return false;
   return shouldShowPageSidebarOpener({
     hasSidebar: !!sidebar,
     isDesktopShell: shell !== null,

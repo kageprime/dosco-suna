@@ -101,11 +101,12 @@ const projectWebhookRejectedRunLimiter = new TokenBucketRateLimiter('project_web
 const projectSecretWriteLimiter = new TokenBucketRateLimiter('project_secret_write');
 const llmGatewayLimiter = new TokenBucketRateLimiter('llm_gateway');
 const feedbackLimiter = new TokenBucketRateLimiter('feedback');
+const dictationLimiter = new TokenBucketRateLimiter('dictation');
 const setupEventLimiter = new TokenBucketRateLimiter('setup_event');
 const deviceTokenReleaseLimiter = new TokenBucketRateLimiter('device_token_release');
 
 /**
- * Per-session ceiling on the stored-log reads (`GET …/log`, `GET …/transcript`,
+ * Per-session ceiling on the stored-log reads (`GET …/log`,
  * `GET …/snapshot` and its `/open-bundle` alias, `KORTIX_SESSION_LOG_READS_PER_MIN`,
  * 300). INCIDENT 2026-11-10 23:38 UTC (KRTX-4696): one CLI client polled the stored
  * log of ONE session in waves that peaked near 24 requests/s for minutes (about 50k
@@ -392,6 +393,32 @@ export function createFeedbackRateLimitMiddleware() {
 }
 
 /**
+ * Guards `POST /v1/projects/:id/dictation`, keyed on the caller's user id. A
+ * person dictates a few times a minute at most; 20 stops a loop from turning
+ * the route into a free-running transcription API. Reads pass through.
+ */
+export function createDictationRateLimitMiddleware() {
+  const guard = createAuditedRateLimitMiddleware(dictationLimiter, (c) => {
+    const userId = c.get('userId') as string | undefined;
+    const key = userId ? `user:${userId}` : `ip:${requestClientKey(c)}`;
+    return {
+      key,
+      policy: {
+        limit: positiveInt(config.KORTIX_DICTATION_REQS_PER_MIN, 20),
+        windowMs: 60_000,
+      },
+      auditContext: {
+        action: RATE_LIMIT_EXCEEDED_ACTION,
+        resourceType: 'dictation',
+        resourceId: userId ?? null,
+        metadata: { limiter: 'dictation' },
+      },
+    };
+  });
+  return async (c: Context, next: Next) => (c.req.method === 'POST' ? guard(c, next) : next());
+}
+
+/**
  * Guards `POST /v1/cli/setup-events`, keyed on the caller's user id like
  * feedback. A guided setup sends about ten events in an hour; 20 a minute stops
  * a loop from spending the PostHog plan's monthly event limit.
@@ -615,5 +642,6 @@ export function resetRateLimiters() {
   projectSecretWriteLimiter.reset();
   llmGatewayLimiter.reset();
   feedbackLimiter.reset();
+  dictationLimiter.reset();
   deviceTokenReleaseLimiter.reset();
 }

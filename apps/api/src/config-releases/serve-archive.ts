@@ -28,17 +28,17 @@ import type { GitBackedProject } from '../projects/git/types';
 import { rewriteStorageOrigin } from '../shared/storage-url';
 import { classifyIpHost, sanitizeUrlForLog } from '../snapshots/providers/upload-url-guard';
 import {
-  buildConfigArchive,
-  buildConfigRelease,
+  agentArchiveBuilder,
   ConfigArchiveTooLargeError,
   isTreeObject,
   MAX_CONFIG_ARCHIVE_BYTES,
-  isComposedSource,
-  readComposedRelease,
-  resolveReleaseTreeSource,
   storeConfigArchive,
+  TreeJobBusyError,
+  treeJobs,
+  TreeJobTimeoutError,
 } from './builder';
-import { readFileTree } from './release-tree';
+import { variantAgent, type ConfigReleaseVariant } from './release-tree';
+import type { TreeOp, TreeOpArgs } from './tree-protocol';
 import {
   CONFIG_ARCHIVE_URL_TTL_SECONDS,
   configArchiveKey,
@@ -178,7 +178,8 @@ export async function serveConfigArchive(
   deps: ServeConfigArchiveDeps = {},
   /** The commit a composed release tree was built from (the path's `?commit=`). */
   composedFrom?: string | null,
-  agent?: string | null,
+  /** The one-agent variant the path's `?agent=` / `&scope=` name (`archiveQueryVariant`). */
+  variant?: ConfigReleaseVariant | null,
 ): Promise<Response> {
   const store = deps.store ?? getConfigArchiveStore();
   const key = configArchiveKey(project.projectId, treeId);
@@ -197,9 +198,10 @@ export async function serveConfigArchive(
     inMirror = await isTreeObject(repo, treeId);
   }
 
-  // Builds the archive when the store cannot serve it. A composed tree exists
-  // only in a scratch repository, so it is rebuilt from its commit.
-  let build: () => Promise<Buffer> = () => buildConfigArchive(repo, treeId, deps.archiveLimit);
+  // Builds the archive when the store cannot serve it, in a tree thread
+  // (`tree-jobs.ts`). A composed tree exists only in a scratch repository, so
+  // it is rebuilt from its commit.
+  let build: () => Promise<Buffer> = () => treeJobs.run(project.projectId, 'archive', { mirror: repo, treeId, limit: deps.archiveLimit });
   if (!inMirror) {
     try {
       const served = await tryServeFromStore(store, key, treeId, publicOverride, fetchImpl);
@@ -207,7 +209,13 @@ export async function serveConfigArchive(
     } catch (error) {
       console.warn(`[config-releases] store read ${key} failed for a mirror-less tree: ${(error as Error).message}`);
     }
-    const composed = await composedArchiveBuilder(repo, project, treeId, composedFrom, agent);
+    let composed: Awaited<ReturnType<typeof composedArchiveBuilder>>;
+    try {
+      composed = await composedArchiveBuilder(repo, project, treeId, composedFrom, variant);
+    } catch (error) {
+      if (error instanceof TreeJobBusyError || error instanceof TreeJobTimeoutError) return json(503, { error: error.message });
+      throw error;
+    }
     if (!composed) return json(404, { error: 'Not found' });
     build = composed;
   } else {
@@ -226,6 +234,7 @@ export async function serveConfigArchive(
     if (error instanceof ConfigArchiveTooLargeError) {
       return json(413, { error: `config archive exceeds ${MAX_CONFIG_ARCHIVE_BYTES} bytes` });
     }
+    if (error instanceof TreeJobBusyError || error instanceof TreeJobTimeoutError) return json(503, { error: error.message });
     throw error;
   }
   // Fill the cache for the next request. The response does not wait for it.
@@ -237,29 +246,35 @@ export async function serveConfigArchive(
  * A builder for the composed release tree of `commit`, when composing it
  * yields exactly `treeId`; else null. The equality check is what ties the
  * archive to this project: only a commit in its mirror composes the tree.
+ * Throws `TreeJobBusyError` or `TreeJobTimeoutError` when the tree threads
+ * could not answer now.
  */
 async function composedArchiveBuilder(
   repo: string,
   project: GitBackedProject,
   treeId: string,
   commit: string | null | undefined,
-  agent?: string | null,
+  variant?: ConfigReleaseVariant | null,
 ): Promise<(() => Promise<Buffer>) | null> {
   if (!commit || !/^[0-9a-f]{40}$/.test(commit)) return null;
   const known = await runGitCapture(['cat-file', '-e', `${commit}^{commit}`], repo);
   if (known.exitCode !== 0) return null;
+  const agent = variant ? variantAgent(variant) : null;
   if (agent && !/^[a-zA-Z0-9_-]+$/.test(agent)) return null;
-  if (agent) {
-    // The agent variant's release holds only its project tool modules (`toolsRelease`).
-    const release = await buildConfigRelease(project, commit, `agent:${agent}`).catch(() => null);
-    const files = release?.tools_only && release.config_tree_id === treeId ? release.files : null;
-    if (files) return async () => (await readFileTree(repo, files, { archive: true })).archive!;
+  if (variant && agent) {
+    // A one-agent release holds the files `agentRelease` lists, in a tree no mirror holds.
+    const builder = await agentArchiveBuilder(project, repo, commit, variant, treeId);
+    if (builder) return builder;
   }
-  const resolved = await resolveReleaseTreeSource(repo, project, commit).catch(() => null);
-  if (!resolved) return null;
-  if (!('source' in resolved) || !isComposedSource(resolved.source)) return null;
-  const { source } = resolved;
-  const probe = await readComposedRelease(repo, source, { archive: false });
+  const tree = <K extends TreeOp>(op: K, args: TreeOpArgs<K>) => treeJobs.run(project.projectId, op, args);
+  const deferred = (error: unknown) => error instanceof TreeJobBusyError || error instanceof TreeJobTimeoutError;
+  const at = { mirror: repo, manifestPath: project.manifestPath, commit };
+  const resolved = await tree('resolveSource', at).catch((error: unknown) => {
+    if (deferred(error)) throw error;
+    return null;
+  });
+  if (!resolved || !('rootTree' in resolved) || !resolved.composed) return null;
+  const probe = await tree('readComposed', { ...at, archive: false });
   if (probe.treeId !== treeId) return null;
-  return async () => (await readComposedRelease(repo, source, { archive: true })).archive!;
+  return async () => (await tree('readComposed', { ...at, archive: true })).archive!;
 }

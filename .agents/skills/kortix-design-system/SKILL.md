@@ -30,6 +30,660 @@ is the ceiling all three operate under. Corrections to earlier versions of this
 file (the shadow ladder that never existed, the press value) are recorded in
 [`decisions.md`](../kortix-brand/references/decisions.md), entries E1 and E2.
 
+## The product look: read this before you lay out anything
+
+Kortix product UI is a quiet, persistent system, not a set of pretty
+one-offs. The look comes from discipline that repeats on every screen, not
+from decoration. When a recipe below covers your screen, copy its structure
+and classes (never its example data). When a later section of this file
+disagrees with this one, this section wins.
+
+### Measure in real pixels
+
+Kortix sets `--spacing: 0.23rem`: one spacing step is 3.68px, not 4px. Every
+size class is 8% smaller than stock Tailwind. Measured: `h-8` 29px, `h-10`
+37px, `h-11` 40px, `h-12` 44px, `w-5` 18px, `w-16` 59px, `w-28` 103px,
+`w-32` 118px, `w-36` 132px, `w-72` 265px. `text-xs` is 13px, about 7px per
+character. Size a column from these numbers, never from a stock-Tailwind
+habit.
+
+### The ten laws
+
+1. **Dense inside, calm outside.** Rows are compact (`text-sm` names, `text-xs`
+   meta, `h-11` rows). The space between blocks is large and empty. Never
+   compensate for a thin page with a big centered column, a hero title or
+   padding.
+2. **Hierarchy from ink and size, not from color, boxes or weight.** Three ink
+   roles, nothing else:
+   - **Name ink:** `text-foreground`, `font-normal`. Field values, and the
+     names of rows that need attention (Needs review, Failed) or are
+     selected. A live row is marked by its glyph, not by bright text.
+   - **Title ink:** `text-foreground font-medium`. The page `<h1>`, a section
+     heading, the selected row's name. At most one per row.
+   - **Meta ink:** `text-muted-foreground`. Everything else: labels,
+     timestamps, counts, context, descriptions, people, branches, durations.
+     Meta ink is the default. Bright text is the exception: at most about a
+     third of the visible names. **A row in a live or resting group
+     (Running, Done, Archived) and a routine feed event write their name in
+     meta ink too**, at the same size and geometry: the eye goes
+     to the live work first. **Rail values are meta ink too**, except the
+     status word: the rail is reference, not work.
+   No `font-semibold` in product chrome below a detail-view title. No opacity
+   on text (`text-foreground/60`).
+3. **Edges are hairlines, not fills.** A group, a section and a list are
+   separated by `border-border` 1px rules or by space. Never a filled bar
+   (`bg-muted`) as a group header. Never a bordered panel around bordered
+   inputs. Never a card per row. Count the nested boxes: more than one
+   outline around any piece of text is a defect.
+4. **Color only means state.** Hue appears only on a state glyph for a live
+   or attention state (running, needs review, failed) and on diff counters,
+   from `STATUS_TEXT` in `@kortix/ui/status`. A resting state (done, idle,
+   archived) is meta ink: ten green checks down a list are noise, and the
+   group header already says "Done". A person, a model, a trigger, an event
+   type and a count never carry a hue. **No `UserAvatar` in product chrome
+   outside a participant stack and a comment author:** its fill is a hashed
+   hue. A person in a row, a rail or a field is their name in the ink the
+   slot prescribes. Diff counters are the `DiffStat` primitive (`@kortix/ui/status`,
+   `<DiffStat additions={38} deletions={6} className="text-xs" />`), never
+   hand-built spans. The
+   checked `Switch` is the one accent outside status; it is the primitive's,
+   never restyle it.
+   **An agent's name carries its pixel mark everywhere it appears** (page
+   title, breadcrumb, agent rows, pickers): `AgentMark` from
+   `@kortix/ui/internal/components/agent-mark`, `size={14}`, `shrink-0`,
+   `gap-1.5` before the name. It is the agent's face, not a decoration; rail
+   and facts-grid values still carry no glyph.
+   **An object's own state words differ from its children's.** An agent or a
+   trigger is Active, Paused or Archived; Running, Needs review and Done are
+   the words of its sessions or runs. Never label the parent "Running", and
+   a parent and its children never share a glyph or a hue: in a list
+   row, the parent's Active is a `size-2 rounded-full bg-current` dot in meta
+   ink (it is the normal state, not news; the rail shows only the word), Paused is `PauseCircleIcon` and Archived is
+   `ArchiveIcon`, both in meta ink. `CircleDashedIcon` in
+   `STATUS_TEXT.success` belongs to a child that runs now; green on a page
+   means "running" and nothing else (diff counters aside).
+5. **One grid per page.** One horizontal inset for every row, group header,
+   tab bar and section on the page: `px-3`, the same as the page header. One
+   row height per list. **One leading slot** (`flex w-5 shrink-0
+   justify-center` plus the row's `gap-3`) on every row AND every header,
+   so all text starts on one x. A header with no caret keeps the slot empty.
+   Trailing columns have fixed widths, so values line up down the page.
+   Every list on every tab of one page uses the same row. **A page has exactly
+   two text edges:** chrome text (breadcrumb, tab labels, settings labels)
+   starts on the inset (`px-3`, 11px), and list text (group headers, row
+   names) starts on the inset plus the leading slot (about 40px). Measure the
+   breadcrumb, the first tab label and a row name at 1440px: a third x value
+   is a defect.
+6. **The name owns the row.** The name column keeps at least half the row at
+   every width. At most three trailing columns (an actor, and for objects
+   that run, the duration and the relative end time). At most ONE secondary
+   fact sits inline after the name (a branch or an ID, never a duration), in
+   meta ink. Columns appear by the list's own width, never truncating at the
+   same time as the name: the inline fact from `@xl/list` (576px), the
+   people column from `@3xl/list` (768px). The name is `max-w-full shrink-0
+   truncate`, so the fact gives up its space first.
+   Identifiers (branches, repo slugs, IDs, paths) are `font-mono text-xs
+   text-muted-foreground` on every surface: rows, feed context, rail, facts
+   line. Never sans in one place and mono in another. Every row of one list
+   carries the same inline fact or none. What hides below `lg` stays reachable
+   on the row's destination. Never two columns from one fact (a duration and
+   "12 minutes ago"), and never two facts in one column: a time column holds
+   one value type in one format on every row. For objects that run (sessions,
+   runs) it is the duration: elapsed time for a live row (`42m`), the final
+   run length for an ended row (`22m`), `tabular-nums`; the exact start and
+   end times are in its `InlineMetaTime` hint. For objects that do not run
+   (docs, spaces) it is the relative time of the last change (`6m ago`).
+   Never mix `8m` and `6m ago` in one column. An actor column holds actors only: a
+   person's name, or an automation with a `size-3.5` meta-ink glyph before its
+   name (`ClockIcon` Schedule, `WebhooksLogoIcon` Webhook), so the two kinds
+   read apart. The cell is `flex items-center gap-1.5` with a `size-3.5
+   shrink-0` slot on every row (an empty `<span>` for a person), so the text
+   of the column starts on one x. A trailing column is as wide as its longest realistic
+   value: the people column is `w-36` (132px): after its `size-3.5` slot and
+   `gap-1.5` it holds about 16 characters of `text-xs`. Render the longest
+   name in your data and confirm it has no ellipsis. A value that is not
+   a person in a people column is one word ("Schedule", "Webhook"). A name
+   that truncates at 1440px is a defect. **Nothing in the rail or the facts
+   grid truncates:** prose wraps (`whitespace-normal break-words`) and
+   identifiers wrap too (`font-mono text-xs whitespace-normal
+   [overflow-wrap:anywhere]`). Only list rows truncate.
+7. **Say it once.** The page header names the page. The body never repeats the
+   name as a big heading with a description under it. A row never repeats its
+   group (under a "Yesterday" header a row shows `09:14`, not "yesterday").
+   No title over description over title. One sentence per empty state, at
+   most 60 characters, so it fits 2 lines in `EmptyState size="sm"`.
+8. **States keep the shape.** Loading draws the loaded layout in `Skeleton`
+   (recipe below): same group headers, same row height, every column slot at
+   its width. Counts and tabs stay mounted in every state and keep their
+   width, so nothing shifts. On a first load nothing is known: a count is a
+   `Skeleton` in the count's slot and a fact that comes from the list is a
+   `Skeleton` too; never an invented value. **A tab's count slot never
+   unmounts:** the trigger holds a fixed `inline-flex w-6 justify-end`
+   slot; loaded puts `CountBadge` in it, loading a `Skeleton h-3 w-5 py-0`,
+   and error the last known `CountBadge`, or a meta-ink `–` on a first-load
+   error (the slot keeps its width and the underline ends at a glyph, never
+   at blank space). Tab labels sit at the same x in all four states. Creating an
+   object from any state shows the loaded list with the new row and the new
+   count before the success toast. Empty and error states sit in the
+   list area.
+9. **Real data, specific copy.** Specific names, real identifiers, clock
+   times. Copy is short and declarative, with no filler and no trailing period
+   on titles. When a side panel shows one object, its row is the open row
+   (`bg-active`, name in title ink); a page with no side panel has no open
+   row. Copy that names an object reads it from the current data, so a
+   rename updates it. Acronyms are uppercase in every string, mock titles
+   included (API, CI, PR, SDK). State words keep their label case in prose
+   ("Moved to Done"). An error names the user-level cause and what still
+   works ("Release Captain keeps running its sessions."),
+   never a status code or a retry count.
+10. **Motion is feedback, not decoration.** Hover is a color change
+    (`transition-colors duration-fast`). Lists appear at once. Nothing on a
+    product page animates on load.
+
+### Page width: by page type
+
+| Page type | Content frame |
+| --- | --- |
+| List page (spaces, sessions, triggers, an inbox) | Full width of the pane, rows `px-3`, no `max-w-*`. A centered column truncates names and wastes 40% of the screen. |
+| Detail page (a trigger, a goal, a space, an agent) | Full width: main column `min-w-0 flex-1` + a properties rail `w-72 border-l` at `lg:`. The work gets the width; the facts sit in the rail. |
+| A settings tab inside a detail page | Left-aligned on the page inset: `w-full max-w-2xl px-3 pt-6 pb-16`, the rail stays. No `mx-auto`, no `py-10`. |
+| A standalone settings page, a customize section | `mx-auto w-full max-w-2xl px-4 py-10` (the shell under "Layout & responsiveness"). |
+
+The content of a list or detail page starts directly under the header row:
+the tab bar or the first group header is the next line.
+
+### Leading glyphs: one style, one glyph per state
+
+Every leading glyph is a Phosphor icon at `size-4` in the `w-5` slot, at the
+global weight (never a `weight` prop). One fixed glyph per state, never a
+per-row pattern or seed:
+
+| State | Glyph | Ink |
+| --- | --- | --- |
+| Running, live | `CircleDashedIcon` | `STATUS_TEXT.success` |
+| Needs review, awaiting you | `GitPullRequestIcon` (code) or `EyeIcon` (anything else) | `STATUS_TEXT.warning` |
+| Failed | `XCircleIcon` | `STATUS_TEXT.destructive` |
+| Queued, idle | `CircleIcon` | meta ink |
+| Done | `CheckCircleIcon` | meta ink |
+
+**Feed events have a closed glyph table** (all `size-4`, meta ink unless a
+colour is given):
+
+| Event | Glyph |
+| --- | --- |
+| Started | `PlayIcon` |
+| PR opened | `GitPullRequestIcon` |
+| Asked for review | `GitPullRequestIcon` in `STATUS_TEXT.warning` |
+| Merged | `GitMergeIcon` |
+| Finished | `CheckCircleIcon` |
+| Failed | `XCircleIcon` in `STATUS_TEXT.destructive` |
+| Edited | `PencilSimpleIcon` |
+
+Never `GitBranchIcon` for a PR event.
+
+**One glyph, one ink, one meaning, on the whole page.** A state glyph keeps
+its state ink everywhere it appears, list or feed: "Asked for review" in the
+feed is the Needs review glyph in `STATUS_TEXT.warning`. No other event
+borrows a state glyph outside the table above. **One hue, one meaning:**
+blue is the checked `Switch` ("on") and nothing else on a page; orange is
+"awaiting you"; green is "running"; red is "failed".
+`ArrowSquareOutIcon` means "opens outside the app" and nothing else. List every glyph across all tabs before you hand back; each maps
+to exactly one meaning.
+
+`SolidCheckIcon` is the completion confirmation that swaps in after an action
+(copy → copied); it is not a row state. `SessionDotMatrix` marks live work in
+the session view, not in a list's leading slot.
+
+### Recipe: list rows with groups
+
+Example domain: the runs of a scheduled trigger. Copy the structure, not the
+words.
+
+```tsx
+const LEAD = 'flex w-5 shrink-0 justify-center';
+// The one separator, used in rows, feeds and facts. No spaces or flex gap around it.
+const SEP = <span aria-hidden className="text-muted-foreground px-1.5">·</span>;
+
+// The list fills the main column: <div className="@container/list w-full min-w-0 space-y-6">{groups}</div>
+// No max-w-*: every hairline in the main column spans the tab bar's width, up to the rail.
+<section>
+  <div className="flex h-8 items-center gap-3 border-b border-border px-3 text-xs">
+    {/* the toggle is only caret + name + count; column captions sit outside it */}
+    <button
+      type="button"
+      onClick={toggle}
+      aria-expanded={open}
+      className="group/toggle flex h-full min-w-0 flex-1 items-center gap-3 self-stretch text-left"
+    >
+      <span className={LEAD}>
+        <CaretDownIcon className={cn('text-muted-foreground size-3', !open && '-rotate-90')} />
+      </span>
+      <span className="text-foreground font-medium">Failed</span>
+      <span className="text-muted-foreground tabular-nums">2</span>
+    </button>
+    {/* first group only: captions in the value slots */}
+    {/* the caption carries the value's glyph slot, so its text starts on the values' x */}
+    <span className="text-muted-foreground hidden w-36 shrink-0 items-center gap-1.5 @3xl/list:flex"><span className="size-3.5 shrink-0" />Started by</span>
+    <span className="text-muted-foreground w-14 shrink-0 text-right">Duration</span>
+    <span className="text-muted-foreground w-16 shrink-0 text-right">Ended</span>
+  </div>
+  {open ? (
+    <ul>
+      <li className="relative flex h-11 items-center gap-3 px-3 transition-colors duration-fast hover:bg-hover">
+        <span className={LEAD}>
+          <XCircleIcon className={cn('size-4', STATUS_TEXT.destructive)} />
+        </span>
+        {/* no gap-*: SEP's px-1.5 is the only space around the dot */}
+        <Link href={runHref(run.id)} className="flex min-w-0 flex-1 items-baseline outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring">
+          {/* name ink only for attention groups (Needs review, Failed); meta ink for live and resting groups */}
+          {/* the name never shrinks below its text; the fact takes what is left */}
+          <span className="text-foreground max-w-full shrink-0 truncate text-sm">Post the weekly churn report to #revenue</span>
+          <span className="text-muted-foreground hidden min-w-0 truncate font-mono text-xs @xl/list:inline">
+            {SEP}run_8f2c41
+          </span>
+        </Link>
+        <span className="text-muted-foreground hidden w-36 shrink-0 items-center gap-1.5 text-xs @3xl/list:flex">
+          <ClockIcon className="size-3.5 shrink-0" />{/* a person gets <span className="size-3.5 shrink-0" /> */}
+          <span className="truncate">Schedule</span>
+        </span>
+        <span className="text-muted-foreground w-14 shrink-0 text-right text-xs tabular-nums">2m 14s</span>
+        <span className="text-muted-foreground w-16 shrink-0 text-right text-xs tabular-nums">
+          {/* relative z-10 lifts the hint trigger above the stretched link; the hint shows the exact time */}
+          <span className="relative z-10"><InlineMetaTime date={run.endedAt}>14m ago</InlineMetaTime></span>
+        </span>
+      </li>
+    </ul>
+  ) : null}
+</section>
+```
+
+- Every row of an object list is one link (`after:absolute after:inset-0`)
+  with the hover fill, so the whole row is clickable and keyboard focusable.
+  In mock code, link to the route the object would have
+  (`/projects/<id>/runs/<run_id>`). A row menu (⋯) is a sibling with
+  `relative z-10`, see "List page rows" below. The row whose object is open
+  beside the list shows `bg-active` and its name in title ink.
+- Rows inside a group have no divider: the 40px rhythm and the hover fill
+  separate them. Only the group header (`border-b border-border`) and the
+  pane edges draw a hairline. A rule every 40px reads as ruled paper.
+- Rows sort by the group's time column: a live group by longest elapsed
+  first, every other group by most recent change first.
+- The people column shows whenever the list itself is at least 48rem wide
+  (`hidden @3xl/list:flex`), decided by the list's width, not the viewport.
+- The first group header carries the trailing column captions ("Started
+  by", "Duration", "Ended") in meta ink, in the same slots as the row values,
+  outside the toggle button (a caption is not a control). Later group headers
+  leave the slots empty. A caption's text starts on the same x as its
+  values' text (measure: more than 1px off is a defect).
+- **A cell never states something false.** A live row's "Ended" cell is a
+  meta-ink `–` with `aria-label="Still running"`; its elapsed time is already
+  in Duration. Never "now", never "running". Read every cell aloud with its
+  caption ("Ended: now"): a false sentence is a defect.
+- The group name is `text-foreground font-medium` inside an `h2` that names
+  the group's `<section aria-labelledby>`; the caret, the count and the
+  captions are meta ink. Each value cell carries its caption for screen
+  readers (`<span className="sr-only">Duration </span>`).
+- A row has one Tab stop: its link. At most one hint per row is focusable,
+  and it holds every exact time (started and ended) in one `Hint`.
+- Creating an object expands its group, scrolls the new row into view
+  (`scrollIntoView({ block: 'nearest' })`), focuses its link, and only then
+  calls `successToast`.
+- The time column holds one value type (law 6). Rows sort by it: a live
+  group by longest elapsed first, other groups by most recent end first.
+- Group order is the order of urgency: the group that waits on the user
+  first (Needs review, Failed), the live group second (Running), resting
+  groups last (Done, Archived). Only the attention group uses name ink.
+- A collapsed group keeps its header. A group with no rows is not drawn.
+- Group counts are bare `tabular-nums` meta text. `CountBadge` is for a tab
+  or a nav item, not a group header.
+
+### Recipe: an activity feed
+
+The same row and the same group header (without the caret: the slot stays,
+empty). Example domain: a project's documents.
+
+```tsx
+<li className="relative flex h-11 items-center gap-3 px-3 transition-colors duration-fast hover:bg-hover">
+  <span className={LEAD}>
+    <PencilSimpleIcon className="text-muted-foreground size-4" />
+  </span>
+  <Link href={docHref} className="min-w-0 flex-1 truncate text-sm after:absolute after:inset-0">
+    <span className="text-muted-foreground">Edited:</span>{' '}
+    {/* routine event: object in meta ink; attention event (Failed, Asked for review): object in text-foreground */}
+    <span className="text-muted-foreground">Pricing FAQ</span>
+    {SEP}
+    <span className="text-muted-foreground font-mono text-xs">rev 14</span>
+    {/* a Finished event's context is <DiffStat additions={38} deletions={6} className="text-xs" /> */}
+  </Link>
+  <time className="text-muted-foreground w-16 shrink-0 text-right text-xs tabular-nums">09:14</time>
+</li>
+```
+
+- **Every event glyph is meta ink.** Only a failure colors its glyph
+  (`STATUS_TEXT.destructive`). "Started", "merged", "opened" are past events,
+  not live states: never green, never the running glyph.
+- **One type size per line:** the event phrase and the object are both
+  `text-sm`; only a mono identifier is `text-xs`.
+- **One grammar for every row:** `<event phrase>:` in meta ink, then the
+  object's name, then ` · ` and one context fact. The colon keeps an
+  imperative title from gluing onto the verb: "Moved to review: Pin the SDK
+  in white-label apps", "PR opened: Bump the API client to 2.14", "Failed:
+  Backport the webhook retry". Never "Merged Tag web 4.8.0…".
+- **A closed vocabulary before the colon:** Started, Pushed, PR opened,
+  Merged, Finished, Failed, Asked for review, Edited. A value (a duration, a
+  count, a version) never goes in the phrase: it is the context fact after
+  ` · `, or nothing. Consecutive events on one object within 10 minutes
+  collapse into the later one.
+- **A feed records state changes, not steps.** At most two events per
+  object per day: its latest transition and, if different, its start.
+  "Started" shows only for an object that is still running. Pushes fold into
+  the next PR opened, Merged or Asked for review. At least half the rows are
+  transitions (Asked for review, Merged, Finished, Failed).
+- **An attention event** (Failed, Asked for review) writes its OBJECT name in
+  name ink and keeps the phrase in meta ink, with the state glyph: the phrase
+  repeats, the object does not. A routine event is all meta ink.
+- **The context fact is the event's own artifact, never what the list row
+  already shows:** `#4821` for PR opened, Merged and Asked for review, `+38
+  −6` diff counters for Finished, the failing step for Failed ("e2e shard
+  3"). A feed whose rows map 1:1 to list rows with the same fact is a defect.
+  Drop a fact that repeats the event or the object ("Tagged web 4.8.0 ·
+  v4.8.0"). Read each row aloud: a repeated word is a defect. At most one in three rows within each day group
+  carries bright text, never two bright rows next to each other at the top;
+  if the data breaks this, change the data. The failure must be the first
+  thing the eye finds. Identifiers go after ` · `, never into the title.
+  Capitalize acronyms in prose (API, PR); keep literal case in branch names
+  and paths. An event that points to an object is a link, like a list row.
+- Day groups (Today, Yesterday, Nov 19) use the group header with an empty
+  leading slot. Rows under a day show a clock time.
+
+### Recipe: a detail page
+
+Example domain: one scheduled trigger.
+
+```tsx
+<div className="flex h-full min-h-0 flex-col">
+  <ProjectPageHeader
+    title="Weekly churn report"
+    breadcrumb={
+      <>
+        <Link href={triggersHref} className="text-muted-foreground hover:text-foreground focus-visible:ring-ring shrink-0 rounded-sm text-sm outline-none focus-visible:ring-2">Triggers</Link>
+        <CaretRightIcon className="text-muted-foreground size-3 shrink-0" aria-hidden />
+      </>
+    }
+  >
+    <Button size="sm" variant="secondary">Pause</Button>
+    <Button size="sm"><PlayIcon className="size-3.5" />Run now</Button>
+  </ProjectPageHeader>
+  <Tabs defaultValue="runs" className="flex min-h-0 flex-1">
+    <main className="flex min-w-0 flex-1 flex-col">
+      {/* below lg: every rail fact, labelled, never clipped. It is page identity:
+          it sits above the TabsList, under the header. */}
+      <dl className="grid grid-cols-[4rem_minmax(0,1fr)_4rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 border-b border-border px-3 py-3 text-sm lg:hidden">
+        <dt className="text-muted-foreground">Status</dt><dd className="text-foreground truncate">Active</dd>
+        <dt className="text-muted-foreground">Schedule</dt><dd className="text-muted-foreground truncate">Mondays 09:00</dd>
+        …
+      </dl>
+      <TabsList type="underline" className="h-10 w-full justify-start gap-4 border-b border-border px-3">
+        <TabsTrigger value="runs" className="w-fit flex-none gap-1.5 px-0">
+          Runs
+          <span className="inline-flex w-6 justify-end">
+            {count != null ? <CountBadge count={count} /> : loading ? <Skeleton className="h-3 w-5 py-0 motion-reduce:animate-none" /> : <span className="text-muted-foreground text-xs">–</span>}
+          </span>
+        </TabsTrigger>
+        …
+      </TabsList>
+      <TabsContent value="runs" className="min-h-0 flex-1 overflow-y-auto pt-4">{/* groups, recipe above */}</TabsContent>
+    </main>
+    <aside className="hidden w-72 shrink-0 overflow-y-auto border-l border-border lg:block">
+      <h2 className="text-muted-foreground flex h-10 items-center border-b border-border px-3 text-xs font-medium">Properties</h2>
+      <DefinitionList className="px-3 py-3">
+        <DefinitionRow label="Status" labelWidth={64}>
+          {/* a word, no glyph: every rail value starts on one x */}
+          <span className="text-foreground">Active</span>
+        </DefinitionRow>
+        <DefinitionRow label="Owner" labelWidth={64}><span className="text-muted-foreground">Ana Ruiz</span></DefinitionRow>
+        <DefinitionRow label="Schedule" labelWidth={64}><span className="text-muted-foreground">Mondays 09:00</span></DefinitionRow>
+        <DefinitionRow label="Repo" labelWidth={64}><span className="text-muted-foreground block font-mono text-xs leading-5 whitespace-normal [overflow-wrap:anywhere]">acme-analytics/warehouse-pipelines</span></DefinitionRow>
+        <DefinitionRow label="Purpose" labelWidth={64}>
+          <span className="text-muted-foreground block whitespace-normal break-words leading-snug">Posts churn by plan to #revenue</span>
+        </DefinitionRow>
+      </DefinitionList>
+    </aside>
+  </Tabs>
+</div>
+```
+
+- The header is the identity. No icon tile, no `text-2xl` name, no
+  description block in the body. A one-line purpose goes in the rail as a fact.
+- The rail heading row has the tab bar's exact height (`h-10`) and the same
+  `border-b`, so one hairline runs across the main column and the rail.
+- **Rail geometry.** `w-72` rail, `px-3` (the page inset, so the rail adds
+  no text edge), every `DefinitionRow` with
+  `labelWidth={64}`: the value column is about 160px. Labels are one word of
+  at most 8 characters. A status value is one word ("Running"); a count
+  belongs in the tab, not in the status. **Rail and facts-grid values carry
+  no glyph:** a glyph either pushes the text off the value edge (a third
+  text start) or, hung outside, is clipped by `DefinitionRow`'s `truncate`.
+  The status is its word, in name ink; the other values are meta ink. The value column
+  holds about 22 characters of `text-sm` per line, so prose in the rail is
+  at most 36 characters. **One order for the rail and the facts grid:**
+  Status, Owner, Model, Repo, then the prose fact (Role or Purpose) last.
+  Every rail value uses one 20px line box: identifiers are `font-mono text-xs
+  leading-5`, so single-line rows sit on one pitch (±1px).
+  Look at the screenshot: exactly 2 lines, no single-word last line, or
+  shorten the data. The full text lives in Settings. Identifier values are `font-mono text-xs`. Read every rail value at 1440px with
+  the real data: a clipped value is a defect.
+- **Header actions follow state.** One eligibility function per object
+  decides both which header buttons render and whether their handlers run:
+  Active shows Pause + the primary action; Paused shows Resume + the primary
+  action; Archived shows only Restore (no new work can be submitted, from the
+  header, the empty state or a keyboard shortcut). An action that cannot
+  apply is hidden, not disabled. When an action replaces itself (Pause →
+  Resume), focus moves to the replacement; when it disappears (Archive),
+  focus moves to the page `<h1>` (`tabIndex={-1}`).
+- Below `lg`, a two-pair grid between the header and the tab bar carries
+  every fact the rail shows, in the rail's exact order, with the same value
+  treatments (status word in name ink, other values meta ink, mono
+  identifiers): label in meta ink, two facts per line, pairs filled left to
+  right, the prose fact last on its own line, so labels and values form
+  columns. No fact is clipped and none is dropped; prose facts take a full
+  line (`col-span-3` on the `dd`). Check it at 720px with the real values.
+- **One frame on every tab.** Switching tabs never changes the header, the
+  rail or the content edges. The rail stays on Settings and shows the saved
+  values; it updates on save, not while typing.
+- The tab bar stays put while the tab content scrolls: the `TabsList` sits
+  outside the scroller, and each `TabsContent` is `min-h-0 flex-1
+  overflow-y-auto`.
+- Retry from an error goes back through the loading state, then loaded. It
+  keeps every other URL parameter.
+- Breadcrumb: every parent crumb is a real `Link` (`text-sm
+  text-muted-foreground hover:text-foreground focus-visible:ring-2
+  focus-visible:ring-ring`), never a `<span>`. The current page is the
+  header's `<h1>`.
+- Tabs: `TabsTrigger` takes `px-0` and the list `gap-4`, so the first label
+  starts on the page inset and the underline is as wide as its label.
+- The tab count stays mounted in every state with its last known count and
+  the fixed `w-6 justify-end` slot, so "0" and "12" are one width and the tabs never
+  shift.
+
+### Recipe: a settings form
+
+One grid for every field. Example domain: a trigger's settings.
+
+```tsx
+const FIELD_ROW = 'grid min-h-14 gap-2 py-2 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center sm:gap-6';
+const FIELD_ROW_TALL = 'grid gap-2 py-2 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-start sm:gap-6'; // label gets sm:pt-2.5
+
+<div className="w-full max-w-2xl px-3 pt-6 pb-16 space-y-10">
+  <section>
+    <h2 className="text-foreground border-b border-border pb-3 text-sm font-medium">General</h2>
+    <div className="pt-2">
+      <div className={FIELD_ROW}>
+        <Label htmlFor="name" className="text-muted-foreground text-sm font-normal">Name</Label>
+        <Input id="name" size="md" defaultValue="Weekly churn report" />
+      </div>
+      <div className={FIELD_ROW}>
+        <Label htmlFor="notify" className="text-muted-foreground text-sm font-normal">Notify on failure</Label>
+        <div className="flex items-center gap-3"><Switch id="notify" /><span className="text-muted-foreground text-sm">Email the owner</span></div>
+      </div>
+      <div className={FIELD_ROW_TALL}>{/* a textarea keeps the label column; the label takes sm:pt-2.5 */}</div>
+    </div>
+  </section>
+</div>
+```
+
+- No panel around the fields and no rule between field rows: a bordered
+  input beside a hairline 10px away reads as ruled paper with boxes on it.
+  The only rule is under each section heading. Rows are `min-h-14`, so a
+  Switch row and an Input row are one height. Sections are `space-y-10` apart.
+- One control height per form: `Input size="md"`, `SelectTrigger size="md"`
+  and `Button size="lg"` (all `h-10`, 37px). Values in one control column
+  start on one x: `Input` pads `px-3` and `SelectTrigger size="md"` pads
+  `px-3.5`, so the trigger takes `className="px-3"`. A `Switch` sits at the start of the
+  control column (`justify-self-start`), with any explanation beside it in
+  `text-sm text-muted-foreground`. A label is one line of at most 24
+  characters; a label never wraps. Every field keeps the label column,
+  a textarea included (`FIELD_ROW_TALL`). A textarea sizes to its content
+  (`field-sizing-content min-h-16`), never a fixed tall box.
+- An invalid field says so where it is: `aria-invalid` on the control and a
+  `FieldDescription` in `text-xs text-destructive` linked by
+  `aria-describedby` ("Name is required"). A disabled Save with no visible
+  reason is a defect.
+- While Save runs, the form is locked (`<fieldset disabled={saving}>`), so
+  no edit made during the save is overwritten by the saved copy.
+- A `Switch` row's trailing text states the effect when on, in words the
+  label does not use, at most 40 characters ("Waits for your approval to
+  merge"). If it would repeat the label, omit it.
+- A form's draft lives in the component that owns the tabs, above
+  `TabsContent`, so switching tabs and back keeps unsaved edits. Its
+  `ActionBarDock` and ⌘S binding exist only while the form tab is active.
+- A section has at least two rows; a single setting joins the section
+  above it. Danger zone is the exception and the last section.
+- Danger zone: its row is the same `FIELD_ROW`: the action as the label in
+  meta ink like every other label ("Archive trigger"), the button "Archive…" and
+  `Button variant="outline" size="lg"` with `text-destructive` (`h-10`, the
+  form's one control height) at the end of the control column. The consequence sentence goes in the `ConfirmDialog`
+  it opens, not under the label. The solid `destructive` button lives only
+  inside that dialog. No red panel, no red border.
+
+### Recipe: the four states of a list
+
+Column captions are labels, not data: the first skeleton group header shows
+them as real meta-ink text in their slots, exactly as loaded; only the group
+name and count are `Skeleton`. `Skeleton` has a built-in `py-4`: every bar
+passes `py-0` or the bar is 30px tall, and `motion-reduce:animate-none` (it pulses forever otherwise). Each bar sits in the slot of the column it stands for. Draw every group
+the list always shows (`GROUP_ORDER`): on a refresh, with each group's last
+known count of rows; on a first load, three rows each. Title bars at three
+widths, and a count bar in each group header.
+
+```tsx
+{state === 'loading' ? (
+  <section aria-busy className="w-full min-w-0 space-y-6">
+    {GROUP_ORDER.map((group) => ( // inside <section className="space-y-6">
+    <div key={group}>
+      <div className="flex h-8 items-center gap-3 border-b border-border px-3">
+        <span className={LEAD}><CaretDownIcon className="text-muted-foreground size-3" /></span>
+        <Skeleton className="h-3 w-20 py-0" />
+        <Skeleton className="h-3 w-4 py-0" />
+      </div>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="flex h-11 items-center gap-3 px-3">
+          <span className={LEAD}><Skeleton className="size-4 rounded-full py-0" /></span>
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <Skeleton className={cn('h-3 py-0', ['w-64', 'w-80', 'w-48'][i])} />
+            <Skeleton className="hidden h-3 w-24 py-0 @xl/list:block" />
+          </span>
+          <span className="hidden w-36 shrink-0 items-center gap-1.5 @3xl/list:flex"><span className="size-3.5 shrink-0" /><Skeleton className="h-3 w-20 py-0" /></span>
+          <span className="flex w-14 shrink-0 justify-end"><Skeleton className="h-3 w-10 py-0" /></span>
+          <span className="flex w-16 shrink-0 justify-end"><Skeleton className="h-3 w-12 py-0" /></span>
+        </div>
+      ))}
+    </div>
+    ))}
+  </section>
+) : state === 'error' ? (
+  <ErrorState size="sm" className="py-16" title="Could not load runs" description="Weekly churn report keeps firing on schedule." action={<Button variant="outline" size="sm" onClick={retry}>Try again</Button>} />
+) : runs.length === 0 ? (
+  <EmptyState size="sm" className="py-16" media={<EmptyArt icon={ClockIcon} />} title="No runs yet" description="Runs appear here after you press Run now." />
+) : (
+  groups
+)}
+```
+
+- Count every empty and error sentence AFTER substituting the longest real
+  object name: over 60 characters, drop the name. "Work already running on
+  Release Captain continues in the background." is 68 characters, 3 lines,
+  a defect. The empty sentence names the committed action that creates the
+  first object (sending the task), not the button that opens a composer.
+- Empty copy: one sentence of at most 60 characters. When the header shows
+  the primary action, the empty state has no button and the sentence names
+  that action ("Runs appear here after you press Run now."); otherwise it
+  says when objects appear ("Runs appear here after the schedule fires.").
+  No noun appears twice in the sentence, counting the quoted button label:
+  with a "New task" button, "Sessions appear here after you start a task."
+  is right; "Start the first task with New task." is a defect. It carries `Button variant="outline"
+  size="sm"` only when the header has no primary action. Two identical calls
+  to action on one screen are a defect. Every action that creates an object adds it to
+  the list and updates the count, in every state.
+- Error copy: a title with no period and one meta sentence of at most 12
+  words that adds what the title does not: the consequence or what still
+  works. Its subject is the object, never a pronoun ("Their sessions…"). It
+  never promises that a retry succeeds. First-load error (no rows on
+  screen): "Weekly churn report keeps firing on schedule." Refresh error
+  with last-known rows still shown: "These runs may be out of date." Never
+  call a list stale when no list is drawn. Never a sentence that
+  restates the title ("The runs did not arrive"), never "Something went wrong".
+- The list area is one panel that stays mounted across loading, error and
+  loaded, with `aria-busy` while loading. Each tab owns its own panel ref;
+  Retry moves focus to the panel of the tab that retried (`tabIndex={-1}`)
+  the moment it is pressed, because the button it came from unmounts.
+- Each tab writes its own error sentence about its own object. Never one sentence copied across
+  tabs.
+- A route that cannot draw its shell yet uses `ProjectPendingScreen` as its
+  `Suspense` fallback, never `null` (a blank page).
+- An async button keeps its width: one fixed `size-4 shrink-0` slot holds the
+  glyph, and `Loading` swaps into that slot while pending. While a `Modal`
+  submits, Cancel is `disabled`, the corner close is hidden
+  (`showCloseButton={!pending}`) and `onOpenChange` ignores a close.
+- A state forced by the URL (`?state=`) is read with `useSearchParams()`.
+  When retry or creation leaves that state, remove only `state`
+  (`router.replace(…, { scroll: false })`) and keep every other parameter.
+- A date-grouped feed's skeleton reuses the last known group and row counts;
+  on a first load, the same three groups as the list.
+- Mock data is one moment and one fixture: every tab reads the same objects.
+  A feed event agrees with the list (a failed run sits in the Failed group);
+  an empty list means an empty feed too.
+- Empty and error sit at the top of the list area (`py-16`), not centered in
+  the viewport.
+
+### Self-check before you hand back (measure, do not eyeball)
+
+1. Group headers, day headers and row names start on the same x; the leading
+   glyph and the caret share one `w-5` slot.
+2. No name and no rail prose truncates at 1440px. At 720px, names keep at
+   least half the row and every fact in the facts line is readable whole.
+   Only two text edges: the inset (11px) and the list edge (about 40px).
+3. Count the hues on the screen. Each one maps to a live or attention state.
+   A person, an avatar fill, a model, an event type or a decoration with a hue
+   is a defect.
+4. Count the outlines around any one word. More than one is a defect.
+5. Count the title-ink elements per row: more than one is a defect. Count the
+   bright names: more than the live, attention and selected rows is a defect.
+6. Loading, empty and error keep the tab bar, header and counts in place and
+   at the same width: compare the x of every tab label across the four state
+   screenshots. Every skeleton bar is `py-0`, sits in its column, and the
+   title bars have three different widths.
+7. No `mx-auto max-w-2xl`, `py-10` or `lg:py-20` on a list or detail page.
+8. Every full-row link goes somewhere real.
+9. None of your copy or data was copied from this file's examples.
+10. Read every rail value at 1440px and every fact at 720px with the real
+    data. A clipped value, an empty count slot or a disabled header action
+    that cannot apply is a defect.
+11. Every glyph on every tab maps to one meaning; every acronym is uppercase;
+    every group is sorted by its time column.
+12. Read each feed row against its list row: same state, same moment. And at
+    720px, no row truncates its name while its inline fact still shows.
+
 ## Start here: the rendered truth
 
 **Follow the Kortix design system.** Every component, token and pattern below is
@@ -134,7 +788,7 @@ apply to product UI, not only to the styleguide.
 | Banned                                                                                                                                       | Use instead                                                                                                                                                                                                                                                                                  |
 | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`SectionCard`** (`packages/ui/src/primitives/section-card.tsx`)                                                                            | `Card` (`card.tsx`), `Label` + `bg-popover rounded-md border` panel, or `Disclosure` — see `project-settings-page.tsx`                                                                                                                                                                       |
-| **`List` / `ListRow`** (`packages/ui/src/primitives/list.tsx`)                                                                               | In a modal, popover or sheet: one grouped container (see _Grouped rows_). On a page: `<ul className="space-y-2">` + entity row classes — see `access-row.tsx`, `review-detail.tsx`                                                                                                                                                                                                |
+| **`List` / `ListRow`** (`packages/ui/src/primitives/list.tsx`)                                                                               | In a modal, popover or sheet: one grouped container (see _Grouped rows_). On a page: hairline rows, "Recipe: list rows with groups" in The product look                                                                                                                                                                                                |
 | **`Dialog` / `DialogContent`** in feature code                                                                                               | **`Modal`** from `packages/ui/src/primitives/modal.tsx` — see `secrets-view.tsx`, `channels-view.tsx`                                                                                                                                                                                        |
 | **`Tooltip` / `TooltipTrigger` / `TooltipContent`** in feature code                                                                          | **`Hint`** from `packages/ui/src/primitives/hint.tsx`                                                                                                                                                                                                                                        |
 | **`@/lib/toast`** (deleted; never recreate it), raw `sonner`, `toast.success/error/info/warning()`, `toast.custom()`                         | Named helpers from `packages/ui/src/primitives/toast.tsx`. An action button is the `button` option (a `Button`), not sonner's `action`. `tests/unit/toast-single-source.test.ts` fails on any other `sonner` import                                                                          |
@@ -223,11 +877,15 @@ is the current shell for capability pages. The older `CustomizeSectionWrapper`
 
 ## Layout & responsiveness
 
-**Always wrap a section in the shell its tree already uses** — `CapabilityPageShell`
+**This shell is for settings and customize forms only.** A list page or a
+detail page uses `ProjectPageHeader` and the full-width frame in "Page width:
+by page type" above, never this centered column.
+
+**Always wrap a settings or customize section in the shell its tree already uses** — `CapabilityPageShell`
 for a capability page, `CustomizeSectionWrapper` under `packages/ui/src/customize/sections/view/`.
 Do not hand-roll the outer shell.
 
-Canonical pattern (from `section-wrapper.tsx`):
+Canonical pattern for a settings section (from `section-wrapper.tsx`):
 
 ```tsx
 <div className="flex h-full min-h-0 flex-col">
@@ -309,13 +967,15 @@ Reference: `packages/ui/src/workspace/session-spaces/spaces-page.tsx`,
 A list page (Spaces) shows items as rows, not cards, when a row's facts fit
 on one line.
 
-1. **Groups.** A filled, collapsible header per group (`Collapsible`,
-   `bg-muted/60`, `h-9`, `rounded-md`, `text-sm text-muted-foreground`), the
-   group's name and its count, a `CaretDownIcon` that turns `-90deg` when
-   closed. A group with no rows is not drawn.
-2. **Row.** `h-11`, `rounded-md`, `hover:bg-hover`, the whole row one link.
-   Leading: the item's bare glyph (`size-5`, no tile), then the name
-   (`text-sm`, `truncate`).
+1. **Groups.** A hairline, collapsible header per group: `h-8`,
+   `border-b border-border`, `px-3`, `text-xs font-medium
+   text-muted-foreground`, a leading `CaretDownIcon` (`size-3`) that turns
+   `-90deg` when closed, the group's name and its count (`tabular-nums`, meta
+   ink). Never a filled `bg-muted` bar. A group with no rows is not drawn.
+   The full recipe is "Recipe: list rows with groups" above.
+2. **Row.** `h-11`, `px-3`, `border-b border-border`, `hover:bg-hover`, the
+   whole row one link. Leading: the item's bare glyph (`size-4`, no tile) in
+   the `w-5` leading slot, then the name (`text-sm`, `truncate`).
 3. **Trailing columns.** Fixed widths, so every row lines up: people
    (`SessionParticipantStack`, the session header's avatar stack, never
    hand-drawn faces), access (`w-24`, a `size-3.5` icon and a word), time
@@ -364,7 +1024,11 @@ Panels are **flat**: border, no shadow — elevation is for overlays (see _Eleva
 - Divided header: `<CardHeader className="border-b">` (it compacts to `pb-4`); divided footer: `className="border-t"`.
 - `variant="glass"` (`bg-card/40 border-border/40 shadow-sm`) is the only elevated variant — translucent surfaces over wallpaper/media.
 
-### Settings / form panel
+### Settings / form panel (inside a Modal or a legacy customize view)
+
+On a settings page, use "Recipe: a settings form" above: label-left rows
+separated by hairlines, no panel. This panel is for a group of fields inside
+a `Modal` or in a legacy `customize/sections/view/*` screen.
 
 ```tsx
 <section className="space-y-4">
@@ -440,7 +1104,11 @@ connectors, secrets). Never mix the two in one surface.
 **Reference:** `packages/ui/src/workspace/session-spaces/space-share-modal.tsx`
 (`GROUP`, `ROW`, `TRAILING_BUTTON`, and the copy-link field).
 
-### Entity row (list item)
+### Entity row (legacy customize views only)
+
+New list pages and detail-page lists use "Recipe: list rows with groups"
+above: hairline rows, no card per row. This card-per-row recipe exists in
+older customize views; do not copy it into new work.
 
 ```tsx
 <ul className="space-y-2">
@@ -525,22 +1193,21 @@ font-normal`, `mt-0.5` under the title.
 
 ### Danger zone (settings)
 
-Neutral bordered row — no red panel fill:
+A row of the settings form, not a panel. No red fill, no red border, no
+solid red button on the page:
 
 ```tsx
-<div className="bg-popover rounded-md border px-4 py-3">
-  <div className="flex items-center justify-between gap-4">
-    <div className="min-w-0">
-      {/* title text-sm font-medium + description text-xs */}
-    </div>
-    <Button variant="destructive" size="sm" onClick={openConfirm}>
-      Archive
-    </Button>
-  </div>
+<div className={FIELD_ROW}>
+  <span className="text-muted-foreground text-sm">Archive trigger</span>
+  <Button variant="outline" size="lg" className="text-destructive justify-self-end" onClick={openConfirm}>
+    Archive…
+  </Button>
 </div>
 ```
 
-`destructive` on the button is OK inside `ConfirmDialog` flow; panel itself stays neutral.
+The consequence ("It stops firing. Its runs stay readable.") goes in the
+`ConfirmDialog` this button opens. The solid `variant="destructive"` button
+appears only inside that dialog.
 
 ## Floating action bar — `ActionBar`
 
@@ -825,7 +1492,12 @@ because they bite immediately:
 | Color is semantic tokens + the seven `kortix-*` accents | No raw palette, no hex, and **no `dark:` for color** — tokens flip themselves.         |
 | In-flow surfaces are **flat** — border, no shadow       | Shadows mean "floats above the page".                                                  |
 
-## Status pattern — tinted icon tile
+## Status pattern — tinted icon tile (one standalone verdict only)
+
+Use a tinted tile only for the one status verdict a surface is about (a
+review's result, a provider's coverage). **Never in a list row, a feed or a
+menu:** a row's state is a bare `size-4` glyph in `STATUS_TEXT`, and a neutral
+event is a meta-ink glyph with no tile.
 
 ```tsx
 <span className={cn(
@@ -933,7 +1605,7 @@ Standard content block (`agents-page.tsx` pattern):
 - ✅ Page shell → `CapabilityPageShell` for a new page (`CustomizeSectionWrapper` only under `packages/ui/src/customize/sections/view/`). ❌ hand-rolled outer flex + header, ❌ `[&_header_h2]:` overrides of the shell header.
 - ✅ Panels → `Card` (`card.tsx`) or `bg-popover rounded-md border` with `px-4 py-5`. ❌ `SectionCard`, ❌ padding on a bordered element that hosts flush children.
 - ✅ Elevation → ladder step (`shadow-md` popovers, `shadow-lg` modals); in-flow panels stay flat with a border. ❌ `dark:shadow-*`, ❌ `shadow-[…]` when a step fits.
-- ✅ Lists → `<ul className="space-y-2">` + entity row classes. ❌ `List` / `ListRow`, ❌ `divide-y` Card lists.
+- ✅ Lists → hairline rows, "Recipe: list rows with groups". ❌ `List` / `ListRow`, ❌ a card per row, ❌ a filled group header bar.
 - ✅ Expandable config → `Disclosure` + `Button variant="popover"`. ❌ custom accordion, ❌ nested rounding unless concentric (inner radius = outer radius minus inset; otherwise the child is flush). See [effects.md](../kortix-brand/references/visual/effects.md).
 - ✅ Modals → `Modal` from `modal.tsx`. ❌ `Dialog`/`DialogContent` in features.
 - ✅ Destructive actions → `ConfirmDialog` (or the inline two-step Cancel/confirm swap, `channels-view.tsx`). ❌ firing a delete/revoke mutation directly from a `variant="destructive"` click.
@@ -941,7 +1613,7 @@ Standard content block (`agents-page.tsx` pattern):
 - ✅ Two or more buttons in a row on one surface → `ButtonGroup`, one variant, close `X` included. ❌ `flex gap-1` rows of loose buttons, ❌ `ml-*` / dividers between members, ❌ a group of one, ❌ grouping a modal's Cancel + Confirm.
 - ✅ Toasts → `@kortix/ui/toast` helpers. ❌ `@/lib/toast` (deleted), raw sonner, `toast.success()`.
 - ✅ Badges → `<Badge size="sm" variant="…">`. ❌ hand-rolled chip spans.
-- ✅ Status → tinted icon tile + optional `Badge`. ❌ raw palette icon colors.
+- ✅ Status in a row → a bare `size-4` glyph in `STATUS_TEXT`; a resting state in meta ink. ❌ a tinted tile in a row or feed, ❌ raw palette icon colors, ❌ hue on a person, model or neutral event.
 - ✅ Color → `kortix-*` + semantic tokens. ❌ `text-emerald-600`, `bg-amber-500`.
 - ✅ Clickable elements → `cursor: pointer`; disabled keep `default`. ❌ `cursor-default` on an interactive element.
 - ✅ Meta separators → `InlineMeta` or `text-muted-foreground/40` bullet (`&bull;`). ❌ inconsistent separators.
@@ -963,11 +1635,11 @@ Standard content block (`agents-page.tsx` pattern):
 ## Workflow checklist
 
 1. **Load [`kortix-brand`](../kortix-brand/SKILL.md)** — the value allowlists and the motion budget. Then this file, then [`make-interfaces-feel-better`](../../../apps/web/.agents/skills/make-interfaces-feel-better/SKILL.md).
-2. **Read the closest reference view** from the table above. Copy structure, spacing, and primitives — don't invent a new layout dialect.
+2. **Copy the recipe** for your page type from "The product look", then read the closest reference view from the table above. Copy structure, spacing, and primitives — don't invent a new layout dialect.
 3. Open `/design-system` and skim [`references/component-index.md`](references/component-index.md) for anything not covered by the reference. Map every value through [`references/token-map.md`](references/token-map.md).
 4. Structure: parallel slots, one name plus an info icon, the four states ([`references/patterns.md`](references/patterns.md)).
-5. Compose: the page shell (`CapabilityPageShell`) → search/panel/row/disclosure/table → `Badge` + `Hint` + `Modal` + `toast` + `Loading` + `EmptyState` + `EmptyArt`. Buttons in a row → `ButtonGroup`. **Never** `SectionCard`, `List`, or `CircleNotchIcon`.
-6. Status → tinted icon tile. Color → `kortix-*`. Radius → `rounded-md` (panel), `rounded-none` (flush trigger). Elevation → overlays only; flat border for in-flow panels.
+5. Compose: the frame for the page type ("Page width: by page type": `ProjectPageHeader` + full width for list and detail pages, `CapabilityPageShell` for settings) → search/panel/row/disclosure/table → `Badge` + `Hint` + `Modal` + `toast` + `Loading` + `EmptyState` + `EmptyArt`. Buttons in a row → `ButtonGroup`. **Never** `SectionCard`, `List`, or `CircleNotchIcon`.
+6. Status → a bare glyph in `STATUS_TEXT`, hue only for live or attention states. Color → `kortix-*`. Radius → `rounded-md` (panel), `rounded-none` (flush trigger). Elevation → overlays only; flat border for in-flow panels.
 7. **Motion last.** Count how often a user sees it. Constant → none. Otherwise ≤300ms, `ease-out`, named property, token duration, reduced-motion variant.
 8. New primitive? Tokens only, tiny API, add to `/design-system`.
 9. Verify: `.agents/skills/kortix-brand/scripts/audit.sh <your paths>` clean, no banned imports, nested rounding only when concentric (see [effects.md](../kortix-brand/references/visual/effects.md)), light + dark, `tsc` clean, polish checklist from `make-interfaces-feel-better`.

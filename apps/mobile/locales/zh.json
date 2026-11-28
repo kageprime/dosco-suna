@@ -1392,6 +1392,12 @@
     "saving": "正在保存…",
     "openError": "无法打开此工件",
     "more": "工件操作",
-    "unavailable": "此工作区不提供工件"
+    "unavailable": "此工作区不提供工件",
+    "moveToFolder": "移至文件夹",
+    "folderRoot": "无文件夹",
+    "movedToFolder": "已移动到 {{name}}",
+    "moveFailed": "无法移动产物",
+    "emptyFolder": "此文件夹中没有作品",
+    "emptyUnfiled": "没有未归档的产物"
   }
 }

@@ -108,7 +108,7 @@ export function DriveUploadTray() {
   return (
     <section
       aria-label={title}
-      className="bg-popover border-border animate-in fade-in-0 slide-in-from-bottom-2 fixed right-4 bottom-4 z-50 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-md border shadow-lg duration-(--duration-moderate) motion-reduce:animate-none"
+      className="bg-popover border-border animate-in fade-in-0 slide-in-from-bottom-2 fixed right-4 bottom-4 z-50 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-md border shadow-md duration-(--duration-moderate) motion-reduce:animate-none"
     >
       <div className="flex h-10 items-center gap-2 pr-1.5 pl-3">
         {active > 0 ? (
@@ -155,7 +155,7 @@ export function DriveUploadTray() {
       </div>
 
       {!collapsed ? (
-        <ul className="border-border/60 max-h-64 overflow-y-auto border-t py-1">
+        <ul className="border-border max-h-64 overflow-y-auto border-t py-1">
           {trayOrder(uploads).map((u) => (
             <li key={u.id} className="flex min-h-9 items-center gap-2.5 px-3 py-1.5">
               {getFileIcon(u.file.name, { className: 'text-muted-foreground size-4 shrink-0' })}

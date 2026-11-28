@@ -6,6 +6,7 @@ import { type ConnectorCatalogItem, type ConnectorSurfaceVariant, createConnecto
 import { fallbackIconSource } from './connector-icon';
 import {
   KORTIX_APPS,
+  mcpAppCatalogItem,
   MCP_APPS,
   availableMcpApps,
   kortixClientApplication,
@@ -483,5 +484,18 @@ describe('X: one-click sign-in with Kortix’s own X client', () => {
     expect(requests[1]?.body.get('refresh_token')).toBe('refresh-1');
     expect(requests[1]?.body.has('client_secret')).toBe(false);
     expect(JSON.parse(refreshed.updatedValue ?? '{}').token.refresh_token).toBe('refresh-2');
+  });
+});
+
+// My Kortix must name what a sign-in asks for before the person says yes; it can only read it here.
+describe('sign-in access in plain words', () => {
+  test('every app that asks Kortix\'s client for scopes says what they let agents do, and the catalogue carries it', () => {
+    const scoped = MCP_APPS.filter((app) => app.auth.kind === 'kortix_client' && app.auth.scopes.length > 0);
+    expect(scoped.length).toBeGreaterThan(5);
+    for (const app of scoped) expect(app.access, app.slug).toMatch(/^[A-Z].+\.$/);
+    const gmail = MCP_APPS.find((app) => app.slug === 'gmail')!;
+    expect(mcpAppCatalogItem(gmail).access).toContain('send');
+    const linear = MCP_APPS.find((app) => app.slug === 'linear')!;
+    expect(mcpAppCatalogItem(linear).access).toBeUndefined();
   });
 });

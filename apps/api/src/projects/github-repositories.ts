@@ -16,6 +16,8 @@ export interface CreateRepoInput {
   isPrivate?: boolean;
   description?: string;
   autoInit?: boolean;
+  /** Managed, empty repositories only; other creation callers remain single-attempt. */
+  retryTransientCreation?: boolean;
   owner?: string;
   auth?: GitHubAuthContext;
 }
@@ -225,10 +227,41 @@ export async function createRepo(input: CreateRepoInput): Promise<GitHubRepo> {
   }
 
   const path = target.isOrg ? `/orgs/${target.owner}/repos` : '/user/repos';
-  return ghFetch<GitHubRepo>(path, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  }, input.auth);
+  const startedAt = Math.floor(Date.now() / 1000) * 1000;
+  const recoverable = input.retryTransientCreation === true && input.autoInit === false;
+  let ambiguous = false;
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await ghFetch<GitHubRepo>(path, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }, input.auth);
+    } catch (error) {
+      if (!recoverable || !(error instanceof GitHubApiError)) throw error;
+      const transient = [502, 503, 504].includes(error.status);
+      const collision = ambiguous && error.status === 422 && [error.message, ...error.validationMessages].some(message => /already exists/i.test(message));
+      if (!transient && !collision) throw error;
+      ambiguous = true;
+      // A failed POST may have committed. Reconcile the exact coordinate before
+      // another write; an unreadable or occupied coordinate fails closed.
+      try {
+        const existing = await ghFetch<GitHubRepo & { size?: number; created_at?: string }>(
+          `/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(input.name)}`,
+          { method: 'GET' },
+          input.auth,
+        );
+        const createdAt = Date.parse(existing.created_at ?? '');
+        if (existing.full_name.toLowerCase() === `${target.owner}/${input.name}`.toLowerCase()
+          && existing.private === body.private && existing.size === 0
+          && createdAt >= startedAt && createdAt <= Date.now() + 60_000) return existing;
+        throw error;
+      } catch (lookupError) {
+        if (!(lookupError instanceof GitHubApiError) || lookupError.status !== 404) throw error;
+      }
+      if (!transient || attempt >= 2) throw error;
+      await Bun.sleep(250 * (attempt + 1));
+    }
+  }
 }
 
 /** Delete a repo. Best-effort teardown for managed-repo rollback / removal. */

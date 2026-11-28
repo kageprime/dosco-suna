@@ -169,7 +169,7 @@ Use a canonical worktree created with `--db` for the live session journey.
 On a machine whose Docker address pools are exhausted, select an existing local network with the Supabase CLI's `--network-id` option.
 Keep this worktree's project ID, containers, volumes, and ports separate.
 Start PostgreSQL first, apply `packages/db/scripts/test-prereqs.sql` and `migrate:local`, then start the full Supabase stack.
-A full start before migrations can fail its PostgREST health check because `kortix` is missing.
+Local Supabase starts without PostgREST (`-x postgrest`), so a full start before migrations no longer waits on a missing `kortix` schema.
 Do not delete another session's Docker resources.
 Capture Supabase startup output in ignored `output/` because it can print credentials.
 Independent auth/storage/work-queue state prevents another local API from claiming this session's work.

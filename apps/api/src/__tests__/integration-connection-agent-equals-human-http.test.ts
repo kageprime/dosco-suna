@@ -9,14 +9,14 @@
  * that names the permission, never for being an agent.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
-import { accountMembers, accountTokens, connectorConnections, connectors, projectSessions, projects, sessionSandboxes } from '@kortix/db';
-import { eq, inArray } from 'drizzle-orm';
+import { accountMembers, accountTokens, connectorConnections, connectors, projectMembers, projectSessions, projects, sessionSandboxes } from '@kortix/db';
+import { and, eq, inArray } from 'drizzle-orm';
 import { app } from '../index';
 import { clearAuthorizeCaches } from '../iam/authorize';
 import { createAccountToken } from '../repositories/account-tokens';
 import { ensureAgentServiceAccount } from '../repositories/service-accounts';
 import { db } from '../shared/db';
-import { insertIntoView } from './helpers/compat-views';
+import { deleteFromView, insertIntoView } from './helpers/compat-views';
 import { type SeededProject, removeSeeded, seedProject, seedSession } from './helpers/integration-fixtures';
 
 const ADMIN = crypto.randomUUID();
@@ -39,8 +39,8 @@ const p = (rest: string) => `/v1/projects/${project.project_id}${rest}`;
 const statusOf = async (connectionId: string) =>
   (await db.select({ status: connectorConnections.status }).from(connectorConnections).where(eq(connectorConnections.connectionId, connectionId)))[0]!.status;
 
-async function liveSession(): Promise<string> {
-  const sessionId = await seedSession(project, ADMIN);
+async function liveSession(createdBy: string = ADMIN): Promise<string> {
+  const sessionId = await seedSession(project, createdBy);
   await db.update(projectSessions).set({ agentName: 'worker' }).where(eq(projectSessions.sessionId, sessionId));
   // A session token holds only while its sandbox does.
   await db.insert(sessionSandboxes).values({
@@ -192,3 +192,75 @@ describe('AGENT = HUMAN on connector accounts — migrated PostgreSQL', () => {
     expect(JSON.stringify(body)).not.toMatch(/agent sessions? cannot|an agent cannot/i);
   });
 });
+
+/**
+ * A plain project member (account `member`, project `member`: no
+ * `project.connector.write`) and the agent sessions that act for them. A
+ * customer reported that such a colleague could not connect their own account.
+ */
+describe('a plain member connects their own account — their sessions get the same answer', () => {
+  const MEMBER = crypto.randomUUID();
+  const memberTokens = { person: '', borrowed: '', governed: '' };
+  const memberSessions = { own: '' };
+  const connectorUrl = (path: string) => `/v1/connectors/projects/${project.project_id}/connectors/${SLUG}/${path}`;
+
+  beforeAll(async () => {
+    await insertIntoView(db, accountMembers, { accountId: project.account_id, userId: MEMBER, accountRole: 'member' });
+    await insertIntoView(db, projectMembers, { accountId: project.account_id, projectId: project.project_id, userId: MEMBER, projectRole: 'member' });
+    memberSessions.own = await liveSession(MEMBER);
+    const serviceAccountId = await ensureAgentServiceAccount({ accountId: project.account_id, projectId: project.project_id, agentName: 'worker' });
+    memberTokens.person = (await createAccountToken({ accountId: project.account_id, userId: MEMBER, projectId: project.project_id, name: 'member', agentGrant: null })).secretKey;
+    memberTokens.borrowed = (
+      await createAccountToken({ accountId: project.account_id, userId: MEMBER, projectId: project.project_id, sessionId: memberSessions.own, name: 'member-borrowed', agentGrant: { agent: 'meta', permissions: 'all', connectors: 'all' } as never })
+    ).secretKey;
+    memberTokens.governed = (
+      await createAccountToken({ accountId: project.account_id, userId: MEMBER, projectId: project.project_id, sessionId: await liveSession(MEMBER), name: 'member-governed', agentGrant: { agent: 'worker', permissions: 'all', connectors: 'all', env: 'all' } as never, serviceAccountId })
+    ).secretKey;
+    clearAuthorizeCaches();
+  });
+
+  afterAll(async () => {
+    await deleteFromView(db, projectMembers, and(eq(projectMembers.projectId, project.project_id), eq(projectMembers.userId, MEMBER)));
+    await deleteFromView(db, accountMembers, and(eq(accountMembers.accountId, project.account_id), eq(accountMembers.userId, MEMBER)));
+  });
+
+  test('owner "me" passes the gate for the member and for both agent sessions (an http connector then has no sign-in: 404)', async () => {
+    for (const path of ['connect', 'connect/finalize']) {
+      for (const who of ['person', 'borrowed', 'governed'] as const) {
+        const response = await request('POST', connectorUrl(path), memberTokens[who], { owner: 'me' });
+        expect({ who, path, status: response.status }).toEqual({ who, path, status: 404 });
+      }
+    }
+  });
+
+  test('owner "project" stays administration: 403 naming the permission, for the member and their My Kortix session alike', async () => {
+    for (const path of ['connect', 'connect/finalize']) {
+      const person = await request('POST', connectorUrl(path), memberTokens.person, { owner: 'project' });
+      const personBody = await person.json();
+      expect(person.status).toBe(403);
+      expect(personBody).toMatchObject({ action: 'project.connector.write' });
+      const borrowed = await request('POST', connectorUrl(path), memberTokens.borrowed, { owner: 'project' });
+      expect({ path, status: borrowed.status, body: await borrowed.json() }).toEqual({ path, status: 403, body: personBody });
+    }
+  });
+
+  test("what a session waits on is listed to the people who can open it: the member reads their own session, never the owner's private one", async () => {
+    const ownerSession = sessions[0]!;
+    const read = async (token: string, sessionId: string) => {
+      const response = await request('GET', `/v1/connectors/projects/${project.project_id}/sessions/${sessionId}/connect-requests`, token);
+      expect(response.status).toBe(200);
+      return ((await response.json()) as { connectors: Array<{ connection_id?: string }> }).connectors.map((row) => row.connection_id);
+    };
+    try {
+      await db.update(connectorConnections).set({ metadata: { requesting_session_id: ownerSession } }).where(eq(connectorConnections.connectionId, shared));
+      expect(await read(tokens.person, ownerSession)).toEqual([shared]);
+      expect(await read(memberTokens.person, ownerSession)).toEqual([]);
+      await db.update(connectorConnections).set({ metadata: { requesting_session_id: memberSessions.own } }).where(eq(connectorConnections.connectionId, shared));
+      expect(await read(memberTokens.person, memberSessions.own)).toEqual([shared]);
+      expect(await read(memberTokens.borrowed, memberSessions.own)).toEqual([shared]);
+    } finally {
+      await db.update(connectorConnections).set({ metadata: {} }).where(eq(connectorConnections.connectionId, shared));
+    }
+  });
+});
+

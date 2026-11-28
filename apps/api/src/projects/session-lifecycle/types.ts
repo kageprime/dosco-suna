@@ -49,8 +49,16 @@ export type SessionInvocationSource =
    * person gets (their Drive and memory). The workspace is empty and theirs.
    */
   | 'eval:trial'
+  /**
+   * A QualiLoop test conversation (`qualiloop/`): one session per QualiLoop
+   * conversation. Not `system:`, so its origin is `user` and it runs as the
+   * project owner's own private chat, with their Drive and memory.
+   */
+  | 'qualiloop'
   /** A person's reply on a calendar item an agent session created (`projects/calendar/`, flag `calendar`). */
   | 'system:calendar'
+  /** The workspace cache's daily rebuild (`projects/workspace-cache/builder.ts`, flag `platinum_cache`): no model turn. */
+  | 'system:workspace-cache'
   | 'admin';
 
 /** `on_backpressure` is for trigger fires only; see `backpressure.ts`. */
@@ -192,6 +200,12 @@ export interface ContinueSessionCommand {
    *  them from this turn on (`bindSessionTurnIdentity`). Set by the prompt
    *  route for a non-agent caller; absent keeps the token's identity. */
   bindTurnIdentity?: boolean;
+  /**
+   * The person who wrote this prompt (`inboxPromptPersonId`), when one did.
+   * The model reads their name above it (`author` on the runtime prompt body,
+   * KRTX-5121). Absent for a trigger, a channel relay or another session.
+   */
+  authorUserId?: string | null;
   /**
    * When an automation prompt (no `clientMessageId`) was queued. A user Stop
    * after it wins: the delivery does not wake the box, and the prompt waits

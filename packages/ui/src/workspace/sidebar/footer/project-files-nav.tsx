@@ -42,7 +42,14 @@ import { filesRow } from '../../../internal/layout/files-nav-label';
  * layout, so four rows bought nothing over one: ProjectCustomizeNavItem
  * replaced them and moved to the top of the panel, under New session.
  */
-export function ProjectFilesNavItem({ projectId }: { projectId: string }) {
+export function ProjectFilesNavItem({
+  projectId,
+  showCount = true,
+}: {
+  projectId: string;
+  /** False: no conflict count (the rail's More menu). */
+  showCount?: boolean;
+}) {
   const t = useTranslations('sidebar');
   const pathname = useUiPathname();
   const target = useProjectNavRows(projectId).files;
@@ -96,7 +103,7 @@ export function ProjectFilesNavItem({ projectId }: { projectId: string }) {
     >
       {label === 'drive' ? <HardDrivesIcon /> : <FoldersIcon />}
       <span className="truncate group-data-[collapsible=icon]:hidden">{t(label)}</span>
-      {conflicts > 0 ? (
+      {showCount && conflicts > 0 ? (
         <span className="ml-auto flex shrink-0 items-center gap-1 group-data-[collapsible=icon]:hidden">
           <CountBadge
             count={conflicts}

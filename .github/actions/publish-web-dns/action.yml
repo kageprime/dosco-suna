@@ -1,8 +1,8 @@
-# publish-web-dns: point the isolated FE-ECS hostname of one environment at its
-# web ALB. Shared by the publish-web-ecs-dns job of deploy-dev, deploy-staging
-# and deploy-prod. The caller needs `permissions: id-token: write` and a full
-# checkout of the repository, so `./.github/actions/publish-web-dns` and
-# `infra/scripts/sync-web-dns.mjs` exist.
+# publish-web-dns: point the ECS frontend hostname of one environment at its
+# web ALB. Used by the publish-web-ecs-dns job of deploy-dev (dev.kortix.com);
+# staging and prod serve the frontend from Vercel. The caller needs
+# `permissions: id-token: write` and a full checkout of the repository, so
+# `./.github/actions/publish-web-dns` and `infra/scripts/sync-web-dns.mjs` exist.
 name: publish-web-dns
 description: >-
   Assume the deploy role, read CLOUDFLARE_API_TOKEN through aws-env, resolve the
@@ -17,7 +17,7 @@ inputs:
     description: Region of the web ALB.
   environment:
     required: true
-    description: Argument for sync-web-dns.mjs (dev, staging or prod).
+    description: Argument for sync-web-dns.mjs (dev).
   alb-name:
     required: true
     description: Name of the web ALB.
@@ -36,7 +36,7 @@ runs:
         role-to-assume: ''
         keys: |
           CLOUDFLARE_API_TOKEN
-    - name: Point the ${{ inputs.environment }} FE-ECS hostname at the web ALB
+    - name: Point the ${{ inputs.environment }} ECS frontend hostname at the web ALB
       shell: bash
       env:
         ALB_NAME: ${{ inputs.alb-name }}

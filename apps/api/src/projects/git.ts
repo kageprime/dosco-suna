@@ -83,6 +83,7 @@ export {
   getBranchDiff,
   getDiffBetweenShas,
   previewMerge,
+  HeadMovedError,
   MergeConflictError,
   mergeBranches,
   headRefsLandedIn,

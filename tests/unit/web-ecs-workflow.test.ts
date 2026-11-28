@@ -82,71 +82,38 @@ describe('web ECS migration', () => {
     expect(terraform).not.toContain('dev-fe-ecs');
   });
 
-  it('defines isolated staging and production services with environment-specific capacity', () => {
-    const staging = read('infra/terraform/environments/staging-web-eu-west-2/main.tf');
-    const prod = read('infra/terraform/environments/prod-web/main.tf');
-    const prodVariables = read('infra/terraform/environments/prod-web/variables.tf');
-
-    expect(staging).toContain('name = "kortix-staging-euw2-web"');
-    expect(staging).toContain('name = "kortix-staging-euw2-web-env"');
-    expect(staging).toContain('domain_name               = "staging-fe-ecs.kortix.com"');
-    expect(staging).toContain('min_capacity     = 2');
-    expect(staging).toContain('max_capacity     = 12');
-    // Deploy Staging owns staging-fe-ecs.kortix.com; Vercel owns staging.kortix.com.
-    expect(staging).toContain('name    = "staging-fe-ecs-euw2"');
-    expect(staging).not.toMatch(/name\s*=\s*"staging(-fe-ecs)?"/);
-
-    expect(prod).toContain('name = "kortix-prod-web"');
-    expect(prod).toContain('name = "kortix-prod-web-env"');
-    expect(prod).toContain('prod-fe-ecs');
-    expect(prod).toContain('min_capacity     = 2');
-    expect(prod).toContain('max_capacity     = 12');
-    expect(prod).toContain('use_fargate_spot = false');
-    expect(prodVariables).toContain('never manages kortix.com');
-  });
-
-  it('runs staging on the same capacity type and egress topology as prod', () => {
+  it('runs staging on the same capacity type as prod; only prod keeps a NAT per AZ', () => {
     // Spot reclaims killed in-flight requests and agent turns during the
     // v0.13.57 release gate. Staging is the release candidate: no Spot.
     const api = read('infra/terraform/environments/staging-eu-west-2/main.tf');
     const prodApi = read('infra/terraform/environments/prod/main.tf');
     for (const root of [api, prodApi]) {
       expect(root).not.toMatch(/use_fargate_spot\s*=\s*true/);
-      expect(root).toMatch(/single_nat_gateway\s*=\s*false/);
     }
+    // 2026-11 (#13052): staging egresses through one NAT; it needs no AZ redundancy.
+    expect(prodApi).toMatch(/single_nat_gateway\s*=\s*false/);
+    expect(api).toMatch(/single_nat_gateway\s*=\s*true/);
     expect(api.match(/use_fargate_spot\s*=\s*false/g)).toHaveLength(2); // API + gateway
-    const web = read('infra/terraform/environments/staging-web-eu-west-2/main.tf');
-    expect(web).toContain('task_cpu         = 1024');
-    expect(web).toContain('min_capacity     = 2');
-    expect(web).not.toMatch(/use_fargate_spot\s*=\s*true/);
   });
 
-  it('deploys staging and production ECS frontends without replacing canonical Vercel hosts', () => {
+  it('serves the staging and prod frontend from Vercel only, and rolls back api and gateway on ECS', () => {
+    // 2026-11: the parallel staging and prod ECS frontends served no users and
+    // were removed. Dev keeps its ECS frontend (dev.kortix.com).
     const staging = read('.github/workflows/deploy-staging.yml');
     const prod = read('.github/workflows/deploy-prod.yml');
     const rollback = read('.github/workflows/rollback-prod.yml');
 
-    expect(staging).toContain('  deploy-web-ecs:');
-    expect(staging).toContain('bash infra/scripts/sync-web-env.sh staging');
-    expect(staging).toContain('kortix/kortix-frontend:staging-${SHA8}');
-    expect(staging).toContain('./.aws-env/.github/actions/publish-web-dns');
-    expect(staging).toContain('environment: staging');
-    expect(staging).toContain('https://${ECS_WEB_HOST}');
+    for (const workflow of [staging, prod, rollback]) {
+      expect(workflow).not.toContain('--service web');
+      expect(workflow).not.toContain('sync-web-env.sh');
+      expect(workflow).not.toContain('publish-web-dns');
+    }
     expect(staging).toContain('Deploy staging web to Vercel');
-
-    expect(prod).toContain('  deploy-web-ecs:');
-    expect(prod).toContain('bash infra/scripts/sync-web-env.sh prod');
-    expect(prod).toContain('./.aws-env/.github/actions/publish-web-dns');
-    expect(prod).toContain('environment: prod');
-    // The three jobs share one action; it owns the sync call.
-    expect(read('.github/actions/publish-web-dns/action.yml')).toContain('node infra/scripts/sync-web-dns.mjs "$TARGET_ENV" "$alb"');
-    expect(prod).toContain('https://prod-fe-ecs.kortix.com');
     expect(prod).toContain('https://kortix.com/api/runtime-config');
-    expect(rollback).toContain('kortix/kortix-frontend:${TARGET}');
-    expect(rollback).toContain('--service web');
     expect(rollback).toContain('kortix/kortix-api:${TARGET}');
     expect(rollback).toContain('kortix/kortix-gateway:${TARGET}');
     expect(rollback).toContain('--service gateway');
+    expect(rollback).toContain('Frontend — promote the vTARGET deployment (Vercel)');
     expect(rollback).not.toContain('infra/k8s');
     expect(rollback).not.toContain('Argo CD');
   });

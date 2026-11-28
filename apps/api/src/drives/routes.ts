@@ -109,8 +109,8 @@ import {
   statVolumeFile,
   writeVolumeFile,
   FILE_CHANGED_MESSAGE,
-  type VolumeCommit,
 } from './volumes';
+import { versionAuthor, versionKind } from './version-labels';
 
 export const MAX_DRIVE_UPLOAD_BYTES = MAX_DRIVE_REQUEST_BYTES;
 /** A block of the block upload, as storage takes it. */
@@ -413,19 +413,6 @@ const sameVersion = (a: string, b: string) => bareVersion(a) === bareVersion(b);
 
 const baseName = (p: string) => p.split('/').filter(Boolean).pop() ?? '';
 const parentOf = (p: string) => p.slice(0, p.lastIndexOf('/')) || '/';
-
-function versionKind(kind: string): z.infer<typeof DriveVersionSchema>['kind'] {
-  if (kind === 'init' || kind === 'fork') return 'created';
-  if (kind === 'restore') return 'restore';
-  if (kind === 'api' || kind === 'import') return 'edit';
-  return 'sync';
-}
-
-function versionAuthor(commit: VolumeCommit): z.infer<typeof DriveVersionSchema>['author'] {
-  if (commit.author?.kind === 'sandbox' || commit.kind === 'merge' || commit.kind === 'fast') return 'session';
-  if (commit.author?.kind === 'api_key' || commit.author?.kind === 'user') return 'drive';
-  return 'system';
-}
 
 /** The agents a project declares that start sessions (subagents never own one). Best effort. */
 async function projectAgentNames(projectId: string): Promise<string[]> {

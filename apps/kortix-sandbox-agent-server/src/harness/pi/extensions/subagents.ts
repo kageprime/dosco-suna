@@ -275,7 +275,7 @@ interface SubagentType {
 
 export const SUBAGENT_PROMPT = [
   'You are a subagent working inside a Kortix sandbox. Another agent delegated one task to you.',
-  'Complete the task end to end with the tools you have. Your final message is returned to that agent, not shown to the user: make it a concise, complete report of what you did and found.',
+  'Complete the task end to end with the tools you have. Your final message is returned to that agent, not shown to the user: it is your report (its shape is under Session ids).',
 ].join('\n')
 
 /** A model ref: `provider/model`, the model id may hold more slashes (`kortix/codex/gpt-5`). */
@@ -361,7 +361,7 @@ const parametersFor = (defaultGeneral: boolean) => Type.Object({
   name: Type.Optional(
     Type.String({
       description:
-        'A short name for the subagent (letters, digits, "-", "_"), such as "auditor". It makes the subagent addressable: send_message({ to: name }) reaches it while it runs and after it finishes, and task_stop({ name }) stops it. The name of a subagent you started earlier that has finished continues THAT subagent (the same as its task_id): it keeps its context. The name of one that still works is refused.',
+        'A short name for the subagent (letters, digits, "-", "_"), such as "auditor". It makes the subagent addressable: send_message({ to: name }) reaches it while it runs and after it finishes, and task_stop({ name }) stops it. The name of a subagent you started earlier that has finished continues THAT subagent (the same as its task_id): it keeps its context. The name of one that still works is refused. With session: "same" the name is only a label: that subagent is not addressable.',
     }),
   ),
   team: Type.Optional(
@@ -566,7 +566,10 @@ function register(pi: ExtensionAPI, host: KortixHost): void {
             : result.status === 'started'
               ? `<task_started>\n${teammate ? TEAMMATE_STARTED(result.sessionId, teammate.handle) : BACKGROUND_STARTED(result.sessionId, handle)}\n</task_started>`
               : `<task_result>\n${result.text}\n</task_result>`
-        const where = result.session ? `\nsession: ${result.session}${result.notice ? ` (${result.notice})` : ''}` : ''
+        const label = sameSessionLabel(params)
+        const where = result.session
+          ? `\nsession: ${result.session}${result.notice ? ` (${result.notice})` : ''}${label ? `\n${label} is a label here: a subagent in this session is not addressable by name. Continue it with task_id.` : ''}`
+          : ''
         const continued = followUp && result.session !== 'same' && result.status !== 'error' ? `\n${CONTINUED_NOTE(result.sessionId, handle)}` : ''
         return {
           content: [{ type: 'text' as const, text: `task_id: ${result.sessionId} (for resuming to continue this task if needed)${where}${continued}\n\n${body}` }],
@@ -628,7 +631,7 @@ function stopTool(host: KortixHost) {
 /** The fork's instructions: it continues this conversation as a branch of its own. */
 export const FORK_PROMPT = [
   'You are a fork of the session whose conversation you see above: a copy that continues on its own, in its own session.',
-  'Do the task in the next message end to end. Your final message is returned to the session you were forked from, not shown to the person: make it a concise, complete report.',
+  'Do the task in the next message end to end. Your final message is returned to the session you were forked from, not shown to the person: it is your report (its shape is under Session ids).',
   'That session is your parent_session_id: read what it says after the fork with `kortix sessions log <parent_session_id>`.',
 ].join('\n')
 
@@ -656,19 +659,28 @@ export function teamRefusal(host: KortixHost): string {
   return `Agent teams are off in this workspace: team: true needs the agent_teams feature. ${omit}`
 }
 
+/** The name of a subagent in this session: a label, since it has no session to address. */
+function sameSessionLabel(params: SubagentParams): string | undefined {
+  if (params.session !== 'same' || typeof params.name !== 'string') return undefined
+  return params.name.trim().replace(/^@/, '') || undefined
+}
+
 /** The call's name, team, fork and background shape. */
 function spawnShape(params: SubagentParams, host: KortixHost): Pick<SpawnSessionInput, 'background' | 'handle' | 'teammate' | 'fork'> {
-  const name = typeof params.name === 'string' && params.name.trim() ? params.name.trim().replace(/^@/, '') : undefined
+  const given = typeof params.name === 'string' && params.name.trim() ? params.name.trim().replace(/^@/, '') : undefined
+  // A subagent in this session has no session to address, so its name is only a label
+  // (`sameSessionLabel`). Refusing the call cost every named inline subagent a failed
+  // first attempt and a retry without the name.
+  const name = params.session === 'same' ? undefined : given
   const fork = params.fork === true
   if (fork && params.session === 'same') throw new Error('A fork runs in its own session: omit session, or pass session: "separate".')
   if (fork && params.task_id) throw new Error('fork starts a new subagent: omit task_id, or omit fork to send the existing one a follow-up.')
   if (fork && !host.separateSessions()) throw new Error('This session cannot start a separate session, so it cannot fork. Pass session: "same" without fork instead.')
-  if (name && params.session === 'same') throw new Error('A name makes a subagent addressable in its own session: omit session, or omit name.')
   // `team: true` is the only way to start a teammate; a follow-up (task_id) continues the child as it was.
   if (params.team === true && !params.task_id) {
+    if (params.session === 'same') throw new Error('A teammate runs in its own session: omit session, or omit team.')
     if (!name) throw new Error('team: true starts a teammate, and a teammate needs a name: add name (for example "researcher").')
     if (fork) throw new Error('A fork is never a teammate: omit fork, or omit team.')
-    if (params.session === 'same') throw new Error('A teammate runs in its own session: omit session, or omit team.')
     const lead = host.teamLeadForSpawn()
     if (!lead) throw new Error(teamRefusal(host))
     return { teammate: { lead, handle: name, instructions: teammateInstructions(name, lead.slice(0, 8)) }, handle: name, background: true }

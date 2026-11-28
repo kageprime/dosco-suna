@@ -11,6 +11,7 @@ import {
   addWorkspaceSpaceMembers,
   joinWorkspaceSpace,
   leaveWorkspaceSpace,
+  listWorkspaceSpaceActivity,
   listWorkspaceSpaceMembers,
   removeWorkspaceSpaceMember,
   markChannelsOnboarding,
@@ -28,6 +29,7 @@ import {
   type ProjectSpace,
   type ProjectSpaceLink,
   type ProjectSpaceMemberList,
+  type WorkspaceSpaceActivity,
   type ProjectSpaceProactive,
   type ProjectSpaceTab,
   type ProjectSpaceTabKind,
@@ -427,4 +429,20 @@ test('setProjectSpaceTabs rejects a refusal with ApiError and never reaches the 
   expect(error).toBeInstanceOf(ApiError);
   expect(error).toMatchObject({ status: 403, code: 'forbidden' });
   expect(errors).toEqual([]);
+});
+
+test('listWorkspaceSpaceActivity GETs the channel activity and returns its lines, newest first as the API sent them', async () => {
+  const lines: WorkspaceSpaceActivity[] = [
+    {
+      id: 'A1',
+      kind: 'agent_added',
+      subject: { kind: 'agent', id: 'kortix', name: 'kortix' },
+      actor: { user_id: 'U1', name: 'Jay' },
+      at: '2026-11-26T10:00:00.000Z',
+    },
+    { id: 'member:U2', kind: 'member_joined', subject: { kind: 'person', id: 'U2', name: 'Raju' }, actor: null, at: '2026-11-25T09:00:00.000Z' },
+  ];
+  nextResponse = { status: 200, body: { activity: lines } };
+  expect(await listWorkspaceSpaceActivity('P1', 'S1')).toEqual(lines);
+  expect(calls).toEqual([{ url: 'http://test.local/v1/workspaces/P1/spaces/S1/activity', method: 'GET', body: undefined }]);
 });

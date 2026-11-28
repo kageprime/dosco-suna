@@ -41,16 +41,28 @@ const functionNames = (module: Record<string, unknown>) =>
 const KORTIX_MASTER_EXPORTS = [...functionNames(kortixMaster), ...functionNames(kortixMasterHooks)];
 
 /**
- * The next-major removal list (R6.10). `packages/sdk/CHANGELOG.md` names each
- * one with its replacement. No first-party host uses any of them. Each tag
- * must say `Removed in the next major.`, so the major is a deletion, not an
- * investigation.
+ * Removed in the session-log major (P8.4): the v1 transcript family. The API serves no
+ * `GET …/sessions/:sid/transcript` and no `/v1/public/session-shares/**`; the session log
+ * (`getSessionLogPage`, `GET …/log`) replaced both. `packages/sdk/CHANGELOG.md` names each
+ * removed name with its replacement. Each entry is checked against the public entry points
+ * below: a name that comes back fails this file.
  */
-
-/** Public transcript sharing was removed server-side (KRTX-2358): the API
- *  serves no `/v1/public/session-shares/**` route and rejects transcript
- *  creates. The client names stay exported until the next major. */
-const TRANSCRIPT_SHARE_EXPORTS = [
+const REMOVED_V1_TRANSCRIPT_EXPORTS = [
+  // The v1 transcript reads and their types (`GET …/transcript`).
+  'getSessionTranscript',
+  'getSessionTranscriptSync',
+  'SessionTranscript',
+  'SessionTranscriptMessage',
+  'SessionTranscriptToolCall',
+  'SessionTranscriptSource',
+  'SessionTranscriptSyncEnvelope',
+  'SessionTranscriptSyncMessage',
+  // The device's v1 saved copy.
+  'isPaintableSavedCopy',
+  'savedCopyEmptyRoot',
+  // The runtime's v1 messages.
+  'loadSessionTranscriptMessages',
+  // Public transcript sharing (KRTX-2358).
   'findActiveTranscriptShare',
   'getPublicSessionShare',
   'getPublicSessionShareMessages',
@@ -59,6 +71,12 @@ const TRANSCRIPT_SHARE_EXPORTS = [
   'PublicSessionTranscript',
   'PublicSessionTranscriptMessage',
   'PublicSessionTranscriptToolCall',
+  // The retired IndexedDB transcript mirror (`./internal/idb-sync-cache`).
+  'saveSessionToIDB',
+  'flushIDBWrites',
+  'loadSessionFromIDB',
+  'loadAllSessionIdsFromIDB',
+  'pruneIDBCache',
 ];
 
 /** The marketplace was removed (2026-11-20): every `/v1/marketplace/**` route
@@ -119,7 +137,8 @@ const WORKSPACE_EQUIVALENTS: Record<string, string> = {
 
 const KEPT_PERMANENTLY = /Kept permanently\./;
 
-const program = ts.createProgram([join(import.meta.dir, 'index.ts'), join(import.meta.dir, 'react/index.ts')], {
+const ENTRIES = ['index.ts', 'react/index.ts', 'internal/idb-sync-cache.ts'];
+const program = ts.createProgram(ENTRIES.map((entry) => join(import.meta.dir, entry)), {
   target: ts.ScriptTarget.ES2022,
   module: ts.ModuleKind.ESNext,
   moduleResolution: ts.ModuleResolutionKind.Bundler,
@@ -137,7 +156,7 @@ function exportedSymbols(entry: string): Map<string, ts.Symbol> {
   return new Map(checker.getExportsOfModule(moduleSymbol).map((symbol) => [symbol.getName(), symbol]));
 }
 
-const surface = new Map([...exportedSymbols('index.ts'), ...exportedSymbols('react/index.ts')]);
+const surface = new Map(ENTRIES.flatMap((entry) => [...exportedSymbols(entry)]));
 
 function deprecatedTag(exported: ts.Symbol): ts.JSDocTagInfo | undefined {
   const symbol = exported.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exported) : exported;
@@ -146,14 +165,14 @@ function deprecatedTag(exported: ts.Symbol): ts.JSDocTagInfo | undefined {
 
 function isDeprecated(name: string): boolean {
   const exported = surface.get(name);
-  if (!exported) throw new Error(`${name} is not exported from @kortix/sdk or @kortix/sdk/react`);
+  if (!exported) throw new Error(`${name} is not exported from ${ENTRIES.join(', ')}`);
   return deprecatedTag(exported) !== undefined;
 }
 
 /** The `@deprecated` text of a public name; '' when it has no tag. */
 function deprecation(name: string): string {
   const exported = surface.get(name);
-  if (!exported) throw new Error(`${name} is not exported from @kortix/sdk or @kortix/sdk/react`);
+  if (!exported) throw new Error(`${name} is not exported from ${ENTRIES.join(', ')}`);
   return ts.displayPartsToString(deprecatedTag(exported)?.text ?? []);
 }
 
@@ -168,12 +187,9 @@ describe('deprecated exports', () => {
     expect(isDeprecated(name)).toBe(true);
   });
 
-  test.each(TRANSCRIPT_SHARE_EXPORTS)(
-    '%s is @deprecated and removed in the next major',
-    (name) => {
-      expect(deprecation(name)).toMatch(REMOVED_IN_NEXT_MAJOR);
-    },
-  );
+  test.each(REMOVED_V1_TRANSCRIPT_EXPORTS)('%s is not exported (removed with the v1 transcript)', (name) => {
+    expect(surface.has(name)).toBe(false);
+  });
 
   test.each(MARKETPLACE_EXPORTS)(
     '%s is @deprecated (the marketplace was removed) and removed in the next major',

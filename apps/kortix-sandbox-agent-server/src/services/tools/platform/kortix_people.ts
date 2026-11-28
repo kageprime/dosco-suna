@@ -35,15 +35,16 @@ async function list(context: PlatformToolContext) {
 }
 
 async function pending(context: PlatformToolContext) {
-  const read = await cliJson<{ invites?: Array<{ id?: string; email?: string; role?: string; expires_at?: string }> } | unknown[]>(['access', 'pending', '--json'], context)
+  // `{ pending: [{ invite_id, email, project_role, invite_expires_at, … }] }`
+  const read = await cliJson<{ pending?: Array<{ invite_id?: string; email?: string; project_role?: string; invite_expires_at?: string }> } | unknown[]>(['access', 'pending', '--json'], context)
   if ('error' in read) return fail(TOOL, 'pending', 'Could not list the invitations', read.error, context)
-  const invites = (Array.isArray(read.value) ? read.value : (read.value.invites ?? [])) as Array<{ email?: string; role?: string }>
+  const invites = (Array.isArray(read.value) ? read.value : (read.value.pending ?? [])) as Array<{ email?: string; project_role?: string }>
   return ok(
     TOOL,
     'pending',
     {
       title: invites.length === 1 ? '1 open invitation' : `${invites.length} open invitations`,
-      rows: invites.map((invite) => ({ title: invite.email ?? 'invitation', ...(invite.role ? { badge: invite.role } : {}) })),
+      rows: invites.map((invite) => ({ title: invite.email ?? 'invitation', ...(invite.project_role ? { badge: invite.project_role } : {}) })),
       links: [{ label: 'Members', href: membersHref(context.env) }],
     },
     read.value,
@@ -58,8 +59,33 @@ async function resolveMember(who: string, context: PlatformToolContext) {
 }
 
 async function invite(email: string, role: string, context: PlatformToolContext) {
-  const sent = await cliRun(['access', 'invite', email, '--role', role], context)
+  // An open invitation is reused, never sent again: the API merges a second one into it
+  // silently, so the card said "Invited" for a mail that never went out (evals invite-no-duplicate).
+  const open = await cliJson<{ pending?: Array<{ email?: string; project_role?: string; invite_expired?: boolean }> }>(['access', 'pending', '--json'], context)
+  const already = 'error' in open ? undefined : (open.value.pending ?? []).find((i) => i.email?.toLowerCase() === email.toLowerCase() && !i.invite_expired)
+  if (already) {
+    return ok(TOOL, 'invite', {
+      title: `${email} already has an open invitation`,
+      subtitle: `As ${already.project_role ?? 'member'}. Nothing new was sent.`,
+      links: [{ label: 'Members', href: membersHref(context.env) }],
+    }, { email, already_invited: true, role: already.project_role ?? null })
+  }
+  const sent = await cliJson<{ email_sent?: boolean; email_skip_reason?: string; invite_url?: string }>(['access', 'invite', email, '--role', role, '--json'], context)
   if ('error' in sent) return fail(TOOL, 'invite', `Could not invite ${email}`, sent.error, context)
+  // No email provider (self-host, a failed send): the invitation exists, and its link is the only way in.
+  if (sent.value.email_sent === false) {
+    return ok(
+      TOOL,
+      'invite',
+      {
+        title: `Invited ${email}, but no email was sent`,
+        subtitle: `As ${role}. Send them the invitation link yourself${sent.value.email_skip_reason ? ` (${sent.value.email_skip_reason})` : ''}.`,
+        status: 'needs_you',
+        links: [...(sent.value.invite_url ? [{ label: 'Invitation link', href: sent.value.invite_url }] : []), { label: 'Members', href: membersHref(context.env) }],
+      },
+      { email, role, email_sent: false, invite_url: sent.value.invite_url ?? null },
+    )
+  }
   return ok(TOOL, 'invite', {
     title: `Invited ${email}`,
     subtitle: `As ${role}. The invitation is valid for 14 days.`,

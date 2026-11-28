@@ -834,30 +834,6 @@ export function resolvePublicShareUrl(
   return raw;
 }
 
-/**
- * The live transcript share among a session's shares (newest first), or null.
- * Live means not revoked and not expired at `now`. Pure: pass the `shares`
- * from `listSessionPublicShares`.
- *
- * Public transcript sharing was removed (KRTX-2358): servers that ship the
- * removal never mint transcript shares, so this returns null there. It still
- * reports a legacy row a server older than the removal hands out.
- *
- * @deprecated Removed in the next major.
- */
-export function findActiveTranscriptShare(
-  shares: readonly SessionPublicShare[],
-  now: Date = new Date(),
-): SessionPublicShare | null {
-  let found: SessionPublicShare | null = null;
-  for (const share of shares) {
-    if (share.resource_type !== 'transcript' || share.revoked_at) continue;
-    if (share.expires_at && Date.parse(share.expires_at) <= now.getTime()) continue;
-    if (!found || Date.parse(share.created_at) > Date.parse(found.created_at)) found = share;
-  }
-  return found;
-}
-
 export async function getSessionPreviewCandidates(projectId: string, sessionId: string) {
   return unwrap(
     await backendApi.get<{ candidates: SessionPreviewCandidate[] }>(
@@ -1123,168 +1099,6 @@ export async function getSessionAudit(
   );
 }
 
-/** @deprecated The v1 transcript. Read the session log instead: `getSessionLogPage` (`kortix.session(p, s).log(query)`, `GET …/log`). Removed in the next major. */
-export interface SessionTranscriptToolCall {
-  tool: string;
-  status: string | null;
-}
-
-/** @deprecated The v1 transcript. Read the session log instead: `getSessionLogPage` (`kortix.session(p, s).log(query)`, `GET …/log`). Removed in the next major. */
-export interface SessionTranscriptMessage {
-  role: string;
-  created: string | null;
-  completed: string | null;
-  text: string;
-  tools: SessionTranscriptToolCall[];
-  files: Array<{ filename: string | null; mime: string | null }>;
-  reasoning_omitted: boolean;
-  error: { name?: string; message?: string } | null;
-}
-
-/**
- * Which source answered a transcript read.
- *
- * `live` is the sandbox's own runtime endpoint. `mirror` is the durable
- * server-side copy the control plane writes at turn end, which is what lets a
- * STOPPED or waking session answer at all. `none` is the honest "nothing could
- * answer" and is the only value that accompanies `available: false`. The two
- * sources are never merged — this field says which one you got.
- *
- * @deprecated The v1 transcript. Read the session log instead: `getSessionLogPage` (`kortix.session(p, s).log(query)`, `GET …/log`). Removed in the next major.
- */
-export type SessionTranscriptSource = 'live' | 'mirror' | 'none';
-
-/** Compact server-side transcript read — text + tool calls, stripped of tool
- *  inputs/outputs, for project automation (callable with project-scoped
- *  session tokens, unlike the raw sandbox proxy).
- *
- * @deprecated The v1 transcript. Read the session log instead: `getSessionLogPage` (`kortix.session(p, s).log(query)`, `GET …/log`). Removed in the next major.
- */
-export interface SessionTranscript {
-  available: boolean;
-  reason: string | null;
-  source: SessionTranscriptSource;
-  /** The response contains the session's FIRST message. False means "this is a
-   *  tail", never "something is broken". */
-  complete: boolean;
-  /** When the mirror was last written; null for a live read. */
-  captured_at: string | null;
-  /** The runtime session this belongs to. Served by APIs since W4. */
-  runtime_session_id?: string | null;
-  message_count: number;
-  messages: SessionTranscriptMessage[];
-}
-
-/** One mirrored message in the shape the session sync store hydrates from:
- *  the runtime's own envelope, with the parts array stripped of tool
- *  inputs/outputs and file urls.
- *
- * @deprecated The v1 transcript. Read the session log instead: `getSessionLogPage` (`kortix.session(p, s).log(query)`, `GET …/log`). Removed in the next major.
- */
-export interface SessionTranscriptSyncMessage {
-  info: Record<string, unknown>;
-  parts: Array<Record<string, unknown>>;
-}
-
-/**
- * The durable transcript mirror, in sync-store shape.
- *
- * `source` is `mirror` or `none` — never `live`. A client whose sandbox is up
- * reads the runtime directly, so this endpoint deliberately does not re-proxy
- * it.
- *
- * @deprecated The v1 transcript. Read the session log instead: `getSessionLogPage` (`kortix.session(p, s).log(query)`, `GET …/log`). Removed in the next major.
- */
-export interface SessionTranscriptSyncEnvelope {
-  available: boolean;
-  reason: string | null;
-  source: SessionTranscriptSource;
-  complete: boolean;
-  captured_at: string | null;
-  /** The runtime session this belongs to. Served by APIs since W4. */
-  runtime_session_id?: string | null;
-  /** How many messages are in THIS window of the transcript. */
-  message_count: number;
-  /**
-   * Messages the mirror holds for this session, across every window.
-   * `complete === false` says a window is partial; this says by how much.
-   *
-   * Optional because an older API does not send it — a self-hosted or staging
-   * backend behind this client answers without these two fields, and reading
-   * them as required would make a correct response look malformed.
-   */
-  total?: number;
-  /** Pass as `before` to read the window OLDER than this one. Null when this
-   *  window already reaches the oldest message the mirror holds. */
-  next_cursor?: string | null;
-  messages: SessionTranscriptSyncMessage[];
-}
-
-/** @deprecated Reads the v1 transcript (`GET …/transcript`). Read the session log instead: `getSessionLogPage` (`kortix.session(p, s).log(query)`, `GET …/log`). Removed in the next major. */
-export async function getSessionTranscript(
-  projectId: string,
-  sessionId: string,
-  options?: { limit?: number; chars?: number },
-) {
-  const search = new URLSearchParams();
-  if (options?.limit != null) search.set('limit', String(options.limit));
-  if (options?.chars != null) search.set('chars', String(options.chars));
-  const qs = search.toString();
-  return unwrap(
-    await backendApi.get<SessionTranscript>(
-      `/workspaces/${projectId}/sessions/${sessionId}/transcript${qs ? `?${qs}` : ''}`,
-    ),
-  );
-}
-
-/**
- * Read the durable server-side transcript mirror for a session.
- *
- * This is the ONE read that answers while the sandbox is down. It exists so a
- * hibernated session can paint its history immediately instead of showing a
- * full-screen loader for the length of the wake (measured 5-240 s).
- *
- * Messages carry the runtime's real ids, so a client hydrates them provisionally
- * (`hydrate(..., { source: 'cache' })`) and the live runtime read SETTLES them
- * by id rather than duplicating them.
- *
- * @deprecated Reads the v1 transcript (`GET …/transcript?shape=sync`). Read the session log instead: `getSessionLogPage` (`kortix.session(p, s).log(query)`, `GET …/log`). Removed in the next major.
- */
-export async function getSessionTranscriptSync(
-  projectId: string,
-  sessionId: string,
-  options?: {
-    limit?: number;
-    signal?: AbortSignal;
-    history?: boolean;
-    /**
-     * A previous window's `next_cursor`. Returns the window of messages
-     * strictly OLDER than it, so a client can walk back through a history the
-     * mirror retains in full. A cursor naming no mirrored message answers 400
-     * rather than silently returning the newest window again.
-     */
-    before?: string | null;
-    /**
-     * A sub-agent's runtime session inside this session (`ses_…`, the id a
-     * sub-agent row opens). Returns that sub-agent's own saved transcript
-     * instead of the conversation; `available: false` when nothing was saved.
-     */
-    child?: string | null;
-  },
-) {
-  const search = new URLSearchParams({ shape: 'sync' });
-  if (options?.limit != null) search.set('limit', String(options.limit));
-  if (options?.history) search.set('history', 'true');
-  if (options?.before) search.set('before', options.before);
-  if (options?.child) search.set('child', options.child);
-  return unwrap(
-    await backendApi.get<SessionTranscriptSyncEnvelope>(
-      `/workspaces/${projectId}/sessions/${sessionId}/transcript?${search.toString()}`,
-      { showErrors: false, signal: options?.signal },
-    ),
-  );
-}
-
 /**
  * One page of one thread of the session's stored log (`kortix.session/2`): the session record,
  * every thread head, and the thread's newest `limit` messages (default 40, max 500) with
@@ -1403,8 +1217,8 @@ export async function getSessionTurn(
 // ── The session-open bundle ─────────────────────────────────────────────────
 //
 // ONE round trip for everything a session view needs to PAINT and ARM: the
-// session row, the running turns, the prompt queue, the durable transcript
-// mirror, the composer's control-plane essentials, the model defaults, and
+// session row, the running turns, the prompt queue, the transcript pointer,
+// the composer's control-plane essentials, the model defaults, and
 // the pending-approvals audit projection. It replaces 7 serial reads (6 plus
 // `/audit`) on the open path and introduces NO new truth —
 // every leg is byte-identical to the endpoint that already served it, so a
@@ -1431,12 +1245,10 @@ export type SessionOpenBundleQueue =
   | { known: true; prompts: SessionPrompt[]; held: boolean }
   | SessionOpenBundleUnknown;
 
-/** = `GET .../transcript?shape=sync`. `requested: false` answers a
- *  `transcript: 0` read: the caller asked for the pointer only, which is NOT
- *  the same as the transcript being unknown. */
+/** The transcript pointer: `requested: false`, the only answer since the v1 transcript was
+ *  removed. The saved history is the session log (`getSessionLogPage`, `GET …/log`). */
 export type SessionOpenBundleTranscript =
   | { known: true; requested: false }
-  | ({ known: true; requested: true } & SessionTranscriptSyncEnvelope)
   | SessionOpenBundleUnknown;
 
 /** Composer essentials that need no sandbox. Deliberately NOT the `/config`
@@ -1530,26 +1342,21 @@ export interface SessionOpenBundle {
 /**
  * Read the session-open bundle.
  *
- * `transcript` is the mirrored-message window: the default matches the SDK's
- * own first-paint span, and `0` asks for the pointer only — what a client whose
- * store is already warm wants, because it needs the identity and the count to
- * TRUST what it holds, not the bytes it already has.
+ * The transcript leg is the pointer only (`transcript=0`): an API older than the
+ * v1 transcript removal would otherwise answer a v1 window nothing reads.
  */
 export async function getSessionOpenBundle(
   projectId: string,
   sessionId: string,
-  options?: { transcript?: number; signal?: AbortSignal },
+  options?: { signal?: AbortSignal },
 ): Promise<SessionOpenBundle> {
-  const search = new URLSearchParams();
-  if (options?.transcript != null) search.set('transcript', String(options.transcript));
-  const qs = search.toString();
   return unwrap(
     await backendApi.get<SessionOpenBundle>(
       // `/snapshot` is the canonical path; #6987 renamed the route while this
       // client kept requesting `/open-bundle`, so every session open 404'd the
       // bundle and silently fell back to 6-8 serial reads. (The API keeps an
       // `/open-bundle` alias for SDKs published before the rename.)
-      `/workspaces/${projectId}/sessions/${sessionId}/snapshot${qs ? `?${qs}` : ''}`,
+      `/workspaces/${projectId}/sessions/${sessionId}/snapshot?transcript=0`,
       // A 404 here is an EXPECTED race: the session exists but the control
       // plane has not marked it visible yet. `openSessionBundle` already
       // resolves `null` and every consumer falls back to its direct read

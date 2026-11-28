@@ -19,6 +19,7 @@ import { MAX_LIVE_PLACEMENT_REPAIRS, hasLaterForwardedSibling, recordRepairedFor
 import { MAX_RUNTIME_UNREACHABLE_RETRIES, markCommandFailed, parkPromptForUnreachableRuntime, markCommandForwarded, requeueForAdmission, requeueUnlandedPrompt, markCommandSucceeded, type SessionLifecycleCommandRow, type QueuedContinueSessionPayload } from './store';
 import type { PromptOverridesWire, PromptPartWire } from './prompt-payload';
 import { DELIVERY_FAILURE_COPY, type SessionDeliveryOutcome, type SessionInvocationSource } from './types';
+import { inboxPromptPersonId, promptAuthorName } from '../lib/prompt-author';
 
 
 const NOT_LANDED_RETRY_DELAY_MS = 2_000;
@@ -159,6 +160,7 @@ export async function deliverQueuedContinue(row: SessionLifecycleCommandRow, pay
         materializationKey: row.commandId,
         ...(noReply ? { noReply } : {}),
         ...(payload.bindTurnIdentity ? { bindTurnIdentity: true } : {}),
+        authorUserId: inboxPromptPersonId({ actorUserId: row.actorUserId, payload }),
         ...(payload.clientMessageId ? {} : { queuedAt: row.createdAt }),
       }, attempt > 0 ? `${row.commandId}:r${attempt}` : row.commandId, tl,
       async () => {
@@ -254,12 +256,17 @@ export async function deliverSteer(row: SessionLifecycleCommandRow, payload: Que
     if (!target?.externalId || !target.runtimeSessionId) throw new SteerNotTaken('turn_ended');
     // A producer that minted no wire id (a trigger, a first prompt) gets one
     // above the live transcript, like a `remintOnDelivery` row.
-    const wireMessageId = payload.remintOnDelivery || !payload.wireMessageId
-      ? await steerWireMessageId(row, payload, target.externalId)
-      : payload.wireMessageId!;
+    const [wireMessageId, author] = await Promise.all([
+      payload.remintOnDelivery || !payload.wireMessageId
+        ? steerWireMessageId(row, payload, target.externalId)
+        : payload.wireMessageId!,
+      // The model reads who wrote a steered message too, as for every person's prompt.
+      promptAuthorName(inboxPromptPersonId({ actorUserId: row.actorUserId, payload })),
+    ]);
     const delivery = await postPrompt(target.externalId, target.runtimeSessionId, promptText, row.actorUserId!, sessionId,
       `${attempt > 0 ? `${row.commandId}:r${attempt}` : row.commandId}:steer`, {
         ...(payload.parts?.length ? { parts: payload.parts } : {}),
+        ...(author ? { author } : {}),
         wireMessageId, materializationKey: row.commandId,
         accountId: row.accountId, projectId: row.projectId, sandboxRecord: target.record, steer: true,
       });

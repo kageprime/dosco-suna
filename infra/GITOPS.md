@@ -1,7 +1,8 @@
 # ECS Fargate release pipeline
 
-Kortix deploys the API, gateway, and frontend through GitHub Actions to Amazon
-ECS Fargate. Terraform owns the persistent networks, load balancers, services,
+Kortix deploys the API and gateway through GitHub Actions to Amazon ECS
+Fargate. The frontend runs on ECS Fargate for dev and on Vercel for staging and
+production. Terraform owns the persistent networks, load balancers, services,
 autoscaling policies, DNS records, IAM roles, and Secrets Manager resources.
 
 The filename remains `GITOPS.md` because existing links use it. Argo CD, EKS,
@@ -14,11 +15,14 @@ Helm, and Kubernetes are not part of the current deployment path. Commit
 | --- | --- | --- | --- | --- |
 | Preview | PR with `preview` label | one Platinum sandbox per PR | the same sandbox | Disabled |
 | Dev | `main` | `dev-api.kortix.com` | `dev.kortix.com` on ECS | Disabled |
-| Staging | `staging` | `staging-api.kortix.com` | `staging-fe-ecs.kortix.com` on ECS | `staging.kortix.com` |
-| Production | `prod` | `api.kortix.com` | `prod-fe-ecs.kortix.com` on ECS | `kortix.com` |
+| Staging | `staging` | `staging-api.kortix.com` | `staging.kortix.com` on Vercel | Active |
+| Production | `prod` | `api.kortix.com` | `kortix.com` on Vercel | Active |
 
-Dev is ECS-only. Previews run in a Platinum sandbox, not on ECS. Staging and production retain their parallel
-Vercel and `*-fe-ecs.kortix.com` paths.
+Dev is ECS-only. Previews run in a Platinum sandbox, not on ECS. Staging and
+production serve the frontend from Vercel only. Their parallel ECS frontends
+(`staging-fe-ecs.kortix.com`, `prod-fe-ecs.kortix.com`) served no users and were
+removed in 2026-11. The `kortix/kortix-frontend` image is still built for every
+release: self-host and dev run it.
 
 ## Deployment workflows
 
@@ -27,10 +31,10 @@ Vercel and `*-fe-ecs.kortix.com` paths.
 | `deploy-preview.yml` | Builds PR-specific API, gateway, and frontend images. It boots them in one Platinum sandbox per pull request (`tests/bin/sandbox-preview.ts`). It removes the sandbox after unlabel or close. |
 | `deploy-dev.yml` | Builds changed dev images, applies dev migrations, rolls the changed ECS services, publishes canonical frontend DNS, and verifies ECS. |
 | `build-staging.yml` | Builds immutable staging release-candidate images. |
-| `deploy-staging.yml` | Applies staging migrations, rolls staging ECS services, and verifies the staging targets. |
+| `deploy-staging.yml` | Applies staging migrations, rolls the staging API and gateway on ECS, deploys the staging frontend to Vercel, and verifies both. |
 | `promote.yml` | Opens a reviewed release PR from staging into `prod`. It does not deploy. |
-| `deploy-prod.yml` | Retags tested staging images, applies production migrations, rolls production ECS services, publishes the release, and verifies the live version. |
-| `rollback-prod.yml` | Rolls selected production ECS services to existing immutable release images. It can also promote the matching Vercel frontend deployment. |
+| `deploy-prod.yml` | Retags tested staging images, applies production migrations, rolls the production API and gateway on ECS, verifies the live version, then deploys the frontend to Vercel and publishes the release. |
+| `rollback-prod.yml` | Rolls the production API and gateway on ECS to existing immutable release images, and promotes the matching Vercel frontend deployment. |
 
 ## Preview lifecycle
 
@@ -58,7 +62,9 @@ retired by #6347 and deleted in 2026-09.
 
 Each permanent environment stores one JSON environment document in AWS Secrets
 Manager. `infra/scripts/ecs-deploy.sh` injects the document through
-`KORTIX_ENV_JSON`. The frontend uses a separate `kortix-<env>-web-env` secret.
+`KORTIX_ENV_JSON`. The dev ECS frontend uses a separate `kortix-dev-use2-web-env`
+secret. The Vercel frontends read their values from the Vercel project and the
+deploy job, not from a web secret.
 
 `KORTIX_PROCESS_ROLE` is never in that document. `ecs-deploy.sh` sets it on
 every API roll: `web` (the API runs no scheduled job) only when the
@@ -70,7 +76,9 @@ environment at its own roll, without the role, and records the source in
 Dev and staging use the same `WEB_PROTECTION_USERNAME` and
 `WEB_PROTECTION_PASSWORD` values. The password value is never committed in
 plaintext. It lives in dotenvx-encrypted environment files, GitHub Actions
-secrets, and AWS Secrets Manager.
+secrets, and AWS Secrets Manager. The release suite (`tests-release.yml`) reads
+the staging value from `kortix-staging-euw2-web-env`. No workflow writes that
+secret since the staging ECS frontend was removed, so keep it in place.
 
 ### Sandbox compute placement
 
@@ -83,11 +91,13 @@ that has made no choice. Only dev sets it (`deploy-dev.yml`).
 
 ### Stateless sandboxes
 
-`KORTIX_WORKSPACE_VOLUMES=on` turns `workspace_volume` (stateless sandboxes) on
-for every project that has made no choice. Each new Platinum session keeps
-`/workspace` on its own volume, and a box stopped for
-`KORTIX_SANDBOX_IDLE_DELETE_MINUTES` (default 60) is deleted. `off` gives no
-new session a volume. Unset leaves it to each project's operator override.
+Stateless sandboxes are the default since 2026-11-23 (the `workspace_volume`
+flag graduated). Each new Platinum session keeps `/workspace` on its own
+volume, and a box stopped for `KORTIX_SANDBOX_IDLE_DELETE_MINUTES` (default 60)
+is deleted. `KORTIX_WORKSPACE_VOLUMES=off` is the kill switch: no new session
+gets a volume, and sessions that already have one keep it. Unset or `on`
+means on. Dev and prod still set `on`, so a rollback to an image from before
+the graduation (where unset meant off) keeps the same behavior.
 Dev and prod set `on` (`deploy-dev.yml`, `deploy-prod.yml`). Staging and
 self-host leave it unset. A session
 that already has a volume keeps it whatever the value is later.

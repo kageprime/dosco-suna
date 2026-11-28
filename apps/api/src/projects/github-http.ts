@@ -11,6 +11,7 @@ export class GitHubApiError extends Error {
      * limit (primary or secondary). Undefined for every other failure.
      */
     readonly retryAfterSeconds?: number,
+    readonly validationMessages: string[] = [],
   ) {
     super(message);
     this.name = 'GitHubApiError';
@@ -171,9 +172,13 @@ export async function ghFetch<T>(
   });
   if (!res.ok) {
     let detail = '';
+    let validationMessages: string[] = [];
     try {
       const body = await res.json() as { message?: string; errors?: Array<{ message?: string }> };
-      detail = body.message ?? body.errors?.[0]?.message ?? '';
+      validationMessages = Array.isArray(body.errors)
+        ? body.errors.flatMap(error => typeof error?.message === 'string' ? [error.message] : [])
+        : [];
+      detail = body.message ?? validationMessages[0] ?? '';
     } catch {
       detail = await res.text().catch(() => '');
     }
@@ -182,6 +187,7 @@ export async function ghFetch<T>(
       res.status,
       path,
       githubRetryAfterSeconds(res.status, res.headers, detail) ?? undefined,
+      validationMessages,
     );
   }
   // GitHub answers 204 with no body for several endpoints (repository delete,

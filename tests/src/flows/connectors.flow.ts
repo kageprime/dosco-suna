@@ -6737,3 +6737,133 @@ flow(
     });
   },
 );
+
+flow(
+  'CONN-44',
+  {
+    domain: 'connectors',
+    routes: [
+      'POST /v1/connectors/projects/:projectId/connectors',
+      'GET /v1/connectors/connect-status',
+      'POST /v1/connectors/projects/:projectId/connectors/:slug/connect',
+      'POST /v1/connectors/projects/:projectId/connectors/:slug/connect/finalize',
+      'GET /v1/connectors/projects/:projectId/sessions/:sessionId/connect-requests',
+      'POST /v1/projects/:projectId/connect-requests',
+      'GET /v1/projects/:projectId/connections',
+      'PUT /v1/projects/:projectId/connections/:connectionId/revoke',
+      'DELETE /v1/connectors/projects/:projectId/connectors/:slug',
+      'GET /v1/connectors/projects/:projectId/connectors',
+    ],
+  },
+  async (ctx) => {
+    const team = await ctx.fixtures.team();
+    const project = await team.project({ managedGit: true });
+    const member = await team.addMember('member');
+    const colleague = await team.addMember('member');
+    await team.grantProjectRole(project.id, member.userId!, 'member');
+    await team.grantProjectRole(project.id, colleague.userId!, 'member');
+    const owner = ctx.client.as(ctx.P.OWNER);
+    const asMember = ctx.client.as(member);
+    const asColleague = ctx.client.as(colleague);
+    const params = { projectId: project.id };
+    const stamp = Date.now().toString(36);
+    // An MCP server with nothing to sign in to: the connect routes answer
+    // without a hosted provider, so the contract holds on every deployment.
+    const slug = `ke2e-own-${stamp}`;
+    const mailSlug = `ke2e-own-mail-${stamp}`;
+    const connectUrl = '/v1/connectors/projects/:projectId/connectors/:slug/connect';
+    const finalizeUrl = '/v1/connectors/projects/:projectId/connectors/:slug/connect/finalize';
+    type Row = { connection_id: string; connector_alias: string; owner_type: string; owner_id: string | null; status: string };
+    const rowsOf = async (client: typeof asMember) => {
+      const r = await client.get('/v1/projects/:projectId/connections', { params });
+      r.status(200);
+      return r.json<{ connections: Row[] }>().connections.filter((row) => row.connector_alias === slug);
+    };
+
+    await ctx.step('the owner adds an MCP connector and a Composio Gmail connector → 200', async () => {
+      (await owner.post('/v1/connectors/projects/:projectId/connectors', { slug, provider: 'mcp', url: 'https://ke2e.kortix.test/mcp', auth: { type: 'none' } }, { params, timeoutMs: 60_000 }))
+        .status(200)
+        .body()
+        .has('$.ok', true);
+      (await owner.post('/v1/connectors/projects/:projectId/connectors', { slug: mailSlug, name: 'Mail', provider: 'composio', app: 'gmail' }, { params, timeoutMs: 60_000 }))
+        .status(200)
+        .body()
+        .has('$.ok', true);
+    });
+
+    await ctx.step('a plain member starts their own sign-in (owner "me") → 200, not 403', async () => {
+      (await asMember.post(connectUrl, { owner: 'me' }, { params: { ...params, slug } }))
+        .status(200)
+        .body()
+        .has('$.provider', 'mcp')
+        .has('$.connected', true);
+      // No owner is "me": the start the CLI and the mobile app send.
+      (await asMember.post(connectUrl, {}, { params: { ...params, slug } })).status(200).body().has('$.provider', 'mcp');
+    });
+
+    let mine = '';
+    await ctx.step('the member finalizes it → 200 with an account that is theirs alone', async () => {
+      const r = await asMember.post(finalizeUrl, { owner: 'me' }, { params: { ...params, slug } });
+      r.status(200).body().has('$.provider', 'mcp').exists('$.connectionId');
+      mine = r.json<{ connectionId: string }>().connectionId;
+      const listed = await rowsOf(asMember);
+      const row = listed.find((item) => item.connection_id === mine);
+      if (row?.owner_type !== 'member' || row.owner_id !== member.userId) {
+        throw new Error(`expected a member-owned account of the member, got ${JSON.stringify(listed)}`);
+      }
+    });
+
+    await ctx.step('the member mints their own connect link → never a permission refusal', async () => {
+      const status = (await owner.get('/v1/connectors/connect-status')).json<{ providers?: string[] }>();
+      const hosted = (status.providers ?? []).length > 0;
+      const r = await asMember.post('/v1/projects/:projectId/connect-requests', { slug: mailSlug }, { params });
+      if (!hosted) {
+        // No hosted provider here: the route answers about the deployment.
+        r.status(501).body().exists('$.error');
+        return;
+      }
+      r.status(200).body().has('$.owner', 'me').matches('$.url', /\/connect\/ksl_/);
+    });
+
+    await ctx.step('the member reads what a session waits on → 200; a non-member → 403', async () => {
+      const sessionParams = { ...params, sessionId: '00000000-0000-4000-a000-000000000044' };
+      (await asMember.get('/v1/connectors/projects/:projectId/sessions/:sessionId/connect-requests', { params: sessionParams }))
+        .status(200)
+        .body()
+        .has('$.connectors', []);
+      (await ctx.client.as(ctx.P.NONMEMBER).get('/v1/connectors/projects/:projectId/sessions/:sessionId/connect-requests', { params: sessionParams })).status(403);
+    });
+
+    await ctx.step('the shared account stays administration: owner "project" → 403 for the member', async () => {
+      (await asMember.post(connectUrl, { owner: 'project' }, { params: { ...params, slug } })).status(403);
+      (await asMember.post(finalizeUrl, { owner: 'project' }, { params: { ...params, slug } })).status(403);
+      (await asMember.post('/v1/projects/:projectId/connect-requests', { slug: mailSlug, owner: 'project' }, { params })).status(403);
+    });
+
+    await ctx.step('the member cannot remove the connector → 403; it is still there', async () => {
+      (await asMember.del('/v1/connectors/projects/:projectId/connectors/:slug', { params: { ...params, slug } })).status(403);
+      const listed = (await owner.get('/v1/connectors/projects/:projectId/connectors', { params })).json<{ connectors: Array<{ slug: string }> }>();
+      if (!listed.connectors.some((item) => item.slug === slug)) throw new Error(`the connector was removed: ${JSON.stringify(listed)}`);
+    });
+
+    await ctx.step("a colleague never reaches the member's account: not listed, finalize 404, revoke 404", async () => {
+      if ((await rowsOf(asColleague)).some((row) => row.connection_id === mine)) {
+        throw new Error("the colleague lists the member's private account");
+      }
+      (await asColleague.post(finalizeUrl, { owner: 'me', connection_id: mine }, { params: { ...params, slug } })).status(404);
+      (await asColleague.put('/v1/projects/:projectId/connections/:connectionId/revoke', {}, { params: { ...params, connectionId: mine } })).status(404);
+      const row = (await rowsOf(asMember)).find((item) => item.connection_id === mine);
+      if (row?.status !== 'active') throw new Error(`the colleague changed the account: ${JSON.stringify(row)}`);
+    });
+
+    await ctx.step('a non-member cannot start a sign-in in this workspace → 403', async () => {
+      (await ctx.client.as(ctx.P.NONMEMBER).post(connectUrl, { owner: 'me' }, { params: { ...params, slug } })).status(403);
+    });
+
+    await ctx.step('the member disconnects their own account → 200, and it reads revoked', async () => {
+      (await asMember.put('/v1/projects/:projectId/connections/:connectionId/revoke', {}, { params: { ...params, connectionId: mine } })).status(200);
+      const row = (await rowsOf(asMember)).find((item) => item.connection_id === mine);
+      if (row?.status !== 'revoked') throw new Error(`the account is not revoked: ${JSON.stringify(row)}`);
+    });
+  },
+);

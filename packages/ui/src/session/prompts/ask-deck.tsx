@@ -22,7 +22,9 @@ import { qk, useAnswerSessionAsk, useSessionAsks } from '@kortix/sdk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowUpIcon, CheckIcon, ShieldWarningIcon } from '@phosphor-icons/react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { agentDisplayName } from '@kortix/shared';
 import { useTranslations } from '../../i18n';
+import { AgentMark } from '../../internal/components/agent-mark';
 import { cn } from '../../internal/lib/utils';
 import { Button } from '../../primitives/button';
 import { EmptyState } from '../../primitives/empty-state';
@@ -427,6 +429,13 @@ function AskCard({
           </div>
         ) : null}
         <div className={cn('text-muted-foreground flex items-center gap-2 px-3 pb-2 text-xs', !question && 'pt-2')}>
+          {ask.agent_name ? (
+            // The agent that asks: its pixel mark and name, before the task it asks from.
+            <span className="text-foreground flex shrink-0 items-center gap-1.5">
+              <AgentMark slug={ask.agent_name} size={14} />
+              {agentDisplayName(ask.agent_name)}
+            </span>
+          ) : null}
           {ask.session_title ? (
             <button
               type="button"

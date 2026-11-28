@@ -22,6 +22,16 @@ test('the API launcher passes database mode to preserve branch worker defaults',
   expect(cli).toMatch(/apiLaunchEnv\(e\.ports,\s*creds,\s*\{[^}]*\bdbMode\b/);
 });
 
+test('a shared-db start initializes an empty primary database from the primary checkout, and only an empty one', () => {
+  const cli = readFileSync(join(REPO, 'scripts/worktree/cli.ts'), 'utf8');
+  const shared = cli.slice(cli.indexOf("step('Using shared primary Supabase')"), cli.indexOf('warnOnSharedDbCrosstalk(name, reg)'));
+  expect(shared.length).toBeGreaterThan(0);
+  // Migrate only inside the no-schema branch, and from the primary checkout (never the worktree's branch).
+  expect(shared).toMatch(/if \(!hasKortixSchema\(creds\.dbUrl\)\) \{[\s\S]*?runMigrate\(repoRoot\(\), creds\.dbUrl\)/);
+  expect(shared.match(/runMigrate\(/g)?.length).toBe(1);
+  expect(shared).not.toMatch(/runMigrate\(e\.path/);
+});
+
 describe('migrate contract — the worktree migrate must reference real things', () => {
   test('every `pnpm --filter @kortix/db <script>` the worktree runs exists in @kortix/db', () => {
     const calls = [...libSrc.matchAll(/'@kortix\/db',\s*'([a-z0-9:-]+)'/g)].map((m) => m[1]);

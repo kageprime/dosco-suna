@@ -5,6 +5,8 @@ import { ProjectCalendarNavItem } from './footer/project-calendar-nav';
 import { ProjectGoalsNavItem } from './footer/project-goals-nav';
 import { ProjectArtifactsNavItem } from './footer/project-artifacts-nav';
 import { ProjectFilesNavItem } from './footer/project-files-nav';
+import { ProjectReviewNavItem } from './footer/project-review-nav';
+import { PinnableRow, type PinnablePage } from './rail-pins';
 import {
   CustomizeGlyph,
   useCapabilityAccess,
@@ -26,18 +28,55 @@ import { adminPath } from '../../lib/routes';
  * own flag and permission gate and renders nothing when the project does not
  * offer it. Spaces are the channel sidebar under the `chat` flag
  * (project-spaces-nav.tsx).
+ *
+ * `review` is first: it is the one row that counts what waits on you (change
+ * requests, agent questions, approvals), as Review is first in the Spaces
+ * list and a top row of the mobile drawer.
  */
-const NAV_ROWS = ['customize', 'files', 'apps', 'calendar', 'goals', 'artifacts'] as const;
+const NAV_ROWS = ['review', 'customize', 'files', 'apps', 'calendar', 'goals', 'artifacts'] as const;
 type NavRowId = (typeof NAV_ROWS)[number];
 
-export function ProjectNavItems({ projectId }: { projectId: string }) {
+/** `review={false}`: the host shows the Review row elsewhere (`chat` on: first in `ProjectSpacesNav`). */
+export function ProjectNavItems({
+  projectId,
+  review = true,
+  customize = true,
+  pin,
+  counts = true,
+}: {
+  projectId: string;
+  review?: boolean;
+  /** False: Customize has its own control (the icon rail's, `sidebar_rail`). */
+  customize?: boolean;
+  /** The rail's More menu: each row gets a pin button that shows the page on the rail. */
+  pin?: { pins: readonly PinnablePage[]; toggle: (id: PinnablePage) => void };
+  /** False (the rail's More menu): no count badges. */
+  counts?: boolean;
+}) {
   return (
     <>
-      {NAV_ROWS.map((id) => (
-        <NavItem key={id} id={id} projectId={projectId} />
-      ))}
+      {NAV_ROWS.filter((id) => (review || id !== 'review') && (customize || id !== 'customize')).map((id) =>
+        pin && id !== 'customize' ? (
+          <PinnableRow key={id} pinned={pin.pins.includes(id)} onToggle={() => pin.toggle(id)}>
+            <NavItem id={id} projectId={projectId} counts={counts} />
+          </PinnableRow>
+        ) : (
+          <NavItem key={id} id={id} projectId={projectId} counts={counts} />
+        ),
+      )}
     </>
   );
+}
+
+/**
+ * Review, for the people who decide: the caller may read Review and act on
+ * it (approve a change request, answer an agent). The Customize access rule's
+ * `review` tab, the rule the mobile drawer's Review row applies too.
+ */
+function ReviewNavEntry({ projectId, counts }: { projectId: string; counts: boolean }) {
+  const access = useCapabilityAccess(projectId);
+  if (!access.settled || !access.tabs.includes('review')) return null;
+  return <ProjectReviewNavItem projectId={projectId} bare={!counts} />;
 }
 
 /**
@@ -45,8 +84,8 @@ export function ProjectNavItems({ projectId }: { projectId: string }) {
  * Workspace settings, on Agents when the caller may read them (Customize is
  * agent-centric). Since 2026-11-08 Customize IS that panel, so there is no
  * disclosure here: the panel's rail lists Agents, Models, Skills and the
- * rest, and Review is part of the Inbox. On hover, the row's right edge
- * holds + (New agent). Absent when the caller may open no capability page.
+ * rest. Review is its own row (`ReviewNavEntry`). On hover, the row's right
+ * edge holds + (New agent). Absent when the caller may open no capability page.
  */
 function CustomizeNavEntry({ projectId }: { projectId: string }) {
   const t = useTranslations('sidebar');
@@ -104,14 +143,16 @@ function CustomizeNavEntry({ projectId }: { projectId: string }) {
   );
 }
 
-function NavItem({ id, projectId }: { id: NavRowId; projectId: string }) {
+function NavItem({ id, projectId, counts }: { id: NavRowId; projectId: string; counts: boolean }) {
   switch (id) {
+    case 'review':
+      return <ReviewNavEntry projectId={projectId} counts={counts} />;
     case 'customize':
       return <CustomizeNavEntry projectId={projectId} />;
     case 'apps':
       return <ProjectAppsNavItem projectId={projectId} />;
     case 'files':
-      return <ProjectFilesNavItem projectId={projectId} />;
+      return <ProjectFilesNavItem projectId={projectId} showCount={counts} />;
     case 'calendar':
       return <ProjectCalendarNavItem projectId={projectId} />;
     case 'goals':

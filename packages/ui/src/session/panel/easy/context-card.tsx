@@ -38,6 +38,8 @@ import { ContextMeter } from './context-meter';
 import type { ContextUsage } from '../../composer/context-usage';
 import { cn } from '../../../lib/utils';
 import {
+  CaretRightIcon,
+  ChatsTeardropIcon,
   FileTextIcon as FileText,
   GlobeIcon as Globe,
   PlusIcon as Plus,
@@ -48,9 +50,10 @@ import { familyForTool, narrateFailedStep, narrateStep } from '@kortix/sdk';
 import type { Detail } from './detail-view';
 import { safeHttpUrl } from '@kortix/shared';
 import { ToolParts } from './detail-view';
-import { PanelCard } from './panel-card';
+import { multiAgentTool } from '../../tool/tools/kortix-tool-card';
+import { PANEL_ROW, PANEL_ROW_ICON, PanelCard } from './panel-card';
+import { STATUS_DOT } from '../../../primitives/status';
 import { StepIcon } from './step-icon';
-import { CaretRightSolidIcon } from '../../../icons/caret-right-solid';
 
 /** One row = one group of things the agent consulted. */
 interface ContextGroup {
@@ -60,6 +63,8 @@ interface ContextGroup {
   icon: React.ReactNode;
   /** What the detail view shows when this row is opened. */
   body: React.ReactNode;
+  /** One of its calls failed: the row carries a red dot. */
+  failed?: boolean;
 }
 
 export function ContextCard({
@@ -138,7 +143,14 @@ export function ContextCard({
       id: tool.callID,
       label: tool.label,
       count: tool.calls?.length ?? 1,
-      icon: <StepIcon family={family} status={failed ? 'error' : 'done'} tone="foreground" />,
+      failed,
+      // A message to another agent is a conversation, not a settings change: its own glyph.
+      icon:
+        multiAgentTool(tool.calls?.[0]?.name ?? '') === 'send_message' ? (
+          <ChatsTeardropIcon className={cn('size-4 shrink-0', failed ? 'text-kortix-red' : 'text-foreground')} />
+        ) : (
+          <StepIcon family={family} status={failed ? 'error' : 'done'} tone="foreground" />
+        ),
       body: <ToolParts calls={tool.calls ?? []} sessionId={sessionId} summary={summary} />,
     });
   }
@@ -154,33 +166,27 @@ export function ContextCard({
           {tI18nComplete.raw('text0f01d14cacf0')}
         </Button>
       }
-      // No header count on purpose: the meter states how full the window is,
-      // and each row carries its own number (web sources, files read, calls
-      // per tool). Rows carry their own `px-4` and fill the width on hover.
-      contentClassName="pb-2"
-      defaultExpanded={files.length + web.length + tools.length > 0 || !!usage}
     >
       {usage && <ContextMeter usage={usage} />}
-      {/* What the agent brought into the conversation: a quiet table under
-          the meter, one row per source, each opening what it did. */}
-      <ul className={cn('flex flex-col gap-0', usage && groups.length > 0 && 'mt-2')}>
+      {/* What the agent brought into the conversation, under the meter: one
+          row per source, each opening what it did. The caret leads, the count
+          trails, on the same label edge as the meter's legend. */}
+      <ul className={cn('flex flex-col', usage && groups.length > 0 && 'mt-2')}>
         {groups.map((g) => (
-          <li key={g.id} className="flex items-center">
+          <li key={g.id} className="flex">
             <button
               type="button"
-              onClick={() =>
-                onOpenDetail({ key: g.id, title: g.label, icon: g.icon, body: g.body })
-              }
-              className="hover:bg-accent flex h-8 w-full cursor-pointer items-center gap-2.5 px-4 text-left transition-[background-color,transform] active:scale-[0.998]"
+              onClick={() => onOpenDetail({ key: g.id, title: g.label, icon: g.icon, body: g.body })}
+              className={cn(PANEL_ROW, 'text-muted-foreground hover:text-foreground cursor-pointer')}
             >
-              {/* A fixed leading box: the group glyphs are not one size
-                  (`StepIcon` draws its own), so the labels share one edge.
-                  No tile: these are table rows under the meter, not files. */}
-              <span className="flex size-4 shrink-0 items-center justify-center">{g.icon}</span>
-              <span className="text-foreground min-w-0 flex-1 truncate text-sm">{g.label}</span>
-              {/* A table value, aligned like the meter's token column. */}
-              <span className="text-muted-foreground text-sm tabular-nums">{g.count}</span>
-              <CaretRightSolidIcon className="text-muted-foreground size-3.5 shrink-0" />
+              <span className={PANEL_ROW_ICON}>
+                <CaretRightIcon className="size-3.5!" />
+              </span>
+              <span className="min-w-0 flex-1 truncate">{g.label}</span>
+              {g.failed && (
+                <span className={cn('size-1.5 shrink-0 rounded-full', STATUS_DOT.destructive)} aria-hidden />
+              )}
+              <span className="tabular-nums">{g.count}</span>
             </button>
           </li>
         ))}

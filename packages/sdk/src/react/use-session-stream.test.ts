@@ -272,6 +272,32 @@ describe('applySessionControlFrame keeps board_state with working (audit finding
 });
 
 describe('patchCachedSessionTitle', () => {
+  test('KRTX-5046: nested and legacy rows keep compatibility and no-op identities', () => {
+    const client = new QueryClient();
+    const nestedKey = [...qk.project.session(P, S), 'prompts'];
+    const legacyKey = qk.project.session(P, 'legacy');
+    const sparseKey = [...qk.project.session(P, S), 'messages'];
+    const emptyPage = { cursor: 'synthetic' };
+    client.setQueryData<unknown>(sparseKey, { pages: [emptyPage, { items: [{ sessionId: S, name: 'Old' }] }] });
+    const childKey = [...qk.project.sessionsScope(P), 'list-children', 'parent', ''];
+    const untouched = { session_id: 'other', name: 'Other' };
+    client.setQueryData<unknown>(nestedKey, [{ session_id: S, name: 'Old' }, untouched]);
+    client.setQueryData<unknown>(legacyKey, { sessionId: S, name: 'Old' });
+    client.setQueryData<unknown>(childKey, [{ session_id: S, name: 'Old', custom_name: '  ' }, untouched]);
+    patchCachedSessionTitle(client, P, S, 'Sea');
+    expect(client.getQueryData<unknown>(nestedKey)).toEqual([{ session_id: S, name: 'Sea' }, untouched]);
+    expect(client.getQueryData<unknown>(legacyKey)).toEqual({ sessionId: S, name: 'Sea' });
+    expect(client.getQueryData<unknown>(childKey)).toEqual([{ session_id: S, name: 'Sea', custom_name: '  ' }, untouched]);
+    expect(client.getQueryData<unknown>(sparseKey)).toEqual({ pages: [emptyPage, { items: [{ sessionId: S, name: 'Sea' }] }] });
+    const nested = client.getQueryData<unknown>(nestedKey);
+    const legacy = client.getQueryData<unknown>(legacyKey);
+    const children = client.getQueryData<unknown>(childKey);
+    patchCachedSessionTitle(client, P, S, 'Sea');
+    expect(client.getQueryData<unknown>(nestedKey)).toBe(nested);
+    expect(client.getQueryData<unknown>(legacyKey)).toBe(legacy);
+    expect(client.getQueryData<unknown>(childKey)).toBe(children);
+  });
+
   test('patches flat and paged lists and the detail; never a user-named row or another session', () => {
     const client = new QueryClient();
     client.setQueryData(qk.project.sessions(P), [
