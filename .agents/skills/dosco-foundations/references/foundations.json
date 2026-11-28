@@ -557,6 +557,17 @@
         "type": "file-exists",
         "path": "packages/minimatch-compat/package.json"
       }
+    },
+    {
+      "id": "OPS-03",
+      "name": "Fly API deploy applies pending migrations before serving traffic",
+      "status": "behavior-locked",
+      "surface": "fly.api.toml",
+      "check": {
+        "type": "contains",
+        "path": "fly.api.toml",
+        "text": "release_command = \"cd /app && NODE_TLS_REJECT_UNAUTHORIZED=0 bun packages/db/scripts/migrate.ts up\""
+      }
     }
   ],
   "frozenTrees": {

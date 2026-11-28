@@ -445,6 +445,21 @@ The API sets `prepare: false` for pooler compatibility.
 
 ### 4.2 Schema migrations
 
+**Fly API app (current):** `fly.api.toml` has a `[deploy] release_command` that
+runs `migrate.ts up` before each rollout. Do not remove it: on 2026-11-28 a
+deploy shipped code reading `artifacts.gallery_folder_id` while prod had 9
+pending migrations, and the artifacts route returned `500`. A manual status or
+repair runs inside the live machine, since no one-off dyno exists:
+
+```powershell
+$tok = (Get-Content "$env:TEMP\fly-api-token.txt" -Raw).Trim()
+$body = @{ command = @('sh','-c','cd /app && NODE_TLS_REJECT_UNAUTHORIZED=0 bun packages/db/scripts/migrate.ts status'); timeout = 120 } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri 'https://api.machines.dev/v1/apps/dosco-api/machines/d891d170a44e58/exec' -Headers @{ Authorization = "Bearer $tok" } -Body $body -ContentType 'application/json'
+```
+
+Replace `status` with `up` to apply. The 600 s cap on `machine exec` requires a
+background run for a large backlog: `nohup ... > /tmp/migrate.log 2>&1 &`.
+
 The migration runner is `packages/db/scripts/migrate.ts`:
 
 ```sh

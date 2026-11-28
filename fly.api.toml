@@ -13,6 +13,12 @@ kill_timeout = "2m"
 [deploy]
   strategy = "rolling"
   wait_timeout = "10m"
+  # Schema changes ship with the image. Without this command the API starts
+  # against a stale schema (2026-11-28: artifacts 500, column
+  # "gallery_folder_id" missing). NODE_TLS_REJECT_UNAUTHORIZED is scoped to
+  # this one-off process: pg verifies sslmode=require against Supavisor's
+  # chain and otherwise fails with SELF_SIGNED_CERT_IN_CHAIN.
+  release_command = "cd /app && NODE_TLS_REJECT_UNAUTHORIZED=0 bun packages/db/scripts/migrate.ts up"
 
 [env]
   PORT = "8008"
