@@ -4,6 +4,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
+import { grantFromLoadedAgents, loadProjectAgents } from '../agents';
+import { withGrantProvenance } from '../lib/secret-grant';
 import { ManifestImportError, parseManifestText } from '@kortix/manifest-schema';
 import {
   commitManifest,
@@ -115,6 +117,37 @@ afterEach(async () => {
 });
 
 describe('kortix.yaml imports over a real git repository', () => {
+  test('an imported grant edit changes provenance without changing the root blob', async () => {
+    const readGrant = async () => {
+      const loaded = await loadProjectAgents(project, { forceRefresh: true, rethrowReadErrors: true });
+      return withGrantProvenance(grantFromLoadedAgents('galileo', loaded), loaded);
+    };
+    const originalRoot = await remoteFile('kortix.yaml');
+    const narrow = await readGrant();
+    expect(narrow?.connectors).toEqual([]);
+    await push({ '.kortix/agents.yaml': 'agents:\n  galileo:\n    connectors: all\n' }, 'change imported grant');
+    const broad = await readGrant();
+    expect(broad?.connectors).toBe('all');
+    expect(await remoteFile('kortix.yaml')).toBe(originalRoot);
+    expect(broad?.manifestRevision).not.toBe(narrow?.manifestRevision);
+    expect((await readGrant())?.manifestRevision).toBe(broad?.manifestRevision);
+    await push({ 'notes.txt': 'unrelated commit\n' }, 'unrelated change');
+    const unrelated = await readGrant();
+    expect(unrelated?.manifestCommit).not.toBe(broad?.manifestCommit);
+    expect(unrelated?.manifestRevision).toBe(broad?.manifestRevision);
+    await push({ '.kortix/agents.yaml': 'agents:\n  galileo:\n    connectors: none\n' }, 'narrow imported grant');
+    const narrowed = await readGrant();
+    expect(narrowed?.connectors).toEqual([]);
+    expect(narrowed?.manifestRevision).toBe(narrow?.manifestRevision);
+  });
+
+  test('a single-file manifest keeps its root blob as grant provenance', async () => {
+    await push({ 'kortix.yaml': 'agents:\n  worker:\n    connectors: all\n' }, 'single-file manifest');
+    const loaded = await loadProjectAgents(project, { forceRefresh: true, rethrowReadErrors: true });
+    expect(loaded.manifest?.revision).toBe(await git(['--git-dir', remotePath, 'rev-parse', 'main:kortix.yaml']));
+    expect(grantFromLoadedAgents('worker', loaded)?.connectors).toBe('all');
+  });
+
   test('read: merges every imported file and reports the declaring file per trigger', async () => {
     const manifest = await readManifest(project);
     if (!manifest) throw new Error('Expected the seeded manifest');

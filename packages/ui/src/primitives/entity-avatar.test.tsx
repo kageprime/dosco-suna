@@ -239,7 +239,7 @@ describe('EntityAvatar — the emoji tile’s surface', () => {
    * `backgroundColor` and keeps `color` and `borderColor` satisfies it — and
    * satisfied all 27 tests in this task when it was tried. What it ships is a
    * saturated chalk BORDER on the emoji tile, because an inline `border-color`
-   * beats the `border-border/60` class: measured `rgb(132, 210, 208)` where
+   * beats the `border-border` class: measured `rgb(132, 210, 208)` where
    * `oklab(0.262899 … / 0.6)` was intended. That is precisely the noise the
    * style-drop exists to prevent, so the substring check cannot be the only
    * guard.

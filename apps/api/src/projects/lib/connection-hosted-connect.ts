@@ -8,7 +8,7 @@ import {
 } from '../../connectors/composio';
 import { connectedAsOf, relabelToIdentity, resolveConnectedAs } from '../../connectors/connection-identity';
 import { composioConnectionMetadata } from '../../connectors/db-deps';
-import { readRequestingSessionId } from '../../connectors/db-deps-connect';
+import { composioMetadataWrite, readRequestingSessionId } from '../../connectors/db-deps-connect';
 import { notifyConnectorSession } from '../../connectors/notify-session';
 import { finalizePipedreamConnectionAuthorization, pipedreamConnectUrl } from '../../connectors/pipedream';
 import { db } from '../../shared/db';
@@ -36,13 +36,13 @@ export async function startComposioConnect(projectId: string, connectionId: stri
   // authority leaves a revoked account revoked until the sign-in completes
   // (`connectors/connection-status.ts`).
   await connectConnection(connectionId, {
-    metadata: composioConnectionMetadata({
+    metadata: composioMetadataWrite(composioConnectionMetadata({
       toolkit: app, stableUserId, sessionId: result.sessionId,
       authRequestId: result.authRequestId, connectedAccountId: result.connectedAccountId,
       isNoAuth: result.isNoAuth, previous: metadata,
       connectedAs: result.connectedAccountId && result.connectedAccountId === metadata.connected_account_id
         ? connectedAsOf(metadata) : null,
-    }),
+    }), result.connected, true),
   });
   return { app, connectUrl: result.connectUrl, connected: result.connected, isNoAuth: result.isNoAuth };
 }
@@ -64,11 +64,11 @@ export async function finalizeComposioConnect(projectId: string, connectionId: s
   // An in-flight completion: a revoke that landed while the person was
   // signing in wins, and the account stays revoked.
   const live = await completeConnection(connectionId, null, {
-    metadata: composioConnectionMetadata({
+    metadata: composioMetadataWrite(composioConnectionMetadata({
       toolkit: app, stableUserId, sessionId: result.sessionId,
       authRequestId: result.authRequestId, connectedAccountId: result.connectedAccountId,
       isNoAuth: result.isNoAuth, previous: metadata, connectedAs,
-    }),
+    }), result.connected, true),
   });
   if (!live) return { connected: false };
   const label = connectedAs ? await relabelToIdentity({ connectionId, identity: connectedAs }) : null;

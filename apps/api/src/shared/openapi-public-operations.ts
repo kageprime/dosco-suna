@@ -7,6 +7,7 @@
  * carry `auth`; `unit-openapi-public-operations` fails on an unlisted one.
  */
 export const PUBLIC_OPERATIONS: ReadonlySet<string> = new Set([
+  'post /v1/qualiloop/chat', // External evaluation protocol; verifies X-Agent-Secret, not a bearer token.
   'get /health',
   'get /v1/health',
   'get /v1/clients/mobile',

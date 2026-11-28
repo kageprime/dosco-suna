@@ -6,6 +6,7 @@ import {
   STALE_RUNTIME_BOOT_HARD_MS,
   RUNTIME_PROVEN_AT_KEY,
   runtimeBootEpochMs,
+  runtimeBootIsWake,
   runtimeReadyWaitPatch,
   servesThroughProbeMiss,
   shouldWarnRuntimeUnreachable,
@@ -206,6 +207,25 @@ describe('an automatic rung never inherits the previous attempt boot budget', ()
         park.getTime(),
       ),
     ).toBe('runtime_not_ready_timeout');
+  });
+
+  // KRTX-1642: the runtime's first answer counts toward a resume only after a wake.
+  test('runtimeBootIsWake: the newest boot epoch is a wake confirmation', () => {
+    expect(runtimeBootIsWake({})).toBe(false);
+    expect(runtimeBootIsWake({ initSucceededAt: attempt1.toISOString() })).toBe(false);
+    expect(
+      runtimeBootIsWake({
+        initSucceededAt: attempt1.toISOString(),
+        providerRunningConfirmedAt: attempt2.toISOString(),
+      }),
+    ).toBe(true);
+    // A provision after an older wake: that boot is not a wake.
+    expect(
+      runtimeBootIsWake({
+        providerRunningConfirmedAt: attempt1.toISOString(),
+        initSucceededAt: attempt2.toISOString(),
+      }),
+    ).toBe(false);
   });
 });
 

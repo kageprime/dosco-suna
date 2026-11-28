@@ -27,11 +27,12 @@ export type AttachmentEnv = {
   /** The persisted record changed (tab group, pause): write it to session storage. */
   onChanged(a: Attachment): void;
   chrome(): ChromeConnection | undefined;
-  overlay(tabId: number, a: Attachment): void;
+  overlay(tabId: number, a: Attachment): Promise<void>;
 };
 
 export class Attachment {
   groupId: number | undefined;
+  activeTab: number | undefined;
   paused = false;
   touched = new Set<number>();
   /** Where each tab's cursor was last drawn, so it stays put when the agent loads another page. */
@@ -216,9 +217,12 @@ export class Attachment {
           ),
           new Promise<void>((r) => setTimeout(r, CURSOR_WAIT_MS)),
         ]),
-      touched: (tabId) => {
-        this.touched.add(tabId);
-        this.env.overlay(tabId, this);
+      touched: (tabId) => { this.touched.add(tabId); },
+      interaction: async (tabId) => {
+        const previous = this.activeTab;
+        this.activeTab = tabId;
+        if (previous !== undefined) await this.env.overlay(previous, this);
+        if (tabId !== undefined) await this.env.overlay(tabId, this);
       },
     };
   }

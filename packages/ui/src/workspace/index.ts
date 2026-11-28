@@ -55,6 +55,7 @@ export {
 } from './session-workspace';
 export { ProjectSessionsView } from './sessions/project-sessions-view';
 export { SpaceView, type SpaceFile, type SpaceFolder, type SpaceTarget, type SpaceViewProps } from './spaces/space-view';
+export { AgentChatView } from './spaces/agent-chat-view';
 export { isHtmlPath } from './spaces/space-tab-list';
 export { ChannelGlyph } from './spaces/channel-glyph';
 export { agentLabel } from './spaces/space-timeline';

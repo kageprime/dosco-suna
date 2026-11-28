@@ -205,7 +205,7 @@ describe('pi list_agents', () => {
       action: 'project',
       card: {
         title: '3 sessions you can reach',
-        subtitle: 'This session is main. 1 working.',
+        subtitle: '1 working',
         status: 'done',
         rows: [
           { title: 'reviewer', detail: 'started by this session · @reviewer · Review the auth module', badge: 'working', href: `/workspaces/${PROJECT_ID}/sessions/${REVIEWER}` },

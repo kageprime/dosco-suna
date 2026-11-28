@@ -69,7 +69,7 @@ export function SessionGetTool({ call, defaultOpen, forceOpen, locked }: ToolPro
       {isErrorOutput(output) ? (
         <ToolOutputFallback output={output} toolName="session_get" />
       ) : parsed ? (
-        <div className="divide-border/20 divide-y">
+        <div className="divide-border divide-y">
           <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 px-3 py-2.5 text-xs">
             {parsed.id && <span className="font-mono text-xs">{parsed.id}</span>}
             {parsed.created && (

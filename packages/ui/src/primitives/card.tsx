@@ -190,7 +190,7 @@ const CardGroup = forwardRef<HTMLDivElement, CardGroupProps>(
             'relative grid',
             // A shared frame clips the highlight + dividers to its rounded
             // corners; separated tiles clip themselves.
-            outlined && !separated && 'border-border/60 overflow-hidden rounded-xl border',
+            outlined && !separated && 'border-border overflow-hidden rounded-xl border',
             separated ? 'gap-2' : 'gap-0',
             className,
           )}
@@ -334,7 +334,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
     const tileShape = !group
       ? 'rounded-xl overflow-hidden'
       : separated && outlined
-        ? 'rounded-xl overflow-hidden border border-border/60'
+        ? 'rounded-xl overflow-hidden border border-border'
         : '';
 
     // Stretched overlay makes the whole card the click target while keeping

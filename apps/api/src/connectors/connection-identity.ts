@@ -55,6 +55,10 @@ export function rowMetadata(metadata: unknown): Record<string, unknown> {
   for (const key of ROW_METADATA_KEYS) {
     if (typeof source[key] === 'string' && source[key]) kept[key] = source[key];
   }
+  // Completion consumes the notification marker, not the transcript history.
+  if (Array.isArray(source.connect_session_ids)) {
+    kept.connect_session_ids = source.connect_session_ids.filter((id): id is string => typeof id === 'string');
+  }
   return kept;
 }
 

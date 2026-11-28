@@ -65,7 +65,7 @@ export function StructuredOutput({ sections }: { sections: OutputSection[] }) {
             return (
               <div
                 key={key}
-                className="bg-muted/40 border-border/60 flex items-start gap-2 rounded-md border px-2.5 py-1.5"
+                className="bg-muted/40 border-border flex items-start gap-2 rounded-md border px-2.5 py-1.5"
               >
                 <Ban className="text-muted-foreground mt-0.5 size-3 shrink-0" />
                 <div className="min-w-0 flex-1">

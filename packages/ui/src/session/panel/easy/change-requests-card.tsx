@@ -21,13 +21,12 @@ export function ChangeRequestsCard({ requests, onOpen, onJump, jumping = false }
   if (requests.length === 0) return null;
 
   return (
-    <PanelCard title={t('title')} count={requests.length} isEmpty={false} defaultExpanded
-      fill contentClassName="min-h-0 overflow-y-auto pb-2">
+    <PanelCard title={t('title')} isEmpty={false} fill contentClassName="min-h-0 overflow-y-auto pb-3">
       <ul>
         {[...requests].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).map((cr) => (
-          <li key={cr.cr_id} className="hover:bg-accent flex items-center gap-1 pr-2">
+          <li key={cr.cr_id} className="hover:bg-hover mx-1 flex items-center gap-1 rounded-md pr-1 transition-colors">
             <button type="button" data-cr-id={cr.cr_id} onClick={() => onOpen(cr.cr_id)}
-              className="flex min-w-0 flex-1 flex-col gap-1 py-2 pl-4 text-left">
+              className="flex min-w-0 flex-1 flex-col gap-1 py-2 pl-2 text-left">
               <span className="flex w-full min-w-0 items-baseline gap-2">
                 <span className="text-muted-foreground shrink-0 text-xs tabular-nums">#{cr.number}</span>
                 <span className="text-foreground truncate text-sm">{cr.title}</span>

@@ -1,7 +1,7 @@
 'use client';
 
 import type { Artifact, ArtifactListScope } from '@kortix/sdk';
-import { useArtifactMutations, useArtifacts, useProjectConfig } from '@kortix/sdk/react';
+import { useArtifactFolders, useArtifactMutations, useArtifacts, useProjectConfig } from '@kortix/sdk/react';
 import { Button } from '@kortix/ui/button';
 
 import { EmptyState } from '@kortix/ui/empty-state';
@@ -12,7 +12,7 @@ import Loading from '@kortix/ui/loading';
 import { Skeleton } from '@kortix/ui/skeleton';
 import { SortMenu, useStoredSort } from '@kortix/ui/sort-menu';
 import { Tabs, TabsList, TabsTrigger } from '@kortix/ui/tabs';
-import { successToast } from '@kortix/ui/toast';
+import { errorToast, successToast } from '@kortix/ui/toast';
 import {
   ALL_SPACES,
   ProjectPageHeader,
@@ -22,13 +22,15 @@ import {
   useSpaceFilter,
   useSpacesEnabled,
 } from '@kortix/ui/workspace';
-import { MagnifyingGlassIcon, PlusIcon } from '@phosphor-icons/react';
-import { useRouter } from 'next/navigation';
+import { CaretRightIcon, FolderPlusIcon, MagnifyingGlassIcon, PlusIcon } from '@phosphor-icons/react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useRef, useState } from 'react';
 
 import { useAuth } from '@/features/providers/auth-provider';
 import { useTranslations } from '@/i18n/use-translations';
 
+import { ArtifactFolderActions, ArtifactFolderCrumb, ArtifactFolderEditor, ArtifactFolderTile } from './artifact-folders';
+import { folderChildren, folderPath } from './artifact-folder-tree';
 import { ArtifactCard, CreatingCard, useColumnWidth } from './artifact-card';
 import { artifactHref } from './artifact-meta';
 
@@ -63,17 +65,36 @@ function sortArtifacts(artifacts: Artifact[], sort: ArtifactSort): Artifact[] {
  */
 export function ArtifactsGallery({ projectId }: { projectId: string }) {
   const t = useTranslations('artifacts');
+  const tCommon = useTranslations('common');
+  const folders = useArtifactFolders(projectId);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const folderId = searchParams.get('folder');
+  const setFolderId = (id: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (id) params.set('folder', id);
+    else params.delete('folder');
+    router.push(`${pathname}${params.size ? `?${params}` : ''}`, { scroll: false });
+  };
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const allFolders = folders.data ?? [];
+  const currentFolder = allFolders.find(f => f.folder_id === folderId);
+  // The crumbs above the open folder (root first), and the folders inside it.
+  const ancestors = folderPath(allFolders, folderId).slice(0, -1);
+  const childFolders = folderChildren(allFolders, currentFolder ? currentFolder.folder_id : null);
   const [scope, setScope] = useState<ArtifactListScope>('all');
   const [q, setQ] = useState('');
   // As on Skills: the search is focused on arrival (desktop), and "/" jumps back to it.
   const searchRef = useRef<HTMLInputElement>(null);
   useSlashFocus(searchRef);
   const grid = useColumnWidth();
-  const router = useRouter();
   const { create } = useArtifactMutations(projectId);
   const newDoc = async () => {
-    const a = await create.mutateAsync({ files: { 'index.md': { content: `# ${t('untitledDoc')}\n\n` } } });
-    successToast(t('docCreated'), { actions: [{ label: t('open'), onClick: () => router.push(artifactHref(projectId, a.artifact_id)) }] });
+    try {
+      const a = await create.mutateAsync({ folder_id: folderId, files: { 'index.md': { content: `# ${t('untitledDoc')}\n\n` } } });
+      successToast(t('docCreated'), { actions: [{ label: t('open'), onClick: () => router.push(artifactHref(projectId, a.artifact_id)) }] });
+    } catch { errorToast(t('docCreateFailed')); }
   };
   // One list, filtered here: a tab or a search changes what shows, not what is mounted, so no
   // card (or its live preview) remounts. A project at the list's page size may hold more than
@@ -81,10 +102,12 @@ export function ArtifactsGallery({ projectId }: { projectId: string }) {
   const viewerId = useAuth().user?.id;
   const query = q.trim().toLowerCase();
   const filtered = scope !== 'all' || !!query;
-  const all = useArtifacts(projectId, { scope: 'all' });
+  const all = useArtifacts(projectId, { scope: 'all', folder_id: folderId ?? (filtered ? undefined : 'root') });
   const paged = (all.data?.length ?? 0) >= LIST_PAGE;
-  const server = useArtifacts(paged && filtered ? projectId : null, { scope, q: query || undefined });
-  const list = paged && filtered ? server : all;
+  const server = useArtifacts(paged && filtered ? projectId : null, { scope, q: query || undefined, folder_id: folderId ?? undefined });
+  // Keep loaded cards while the first server-filtered page is in flight.
+  const useServer = paged && filtered && (server.data !== undefined || server.isError);
+  const list = useServer ? server : all;
   const cards = list.data ?? [];
   // An artifact sits in its bound space, else its agent's space, else Project-wide.
   // Spaces are Work in progress: with `chat` off every artifact is
@@ -102,42 +125,79 @@ export function ArtifactsGallery({ projectId }: { projectId: string }) {
     created: tSort('created'),
   };
   const shown = sortArtifacts(
-    (paged ? cards : cards.filter((a) => matches(a, scope, query, viewerId))).filter(
+    (useServer ? cards : cards.filter((a) => matches(a, scope, query, viewerId))).filter(
       (artifact) => space === ALL_SPACES || spaceOf(artifact) === space,
     ),
     sort,
   );
 
   return (
-    <div className="flex h-svh flex-col overflow-hidden">
-      <ProjectPageHeader title={t('title')}>
+    <div role="region" aria-label={t('title')} className="flex h-svh flex-col overflow-hidden">
+      {creatingFolder ? <ArtifactFolderEditor projectId={projectId} parent={currentFolder ?? null} onClose={() => setCreatingFolder(false)} /> : null}
+      <ProjectPageHeader
+        // In a folder the header is its path: Artifacts › parents › the folder (the h1), then its menu.
+        title={
+          !folderId
+            ? t('title')
+            : (currentFolder?.name ?? (folders.isError ? t('folderLoadFailed') : folders.isSuccess ? t('folderUnavailable') : ''))
+        }
+        breadcrumb={
+          folderId ? (
+            <nav aria-label={t('folderNavigation')} className="me-0.5 flex min-w-0 shrink items-center gap-2">
+              {/* A phone shows only the parent crumb: the open folder's name keeps the room. */}
+              <span className={`min-w-0 shrink items-center ${ancestors.length ? 'hidden sm:flex' : 'flex'}`}>
+                <ArtifactFolderCrumb projectId={projectId} folderId={null} name={t('title')} onOpen={() => setFolderId(null)} back={!ancestors.length} />
+              </span>
+              {ancestors.map((folder, index) => (
+                <span key={folder.folder_id} className={`min-w-0 shrink items-center gap-2 ${index === ancestors.length - 1 ? 'flex' : 'hidden sm:flex'}`}>
+                  <CaretRightIcon className="text-muted-foreground hidden size-3 shrink-0 sm:block" aria-hidden />
+                  <ArtifactFolderCrumb projectId={projectId} folderId={folder.folder_id} name={folder.name} onOpen={() => setFolderId(folder.folder_id)} back={index === ancestors.length - 1} />
+                </span>
+              ))}
+              <CaretRightIcon className="text-muted-foreground hidden size-3 shrink-0 sm:block" aria-hidden />
+            </nav>
+          ) : undefined
+        }
+        titleAccessory={
+          folderId && !currentFolder && !folders.isSuccess && !folders.isError ? (
+            <span role="status" aria-label={tCommon('loading')}><Loading className="size-3.5" /></span>
+          ) : currentFolder ? (
+            <span className="ms-0.5 flex shrink-0">
+              <ArtifactFolderActions folder={currentFolder} folders={allFolders} projectId={projectId} />
+            </span>
+          ) : undefined
+        }
+      >
+        <Button size="sm" variant="outline" className="gap-1.5" aria-label={t('newFolder')} onClick={() => setCreatingFolder(true)} disabled={!!folderId && !currentFolder}><FolderPlusIcon className="size-3.5" /><span className="sr-only sm:not-sr-only">{t('newFolder')}</span></Button>
         <SortMenu
           value={sort}
           onValueChange={setSort}
           options={ARTIFACT_SORTS.map((mode) => ({ value: mode, label: sortLabel[mode] }))}
           label={tSort('sortBy', { mode: sortLabel[sort] })}
         />
-        <Button size="sm" className="gap-1.5" onClick={newDoc} disabled={create.isPending} aria-busy={create.isPending}>
+        <Button size="sm" className="gap-1.5" onClick={newDoc} disabled={create.isPending || (!!folderId && !currentFolder)} aria-busy={create.isPending}>
           {create.isPending ? <Loading className="size-3.5 shrink-0" /> : <PlusIcon className="size-3.5 shrink-0" />}
           {t('newDoc')}
         </Button>
       </ProjectPageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 pb-20 md:px-8">
+          {!folderId && folders.isError ? <ErrorState title={t('folderLoadFailed')} action={<Button variant="outline" size="sm" onClick={() => folders.refetch()}>{t('retry')}</Button>} /> : null}
+          {!filtered && childFolders.length ? <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">{childFolders.map(folder => <ArtifactFolderTile key={folder.folder_id} folder={folder} folders={allFolders} projectId={projectId} onOpen={() => setFolderId(folder.folder_id)} />)}</div> : null}
           <section className="flex flex-col gap-4">
             <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <Tabs value={scope} onValueChange={(v) => setScope(v as ArtifactListScope)}>
-                  <TabsList variant="segmented">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <Tabs className="min-w-0 overflow-x-auto" value={scope} onValueChange={(v) => setScope(v as ArtifactListScope)}>
+                  <TabsList variant="segmented" className="w-max">
                     {SCOPES.map((s) => (
-                      <TabsTrigger key={s} value={s}>
+                      <TabsTrigger key={s} value={s} id={`artifact-scope-${s}`} aria-controls="artifact-gallery-panel" className="px-1.5 sm:px-3">
                         {t(`scope.${s}`)}
                       </TabsTrigger>
                     ))}
                   </TabsList>
                 </Tabs>
                 {/* The search, focused on arrival on desktop; "/" jumps back to it. */}
-                <InputGroupSearch className="min-w-0 flex-1 sm:w-64 sm:flex-none">
+                <InputGroupSearch className="w-full min-w-0 sm:w-64">
                   <InputGroupSearchIcon>
                     <MagnifyingGlassIcon />
                   </InputGroupSearchIcon>
@@ -150,13 +210,18 @@ export function ArtifactsGallery({ projectId }: { projectId: string }) {
                     variant="popover"
                     size="sm"
                   />
-                  <InputGroupSearchClear onClick={() => setQ('')} />
+                  <InputGroupSearchClear className="size-7" onClick={() => setQ('')} />
                 </InputGroupSearch>
               </div>
               <SpaceFilterTabs spaces={spaces} groups={groups} value={space} onValueChange={setSpace} />
             </div>
 
-            {list.isError ? (
+            <div id="artifact-gallery-panel" role="tabpanel" aria-labelledby={`artifact-scope-${scope}`} tabIndex={0}>
+            {folderId && folders.isError ? (
+              <ErrorState title={t('folderLoadFailed')} action={<Button size="sm" variant="outline" onClick={() => folders.refetch()}>{t('retry')}</Button>} />
+            ) : folderId && folders.isSuccess && !currentFolder ? (
+              <ErrorState title={t('folderUnavailable')} action={<Button size="sm" variant="outline" onClick={() => setFolderId(null)}>{t('title')}</Button>} />
+            ) : list.isError ? (
               <ErrorState
                 title={t('loadError')}
                 action={
@@ -171,16 +236,19 @@ export function ArtifactsGallery({ projectId }: { projectId: string }) {
                   <Skeleton key={i} className="aspect-[16/10] w-full rounded-lg" />
                 ))}
               </div>
-            ) : shown.length === 0 && !create.isPending ? (
+            ) : (<>
+              {shown.length === 0 && !create.isPending && paged && filtered && (server.isLoading || server.isPlaceholderData) ? (
+                <div role="status" aria-label={tCommon('loading')} className="flex justify-center py-12"><Loading className="size-5" /></div>
+              ) : shown.length === 0 && !create.isPending ? (
               <EmptyState
                 title={
                   q || scope !== 'all'
                     ? t('emptyFiltered')
                     : space !== ALL_SPACES
                       ? t('spaceEmpty', { space: spaceFilterLabel(space, spaces, t('projectWide')) })
-                      : t('empty')
+                      : folderId ? t('emptyFolder') : childFolders.length ? t('emptyUnfiled') : t('empty')
                 }
-                description={q || scope !== 'all' || space !== ALL_SPACES ? undefined : t('emptyHint')}
+                description={q || scope !== 'all' || space !== ALL_SPACES || folderId || childFolders.length ? undefined : t('emptyHint')}
                 action={
                   // Each empty view offers its way out: clear the filters, show every space, or
                   // start the first doc.
@@ -207,7 +275,7 @@ export function ArtifactsGallery({ projectId }: { projectId: string }) {
                   )
                 }
               />
-            ) : (
+              ) : null}
               <div ref={grid} className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
                 {/* The new doc while the server writes it: the click shows at once, then the page opens. */}
                 {create.isPending ? <CreatingCard /> : null}
@@ -216,6 +284,7 @@ export function ArtifactsGallery({ projectId }: { projectId: string }) {
                     key={artifact.artifact_id}
                     projectId={projectId}
                     artifact={artifact}
+                    folders={allFolders}
                     hidden={!shown.includes(artifact)}
                     space={spacesOn && space === ALL_SPACES ? labels.get(spaceOf(artifact)) : undefined}
                     current={spaceOf(artifact)}
@@ -223,7 +292,8 @@ export function ArtifactsGallery({ projectId }: { projectId: string }) {
                   />
                 ))}
               </div>
-            )}
+            </>)}
+            </div>
           </section>
         </div>
       </div>

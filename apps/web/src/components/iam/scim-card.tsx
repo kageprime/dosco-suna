@@ -106,7 +106,7 @@ function ProvisioningHealthPanel({
   const freshness = scimSyncFreshness(lastSyncAt);
 
   return (
-    <div className="border-border/60 bg-muted/10 space-y-2 rounded-md border px-3 py-2.5">
+    <div className="border-border bg-muted/10 space-y-2 rounded-md border px-3 py-2.5">
       <div className="flex items-center justify-between gap-2">
         <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
           <ShieldCheck className="size-3.5 shrink-0" />

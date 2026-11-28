@@ -68,6 +68,27 @@ export function buildVerifyUrl(input: {
   return `${base}/auth/v1/verify?${params.toString()}`;
 }
 
+/** The web callbacks that verify an email token hash themselves. */
+const TOKEN_HASH_CALLBACK_PATHS = ['/auth/callback', '/auth/mobile/callback'];
+
+/**
+ * The signup confirmation link. GoTrue's verify endpoint answers a PKCE signup
+ * with a code that expires 5 minutes after the SIGNUP started (its flow state
+ * clock; magic links count from the click instead), so a confirmation opened
+ * later lands on "link expired" although the address was just confirmed. The
+ * web callback verifies the token hash itself, valid for the email OTP's whole
+ * lifetime. Any other redirect target keeps GoTrue's verify link.
+ */
+function buildSignupUrl(input: { verifyBaseUrl: string; tokenHash: string; redirectTo?: string }): string {
+  const target = input.redirectTo ? URL.parse(input.redirectTo) : null;
+  if (!target || !TOKEN_HASH_CALLBACK_PATHS.includes(target.pathname)) {
+    return buildVerifyUrl({ ...input, actionType: 'signup' });
+  }
+  target.searchParams.set('token_hash', input.tokenHash);
+  target.searchParams.set('type', 'signup');
+  return target.toString();
+}
+
 /**
  * Normalize the hook payload into everything needed to render and address one
  * email. Returns a reason string instead of throwing so the route can answer
@@ -106,17 +127,16 @@ export function parseSendEmailHookPayload(
   if (!tokenHash) return { ok: false, reason: 'missing token_hash' };
   if (!verifyBaseUrl) return { ok: false, reason: 'no public Supabase URL configured' };
 
+  const redirectTo = data.redirect_to || data.site_url || undefined;
   return {
     ok: true,
     email: {
       recipient,
       actionType,
-      actionUrl: buildVerifyUrl({
-        verifyBaseUrl,
-        tokenHash,
-        actionType,
-        redirectTo: data.redirect_to || data.site_url || undefined,
-      }),
+      actionUrl:
+        actionType === 'signup'
+          ? buildSignupUrl({ verifyBaseUrl, tokenHash, redirectTo })
+          : buildVerifyUrl({ verifyBaseUrl, tokenHash, actionType, redirectTo }),
       token,
     },
   };

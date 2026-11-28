@@ -1,4 +1,4 @@
-import { parseNoticeBatch, type ProjectSession } from '@kortix/sdk';
+import { parseNoticeBatch, type ProjectSession, type WorkspaceSpaceActivity } from '@kortix/sdk';
 import { agentDisplayName } from '@kortix/shared';
 
 import { relativeTime } from '../../internal/lib/relative-time';
@@ -43,6 +43,80 @@ export function buildSpaceTimeline(sessions: readonly ProjectSession[]): Timelin
     day.threads.push(session);
   }
   return days;
+}
+
+/**
+ * A line of the channel's activity, as the timeline draws it: "Ana joined",
+ * "Ana was added by Jay", "Kortix was added by Jay" (`GET …/activity`).
+ */
+export type TimelineJoin = WorkspaceSpaceActivity;
+
+/** One row of a day: a thread, or an activity line. */
+export type TimelineEntry = { kind: 'thread'; session: ProjectSession } | { kind: 'join'; join: TimelineJoin };
+
+/**
+ * A day's rows in time order: its threads, and the activity lines of that
+ * day. A line older than the oldest loaded thread is left out while older
+ * threads remain to load (`complete` false): it would sit above history that
+ * is not on screen yet. Days with only joins get their own group.
+ */
+export function timelineEntries(
+  days: readonly TimelineDay[],
+  joins: readonly TimelineJoin[],
+  complete: boolean,
+): { date: Date; entries: TimelineEntry[] }[] {
+  const oldest = days[0]?.threads[0] ? Date.parse(days[0].threads[0].created_at) : Number.POSITIVE_INFINITY;
+  const shown = joins.filter((join) => complete || Date.parse(join.at) >= oldest);
+  const byDay = new Map<number, { date: Date; entries: { at: number; entry: TimelineEntry }[] }>();
+  const dayOf = (time: number) => {
+    const date = localDay(time);
+    let day = byDay.get(date.getTime());
+    if (!day) {
+      day = { date, entries: [] };
+      byDay.set(date.getTime(), day);
+    }
+    return day;
+  };
+  for (const day of days) {
+    for (const session of day.threads) {
+      const at = Date.parse(session.created_at);
+      dayOf(at).entries.push({ at, entry: { kind: 'thread', session } });
+    }
+  }
+  for (const join of shown) {
+    const at = Date.parse(join.at);
+    dayOf(at).entries.push({ at, entry: { kind: 'join', join } });
+  }
+  return [...byDay.values()]
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .map((day) => ({ date: day.date, entries: day.entries.sort((a, b) => a.at - b.at).map((item) => item.entry) }));
+}
+
+/** The jump targets of a day divider, as local midnights. `first` is the oldest message. */
+export function jumpTargetDate(target: 'today' | 'yesterday' | 'week' | 'month', now: Date): Date {
+  const date = localDay(now.getTime());
+  if (target === 'yesterday') date.setDate(date.getDate() - 1);
+  if (target === 'week') date.setDate(date.getDate() - 7);
+  if (target === 'month') date.setMonth(date.getMonth() - 1);
+  return date;
+}
+
+/**
+ * Plain text of a message written in Markdown: links keep their words, and
+ * emphasis, code and heading marks go. For "Copy message"; "Copy as Markdown"
+ * copies the source as written.
+ */
+export function markdownToPlainText(markdown: string): string {
+  return markdown
+    .replace(/```[^\n]*\n([\s\S]*?)```/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/(\*\*|__)(.+?)\1/g, '$2')
+    .replace(/(^|[^*\w])[*_]([^*_\n]+)[*_](?=[^*\w]|$)/g, '$1$2')
+    .replace(/^>\s?/gm, '')
+    .trim();
 }
 
 /** Which label a day divider takes. */

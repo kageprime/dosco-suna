@@ -227,7 +227,7 @@ describe('Sidebar motion contract', () => {
     // docked chrome and no radius/shadow appears mid-flight.
     const source = readFileSync(new URL('./sidebar-panel.tsx', import.meta.url), 'utf8');
     expect(source).toContain(
-      "flyout && 'border-border overflow-hidden rounded-lg border shadow-xl'",
+      "flyout && 'border-border overflow-hidden rounded-lg border shadow-md'",
     );
   });
 

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { subscriptionUsageFromHeaders } from '@kortix/llm-gateway';
+import { antigravityModelWindowId } from './credentials/antigravity-cloudcode';
 import { antigravityUsageFromBody, claudeAccountFromProfile, claudeUsageFromBody, codexAccountFromLogin, codexUsageFromBody, mergeSubscriptionUsage } from './subscription-usage';
 
 const NOW = Date.parse('2026-11-04T14:00:00Z');
@@ -110,6 +111,18 @@ describe('provider usage endpoint bodies', () => {
       observed_at: '2026-11-04T14:00:00.000Z',
       source: 'usage_endpoint',
     });
+  });
+
+  test('a 429 names the same model window fetchAvailableModels reports', () => {
+    const usage = antigravityUsageFromBody({
+      models: {
+        'gemini-4-neon-medium': { quotaInfo: { remainingFraction: 0.5, resetTime: '2026-11-04T19:00:00Z' } },
+        'gemini-3-8-flash-low': { quotaInfo: { remainingFraction: 0.5, resetTime: '2026-11-04T19:00:00Z' } },
+      },
+    }, NOW);
+    const ids = usage?.windows.map((window) => window.id) ?? [];
+    expect(ids).toContain(antigravityModelWindowId('antigravity/gemini-4-neon-medium'));
+    expect(ids).toContain(antigravityModelWindowId('antigravity/gemini-3.8-flash-low'));
   });
 
   test('Antigravity marks account limited only when every reported model quota is exhausted', () => {

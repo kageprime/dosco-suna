@@ -82,6 +82,48 @@ describe('parseSendEmailHookPayload', () => {
     expect(result.email.actionUrl).toContain('redirect_to=https%3A%2F%2Fapp.example.com');
   });
 
+  // GoTrue's verify endpoint answers a PKCE signup with a code that expires 5
+  // minutes after the signup started; the callback verifies the hash itself.
+  test('a signup confirmation links straight to the web callback with the token hash', () => {
+    for (const path of ['/auth/callback', '/auth/mobile/callback']) {
+      const result = parseSendEmailHookPayload(
+        payload({
+          email_action_type: 'signup',
+          token_hash: 'pkce_hash-abc',
+          redirect_to: `https://app.example.com${path}?returnUrl=%2Fworkspaces%2Fstart&terms_accepted=true`,
+        }),
+        BASE,
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.email.actionUrl).toBe(
+        `https://app.example.com${path}?returnUrl=%2Fworkspaces%2Fstart&terms_accepted=true&token_hash=pkce_hash-abc&type=signup`,
+      );
+    }
+  });
+
+  test('a signup with any other redirect target keeps the GoTrue verify link', () => {
+    for (const redirect_to of ['https://app.example.com/dashboard', 'kortix://auth/callback', '']) {
+      const result = parseSendEmailHookPayload(
+        payload({ email_action_type: 'signup', redirect_to, site_url: '' }),
+        BASE,
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.email.actionUrl.startsWith('https://supa.example.com/auth/v1/verify?token=hash-abc&type=signup')).toBe(true);
+    }
+  });
+
+  test('a magic link to the web callback keeps the GoTrue verify link', () => {
+    const result = parseSendEmailHookPayload(
+      payload({ redirect_to: 'https://app.example.com/auth/callback?returnUrl=%2F' }),
+      BASE,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.email.actionUrl.startsWith('https://supa.example.com/auth/v1/verify?token=hash-abc&type=magiclink')).toBe(true);
+  });
+
   test('reports a precise reason for every malformed payload', () => {
     expect(parseSendEmailHookPayload({}, BASE)).toEqual({ ok: false, reason: 'missing email_data' });
     expect(parseSendEmailHookPayload(payload({ email_action_type: 'nope' }), BASE)).toMatchObject({

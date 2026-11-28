@@ -15,7 +15,7 @@
  */
 
 import { create } from 'zustand';
-import { SESSION_LOG_MINOR, SESSION_LOG_SCHEMA, type SessionLogMessage, type SessionPromptPart } from '@kortix/sdk';
+import { SESSION_LOG_MINOR, SESSION_LOG_SCHEMA, type SessionLogMessage, type SessionLogThread, type SessionPromptPart } from '@kortix/sdk';
 import type { AttachedFile } from './attachments';
 import { optimisticUserParts } from './optimistic-parts';
 
@@ -103,10 +103,10 @@ export function useFailedSends(sessionId: string): Record<string, FailedSend> {
 /**
  * The failed sends of a session as user messages of its thread
  * (`SessionLogMessage`), oldest first. A failed send is not in the transcript
- * (the server never had it), so the thread appends these to the messages it
- * read: the message stays where the user sent it, dimmed, with "Not sent ·
- * Try again". Each picked file is an attachment block with its device URI
- * (`localUriOf`).
+ * (the server never had it), so `threadWithFailedSends` places these among the
+ * messages it read: the message stays where the user sent it, dimmed, with
+ * "Not sent · Try again". Each picked file is an attachment block with its
+ * device URI (`localUriOf`).
  */
 export function failedSendMessages(threadId: string, failed: Record<string, FailedSend>): SessionLogMessage[] {
   return Object.entries(failed)
@@ -125,4 +125,70 @@ export function failedSendMessages(threadId: string, failed: Record<string, Fail
         ),
       };
     });
+}
+
+/**
+ * `thread` with its failed sends, each where the user sent it: before the thread's first
+ * prompt sent after it (`created_at` against `failedAtMs`), else last. Never between a prompt
+ * and its replies, so a copy takes no reply. A copy takes the `seq` of the message before it,
+ * so the thread's `seq` never falls. The same thread object when there is no failed send.
+ *
+ * It used to append every copy after the whole thread (`seq` = `Number.MAX_SAFE_INTEGER`): a
+ * "Not sent" message stayed under every later turn, as a stale message at the bottom.
+ */
+export function threadWithFailedSends(thread: SessionLogThread, failed: Record<string, FailedSend>): SessionLogThread {
+  const copies = failedSendMessages(thread.thread_id, failed);
+  if (copies.length === 0) return thread;
+  const messages = [...thread.messages];
+  for (const copy of copies) {
+    const sentAt = Date.parse(copy.created_at);
+    let at = messages.findIndex(
+      (m) => m.role === 'user' && m.kind !== 'context' && Date.parse(m.created_at) > sentAt,
+    );
+    if (at < 0) at = messages.length;
+    messages.splice(at, 0, { ...copy, seq: messages[at - 1]?.seq ?? 0 });
+  }
+  return { ...thread, messages };
+}
+
+/** Every id under which the server holds a prompt: what proves a send reached it. */
+export interface ServerHeldSendIds {
+  messageIds: ReadonlySet<string>;
+  clientMessageIds: ReadonlySet<string>;
+}
+
+/**
+ * The ids the server holds a prompt under: the session log's messages, the prompt inbox's rows
+ * (queued, on the wire, or failed on the server, which "Up next" shows) and its `sent` list
+ * (accepted, not in the log yet). A re-minted prompt is listed under its wire id too.
+ */
+export function serverHeldSendIds(input: {
+  messages?: readonly Pick<SessionLogMessage, 'message_id'>[];
+  prompts?: readonly { client_message_id?: string | null; message_id?: string | null; wire_message_id?: string | null }[];
+  sent?: readonly { message_id?: string | null; wire_message_id?: string | null }[];
+}): ServerHeldSendIds {
+  const messageIds = new Set<string>();
+  const clientMessageIds = new Set<string>();
+  for (const m of input.messages ?? []) messageIds.add(m.message_id);
+  for (const p of [...(input.prompts ?? []), ...(input.sent ?? [])]) {
+    if (p.message_id) messageIds.add(p.message_id);
+    if (p.wire_message_id) messageIds.add(p.wire_message_id);
+  }
+  for (const p of input.prompts ?? []) if (p.client_message_id) clientMessageIds.add(p.client_message_id);
+  return { messageIds, clientMessageIds };
+}
+
+/**
+ * The failed sends the server does not hold. A send whose request reached the server and whose
+ * answer was lost (a timeout, a dropped connection) threw on the device and was marked failed:
+ * the server delivered it, so it is not "Not sent". The same object when every send is unsent.
+ */
+export function unsentFailedSends(failed: Record<string, FailedSend>, held: ServerHeldSendIds): Record<string, FailedSend> {
+  const unsent = Object.entries(failed).filter(
+    ([messageId, send]) =>
+      !held.messageIds.has(messageId) &&
+      !(send.messageId && held.messageIds.has(send.messageId)) &&
+      !(send.clientMessageId && held.clientMessageIds.has(send.clientMessageId)),
+  );
+  return unsent.length === Object.keys(failed).length ? failed : Object.fromEntries(unsent);
 }

@@ -59,6 +59,22 @@ export function headroom(usage: unknown, now = Date.now()): Headroom {
   return { usedPercent, exhausted: limited || openSpent };
 }
 
+/**
+ * Is one model's quota spent on this account? Antigravity quotas are per model:
+ * an account exhausted on model X can still serve model Y. Every Antigravity
+ * window is `model_<slug>`, which `headroom` deliberately ignores for plan-wide
+ * routing, so this check is the model-scoped counterpart.
+ */
+export function modelSpent(usage: unknown, windowId: string, now = Date.now()): boolean {
+  if (!isUsage(usage)) return false;
+  return usage.windows.some((window) => {
+    if (window.id !== windowId) return false;
+    const reset = window.resets_at ? Date.parse(window.resets_at) : NaN;
+    if (Number.isFinite(reset) && reset <= now) return false;
+    return window.used_percent >= 100;
+  });
+}
+
 export interface RoutedAccounts<T> {
   /** The accounts to try, in order. */
   ordered: T[];

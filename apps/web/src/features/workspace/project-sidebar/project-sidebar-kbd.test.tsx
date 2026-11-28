@@ -59,11 +59,13 @@ mock.module('@kortix/ui/internal/hooks/projects/use-new-project-session', () => 
 }));
 // The `chat` flag, read by the sidebar through the SDK hook.
 let channelsOn = false;
+// The `sidebar_rail` flag: the desktop icon rail.
+let railOn = false;
 const realSdkReact = await import('@kortix/sdk/react');
 mock.module('@kortix/sdk/react', () => ({
   ...realSdkReact,
   useFeatureFlag: (_projectId: string, key: string) => ({
-    enabled: key === 'chat' && channelsOn,
+    enabled: (key === 'chat' && channelsOn) || (key === 'sidebar_rail' && railOn),
     isLoading: false,
   }),
   useProjectSpaces: () => ({
@@ -83,6 +85,17 @@ mock.module('@kortix/sdk/react', () => ({
     data: { notifications: [{ id: 'n1', kind: 'question', read: false }], unread_count: 3 },
     unreadCount: 3,
   }),
+  // Review waits on the viewer: 2 change requests, 1 agent question and 1
+  // connector approval (approvals are already in the summary): the count is 3.
+  useReviewSummary: () => ({ data: { needs_you_total: 2, needs_you_by_session: {} } }),
+  useSessionAsks: () => ({ data: { asks: [{ kind: 'question' }, { kind: 'approval' }] } }),
+}));
+// The Customize access rule: `review` is the caller's to read and act on unless a test says otherwise.
+let reviewAccess: { settled: boolean; tabs: string[] } = { settled: true, tabs: ['review'] };
+const realSettingsNav = await import('@kortix/ui/internal/layout/project-settings-nav');
+mock.module('@kortix/ui/internal/layout/project-settings-nav', () => ({
+  ...realSettingsNav,
+  useCapabilityAccess: () => reviewAccess,
 }));
 mock.module('@kortix/ui/internal/hooks/projects/new-session-guard', () => ({
   useIsCreatingProjectSession: () => false,
@@ -184,8 +197,15 @@ async function mountSidebar(width: number) {
 }
 
 afterEach(async () => {
+  try {
+    localStorage.clear();
+  } catch {
+    // No storage in this environment.
+  }
   channelsOn = false;
+  railOn = false;
   newSessionCalls = 0;
+  reviewAccess = { settled: true, tabs: ['review'] };
   if (root) {
     const r = root;
     root = undefined;
@@ -234,12 +254,14 @@ test('with chat on, the sidebar is Spaces only (Cmd+J still opens the new-sessio
   expect(general).toBeGreaterThan(personal);
   // The My Kortix DM is that personal row, never a second row of its own.
   expect(html).not.toContain('href="/workspaces/synthetic-project/dm/kortix"');
-  // Live channels only, then the add row.
+  // Live channels only, under the Channels heading and its + (New channel).
   expect(html).not.toContain('/c/old');
-  expect(html.indexOf('spaces.addChannel')).toBeGreaterThan(general);
+  const addChannel = html.indexOf('spaces.addChannel');
+  expect(addChannel).toBeGreaterThan(personal);
+  expect(addChannel).toBeLessThan(general);
   // The session list is the secondary list, below the spaces.
   expect(html).toContain('data-testid="session-list" data-secondary="true"');
-  expect(html.indexOf('data-testid="session-list"')).toBeGreaterThan(html.indexOf('spaces.addChannel'));
+  expect(html.indexOf('data-testid="session-list"')).toBeGreaterThan(general);
   await act(async () => {
     win.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'j', metaKey: true }));
   });
@@ -295,4 +317,105 @@ test('with chat on, neither the Spaces list nor the opened More group has an Inb
   // The Spaces list still renders (Review is its first row; the test above checks the order).
   expect(html).toContain('href="/workspaces/synthetic-project/review"');
   expectNoInbox(html);
+});
+
+// Review (`/workspaces/<id>/review`: change requests, agent questions,
+// approvals) is a sidebar row in every variant. With chat off it had no row
+// at all after Inbox left the sidebar (KRTX-4949): change requests were
+// reachable only through ⌘K or a typed URL, while the mobile drawer lists
+// Review as a top row.
+const REVIEW_HREF = '/workspaces/synthetic-project/review';
+const reviewLinks = () => [...document.querySelectorAll(`a[href="${REVIEW_HREF}"]`)];
+
+test('the desktop sidebar shows Review first under New session, with what waits on the viewer', async () => {
+  await mountSidebar(1280);
+  // `sidebar_rail` off: no rail, the sidebar as it was.
+  expect((container as unknown as HTMLElement).querySelector('nav[aria-label="navigation"]')).toBeNull();
+  const links = reviewLinks();
+  expect(links).toHaveLength(1);
+  // 2 from the review summary + 1 open question; the approval is already in the summary.
+  expect(links[0]!.textContent).toBe('spaces.review3');
+  const html = container!.innerHTML;
+  const review = html.indexOf(`href="${REVIEW_HREF}"`);
+  expect(review).toBeGreaterThan(html.indexOf('newSession'));
+  expect(review).toBeLessThan(html.indexOf('data-testid="session-list"'));
+});
+
+test('sidebar_rail on, desktop: the rail holds Home and More (Search only with a search handler); Review moves from the sessions panel to the More menu', async () => {
+  railOn = true;
+  await mountSidebar(1280);
+  const rail = (container as unknown as HTMLElement).querySelector('nav[aria-label="navigation"]');
+  expect(rail).not.toBeNull();
+  expect(rail!.querySelector('a[aria-label="home"]')).not.toBeNull();
+  expect(rail!.querySelector('button[aria-label="more"]')).not.toBeNull();
+  // Mounted without onOpenSearch: no Search button.
+  expect(rail!.querySelector('button[aria-label="search"]')).toBeNull();
+  // Home: New session and the sessions, no page rows.
+  expect(container!.innerHTML).toContain('newSession');
+  expect(reviewLinks()).toHaveLength(0);
+  await act(async () => (rail!.querySelector('button[aria-label="more"]') as HTMLButtonElement).click());
+  const links = reviewLinks();
+  expect(links).toHaveLength(1);
+  // The rail's More menu shows no counts.
+  expect(links[0]!.textContent).toBe('spaces.review');
+});
+
+test('sidebar_rail on: the pin on a More row puts that page on the rail above More, and the pin again takes it off', async () => {
+  railOn = true;
+  await mountSidebar(1280);
+  const rail = (container as unknown as HTMLElement).querySelector('nav[aria-label="navigation"]')!;
+  // The More menu is portaled out of the rail: a Review link inside the rail is the pinned icon.
+  const pinnedReview = () => rail.querySelectorAll(`a[href="${REVIEW_HREF}"]`);
+  expect(pinnedReview()).toHaveLength(0);
+  await act(async () => (rail.querySelector('button[aria-label="more"]') as HTMLButtonElement).click());
+  const pin = document.querySelector('button[aria-label="pinTab"]') as HTMLButtonElement;
+  expect(pin).not.toBeNull();
+  await act(async () => pin.click());
+  expect(pinnedReview()).toHaveLength(1);
+  // Above More: the pinned icon comes first in the rail's order.
+  const more = rail.querySelector('button[aria-label="more"]')!;
+  expect(pinnedReview()[0]!.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const unpin = document.querySelector('button[aria-label="unpinTab"]') as HTMLButtonElement;
+  expect(unpin).not.toBeNull();
+  await act(async () => unpin.click());
+  expect(pinnedReview()).toHaveLength(0);
+});
+
+test('sidebar_rail on, phone: no rail, the mobile sheet is unchanged', async () => {
+  railOn = true;
+  await mountSidebar(390);
+  expect(document.querySelector('nav[aria-label="navigation"]')).toBeNull();
+  expect(reviewLinks()).toHaveLength(1);
+});
+
+test('the mobile sheet shows the Review row', async () => {
+  await mountSidebar(390);
+  expect(reviewLinks()).toHaveLength(1);
+});
+
+test('a viewer who may not act on Review gets no Review row, the rule of the mobile drawer', async () => {
+  reviewAccess = { settled: true, tabs: [] };
+  await mountSidebar(1280);
+  expect(container!.innerHTML).toContain('newSession');
+  expect(reviewLinks()).toHaveLength(0);
+});
+
+test('no Review row before the access probes settle', async () => {
+  reviewAccess = { settled: false, tabs: [] };
+  await mountSidebar(1280);
+  expect(reviewLinks()).toHaveLength(0);
+});
+
+test('with chat on, Review is one row: first in the Spaces list, not again in the opened More group', async () => {
+  channelsOn = true;
+  await mountSidebar(1280);
+  const more = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'more');
+  expect(more).toBeDefined();
+  await act(async () => {
+    more!.click();
+  });
+  expect(container!.innerHTML).toContain('data-testid="session-list" data-secondary="true"');
+  const links = reviewLinks();
+  expect(links).toHaveLength(1);
+  expect(links[0]!.textContent).toBe('spaces.review3');
 });

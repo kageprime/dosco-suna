@@ -156,24 +156,6 @@ export function neighborOutputs(
 }
 
 /**
- * Whether the Outputs card should flip open on this render — the "payoff"
- * moment: a run just finished (`wasRunning` true, `isRunning` now false) and
- * left something behind. Must be false on every other render, including:
- *   - every render while still running (no transition yet)
- *   - every render once idle and already settled (no transition this tick)
- *   - a run finishing with nothing to show (nothing to pay off)
- * so the card only auto-opens exactly once, at the transition, never on
- * every subsequent re-render of an already-finished run.
- */
-export function shouldAutoExpandOutputs(
-  wasRunning: boolean,
-  isRunning: boolean,
-  outputCount: number,
-): boolean {
-  return wasRunning && !isRunning && outputCount > 0;
-}
-
-/**
  * Whether the run should read as "still going", combining two signals:
  *
  * - `stepsRunning` — derived from the tool parts themselves
@@ -186,8 +168,8 @@ export function shouldAutoExpandOutputs(
  *   for the whole turn regardless of gaps between tool calls.
  *
  * ORing them closes the gap: the run reads as running for its entire actual
- * duration, so `shouldAutoExpandOutputs` only fires at the real finish (not
- * at the first inter-tool pause), and the Progress card's shimmer/subtitle
+ * duration, so the payoff only fires at the real finish (not at the first
+ * inter-tool pause), and the Progress card's shimmer/subtitle
  * stop flickering at every tool boundary.
  */
 export function deriveIsRunning(stepsRunning: boolean, sessionBusy: boolean): boolean {
@@ -263,8 +245,8 @@ export function groupOutputsByKind(outputs: OutputItem[]): OutputKindGroup[] | n
 
 /**
  * Whether the panel should present the primary deliverable on this render —
- * the payoff screen (W2). Same transition discipline as
- * `shouldAutoExpandOutputs`, with four extra refusals: a failed or stopped
+ * the payoff screen (W2). It fires once, on the running -> idle transition,
+ * with four refusals: a failed or stopped
  * run presents its outcome, not a payoff; an open detail is never replaced;
  * a user who opened any detail during the run has shown they're driving —
  * auto-opening would fight them; and the panel must actually be open — desktop

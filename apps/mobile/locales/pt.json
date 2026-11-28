@@ -1397,6 +1397,12 @@
     "saving": "Salvando…",
     "openError": "Não é possível abrir este artefato",
     "more": "Ações do artefato",
-    "unavailable": "Os artefatos não estão disponíveis neste espaço de trabalho"
+    "unavailable": "Os artefatos não estão disponíveis neste espaço de trabalho",
+    "moveToFolder": "Mover para pasta",
+    "folderRoot": "Sem pasta",
+    "movedToFolder": "Movido para {{name}}",
+    "moveFailed": "Não foi possível mover o artefato",
+    "emptyFolder": "Nenhum artefato nesta pasta",
+    "emptyUnfiled": "Nenhum artefato sem pasta"
   }
 }

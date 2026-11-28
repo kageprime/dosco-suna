@@ -49,3 +49,28 @@ test('API Docker dependency context resolves workspace overrides', () => {
     rmSync(context, { recursive: true, force: true });
   }
 }, 60_000);
+
+// Resolve from only the gateway image inputs: the full checkout can hide a
+// missing transitive workspace source behind a sibling package directory.
+test('gateway Docker context loads shared IAM aliases', () => {
+  const context = mkdtempSync(join(tmpdir(), 'gateway-docker-workspace-'));
+  try {
+    const stage = readRepoFile('apps/llm-gateway/Dockerfile').split('AS deps')[1].split('RUN printf')[0];
+    for (const line of stage.split('\n')) {
+      if (!line.startsWith('COPY ')) continue;
+      const [, source, destination] = line.split(/\s+/);
+      mkdirSync(dirname(join(context, destination)), { recursive: true });
+      cpSync(join(root, source), join(context, destination), { recursive: true });
+    }
+    const result = spawnSync('bun', ['-e', `
+      import { toWorkspaceAction, toLegacyAction } from './packages/shared/src/index.ts';
+      import { strict as assert } from 'node:assert';
+      assert.equal(toWorkspaceAction('project.session.start'), 'workspace.session.start');
+      assert.equal(toLegacyAction('workspace.session.start'), 'project.session.start');
+      assert.equal(toWorkspaceAction('unknown.action'), 'unknown.action');
+    `], { cwd: context, encoding: 'utf8' });
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+  } finally {
+    rmSync(context, { recursive: true, force: true });
+  }
+}, 60_000);

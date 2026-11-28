@@ -9,6 +9,8 @@ import { markComputeSessionAlive, reopenComputeForSandbox } from '../../billing/
 import { type SandboxProviderName, config } from '../../config';
 import { type SandboxStatus, getProvider } from '../../platform/providers';
 import { isProviderNotFound } from '../../platform/providers/status';
+import { recordProviderEvent } from '../../platform/services/provider-events';
+import { ProvisionTimeline } from '../../platform/services/provision-timeline';
 import { invalidateSandbox } from '../../sandbox-proxy/backend';
 import { db } from '../../shared/db';
 import { scheduleSandboxRuntimeRefresh } from '../lib/sandbox-runtime-refresh';
@@ -161,6 +163,15 @@ export async function resumeStoppedSandbox(
   if (!won) return false;
 
   const provider = getProvider(row.provider as SandboxProviderName);
+  // Where the wake's time goes (KRTX-1642): one provider_events row per wake,
+  // read by the admin provider analytics. A start that reported archive progress
+  // waited on a cold-storage restore (SandboxStartOptions.onProgress).
+  const tl = new ProvisionTimeline(row.sandboxId, 'wake');
+  let startPhase = 'provider-start';
+  let failReason: string | null = null;
+  // The boot this wake started (its provider-running confirmation): the runtime's
+  // first answer records it too (`wake-ready`), and the analytics pairs on it.
+  let bootEpochMs: number | null = null;
   void executeClaimedRuntimeWake({
     knownStatus: knownProviderStatus ?? null,
     getStatus: () => provider.getStatus(externalId),
@@ -197,9 +208,10 @@ export async function resumeStoppedSandbox(
     },
     start: () =>
       provider.start(externalId, {
-        // A restore from cold storage runs inside start() and can outlast the
-        // lease; keep it, fenced to this wake.
-        onProgress: async () => {
+        // A restore from cold storage, or a wait for host capacity, runs inside
+        // start() and can outlast the lease; keep it, fenced to this wake.
+        onProgress: async (kind) => {
+          if (kind === 'archive') startPhase = 'archive-restore';
           await db
             .update(sessionSandboxes)
             .set({
@@ -212,10 +224,11 @@ export async function resumeStoppedSandbox(
               ),
             );
         },
-      }),
+      }).finally(() => tl.mark(startPhase)),
     stop: () => provider.stop(externalId),
     isMissingError: isMissingRuntimeError,
     finalize: async () => {
+      tl.mark('provider-running');
       const confirmedAt = new Date();
       // Both rows move together, or neither does: the sandbox CAS on this
       // wake's own id, the session guarded against a delete.
@@ -236,6 +249,8 @@ export async function resumeStoppedSandbox(
         ),
       });
       if (!finalized) return false;
+      tl.mark('rows-active');
+      bootEpochMs = confirmedAt.getTime();
       invalidateSandbox(externalId);
       // The provider had this box STOPPED: whatever turn was still open on it
       // is over. Normally applyStoppedState settled those rows already and
@@ -276,6 +291,7 @@ export async function resumeStoppedSandbox(
       return true;
     },
     fail: async (reason) => {
+      failReason = reason;
       const failedAt = new Date();
       // Read the row back for the CONSECUTIVE-failure count: the cooldown this
       // stamp owes escalates with it, and the count is what eventually earns a
@@ -342,12 +358,29 @@ export async function resumeStoppedSandbox(
         ? 'owned'
         : 'cancelled';
     },
-  }).catch((err) =>
-    console.error(
-      `[projects] claimed wake crashed for ${externalId} (session ${row.sessionId}):`,
-      err,
-    ),
-  );
+  })
+    .then((result) => {
+      // A delegated wake is recorded by the wake that owns the box.
+      if (result === 'delegated') return;
+      const outcome = result === 'running' ? 'ok' : result === 'failed' ? 'error' : 'stopped';
+      const summary = tl.log({ provider: row.provider, outcome });
+      recordProviderEvent({
+        provider: row.provider,
+        kind: 'wake',
+        outcome,
+        totalMs: summary.totalMs,
+        marks: bootEpochMs === null ? summary.marks : [...summary.marks, { bootEpochMs }],
+        error: failReason,
+        sessionId: row.sessionId,
+        accountId: row.accountId,
+      });
+    })
+    .catch((err) =>
+      console.error(
+        `[projects] claimed wake crashed for ${externalId} (session ${row.sessionId}):`,
+        err,
+      ),
+    );
   return true;
 }
 

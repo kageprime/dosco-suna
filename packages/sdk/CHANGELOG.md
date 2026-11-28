@@ -5,6 +5,72 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Added (cost-export record analysis; additive)
+- `analyzeCostExport(result)`: reads a `fetchCostExportCsv` result once and returns it with
+  `rowCount` (data records, header excluded) and `capped` (the count reached `rowCap`, so the
+  export may be truncated). Same `Blob`; type `CostExportAnalysis`. `fetchCostExportCsv` and
+  `CostExportResult` are unchanged.
+- `countCsvDataRows(body)` and `isCostExportCapped(rowCount, rowCap)`, the two rules behind it,
+  moved from the web export button: quoted CR/LF and doubled quotes stay in one record, and a
+  missing or non-positive cap never counts as capped.
+
+### Changed (Network-Enforced Secrets need no flag)
+- The `secrets_egress` project flag ("Network-Enforced Secrets") graduated (2026-11-23): every
+  project can set a secret's exposure to enforced. The sandbox holds a handle, and Kortix
+  substitutes the real value only on the secret's approved hosts. `FeatureFlagKey` keeps
+  `secrets_egress`, marked `@deprecated`; `FEATURE_FLAG_KEYS` no longer lists it, and
+  `useFeatureFlag(projectId, 'secrets_egress')` reports `enabled: true`.
+  `KortixProject.experimental.secrets_egress` is optional now.
+
+### Changed (Kortix in Chrome needs no flag)
+- The `chrome` project flag ("Kortix in Chrome") graduated (2026-11-24): every project's sessions
+  can drive their owner's own Chrome wherever the platform serves Kortix in Chrome. No project
+  can turn it off; the deployment's `KORTIX_CHROME_ENABLED` is the only switch (off on a
+  self-hosted server). `FeatureFlagKey` keeps `chrome`, marked `@deprecated`;
+  `FEATURE_FLAG_KEYS` no longer lists it. The API still sends `experimental.chrome`: whether it
+  serves Kortix in Chrome. `useFeatureFlag(projectId, 'chrome')` and `useFeatureFlags` read that
+  value. `KortixProject.experimental.chrome` is optional now.
+
+### Changed (stateless sandboxes need no flag)
+- The `workspace_volume` project flag ("Stateless sandboxes") graduated (2026-11-23): every new
+  Platinum session keeps `/workspace` on its own volume, and a box stopped for an hour is
+  replaced on the next open. `FeatureFlagKey` keeps `workspace_volume`, marked `@deprecated`;
+  `FEATURE_FLAG_KEYS` no longer lists it. The API still sends
+  `experimental.workspace_volume`: whether new sessions get a volume (Platinum is configured and
+  the deployment did not set `KORTIX_WORKSPACE_VOLUMES=off`). `useFeatureFlag(projectId,
+  'workspace_volume')` and `useFeatureFlags` read that value. `KortixProject.experimental.workspace_volume`
+  is optional now.
+
+### Removed (breaking: the v1 transcript, session-log major P8.4)
+The API serves no `GET /v1/{workspaces|projects}/:id/sessions/:sid/transcript` and no
+`/v1/public/session-shares/**`. The session log (`kortix.session/2`, `GET …/log`) is every
+session's saved history. A release with this entry is a major. Each removed name and its
+replacement:
+
+| Removed | Replacement |
+|---|---|
+| `getSessionTranscript`, `getSessionTranscriptSync` | `getSessionLogPage(projectId, sessionId, query)` |
+| `session(p, s).transcript()`, `session(p, s).transcriptSync()` | `session(p, s).log(query)` |
+| types `SessionTranscript`, `SessionTranscriptMessage`, `SessionTranscriptToolCall`, `SessionTranscriptSource`, `SessionTranscriptSyncEnvelope`, `SessionTranscriptSyncMessage` | `SessionLogPage`, `SessionLogMessage`, `SessionLogBlock` |
+| `loadSessionTranscriptMessages` (`@kortix/sdk/react`) | `loadSessionExportMessages(sessionId, kortixSessionScope?)`: the session log first, else the runtime |
+| `isPaintableSavedCopy`, `savedCopyEmptyRoot` | None. The saved copy is a session-log page; `readSavedSessionCopy` returns `empty` |
+| `findActiveTranscriptShare`, `getPublicSessionShare`, `getPublicSessionShareMessages`, `PublicSessionShareError`, types `PublicSessionShareMeta`, `PublicSessionTranscript`, `PublicSessionTranscriptMessage`, `PublicSessionTranscriptToolCall` | None. The API removed public transcript sharing (KRTX-2358) |
+| `saveSessionToIDB`, `flushIDBWrites`, `loadSessionFromIDB`, `loadAllSessionIdsFromIDB`, `pruneIDBCache` (`@kortix/sdk/internal/idb-sync-cache`) | None. They stored nothing since the transcript mirror was retired |
+| `FeatureFlagKey` member `session_transcript_history` | None. The flag graduated; the session log replaced the mirror it gated |
+
+Changed shapes (same names):
+- `SessionOpenBundleTranscript` is `{ known: true; requested: false } | SessionOpenBundleUnknown`:
+  the pointer only. `getSessionOpenBundle` always sends `?transcript=0` and takes no `transcript`
+  option.
+- `SavedCopyStore.read` / `write` take and return a `SessionLogPage` (was a v1 envelope).
+  `keyFor` names `<namespace>.log:<user>:<project>/<session>`. `createSavedCopyStore` deletes the
+  v1 copy an older SDK kept under `<namespace>:` when that session is written or removed, and on
+  `clear()`; it never paints one.
+- `SavedSessionCopy` has no `envelope` field; `readSavedSessionCopy` takes no `sessionLog` input.
+- `useSessionSync`'s `mirror` option accepts only `null` (the host reads the saved history
+  itself). Omitting it reads the session log, as before. The hook paints no v1 copy from the
+  device.
+
 ### Added (session work state; additive)
 - `ProjectSession.work_state` (`running | completed | failed | stopped | idle`) and the type
   `SessionWorkState`: is the work done. `status` stays the row lifecycle and `runtime_status`

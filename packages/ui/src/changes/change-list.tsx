@@ -238,7 +238,7 @@ function ChangeRow({
           </div>
         </DisclosureTrigger>
         <DisclosureContent className="max-w-full overflow-hidden">
-          <div className="border-border/60 border-t">
+          <div className="border-border border-t">
             {entry.patch ? (
               <div className="max-w-full overflow-x-auto">
                 <DiffView
@@ -347,7 +347,7 @@ export function ChangeList({
   return (
     <ul
       className={cn(
-        'bg-popover divide-border/60 divide-y overflow-hidden rounded-md border',
+        'bg-popover divide-border divide-y overflow-hidden rounded-md border',
         className,
       )}
     >

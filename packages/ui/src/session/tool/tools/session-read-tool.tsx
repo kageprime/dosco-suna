@@ -101,7 +101,7 @@ export function SessionReadTool({ call, defaultOpen, forceOpen, locked }: ToolPr
           {toolEntries.map((entry) => (
             <div
               key={entry.at}
-              className="border-border/10 flex items-start gap-0 border-b last:border-b-0"
+              className="border-border flex items-start gap-0 border-b last:border-b-0"
             >
               <span className="w-6 shrink-0 py-1 text-center font-mono text-xs select-none">
                 {entry.status === 'completed' ? (

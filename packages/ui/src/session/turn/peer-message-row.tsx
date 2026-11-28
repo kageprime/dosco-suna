@@ -5,8 +5,10 @@ import type { PeerMessagePromptInfo } from '@kortix/shared';
 import { peerHandleLabel } from '@kortix/shared';
 import { useTranslations } from '../../i18n';
 import { UnifiedMarkdown } from '../../markdown/unified-markdown';
-import { AgentFace, AgentRowBody, AgentRowScope, AgentStatus, AgentTrigger } from '../agents/agent-surface';
+import { AgentRowBody, AgentRowScope, AgentStatus, AgentTrigger } from '../agents/agent-surface';
 import { BasicTool } from '../tool/shared/infrastructure';
+import { WorkFoldContext } from './turn-work-accordion';
+import { useContext } from 'react';
 
 /**
  * A message another Kortix session sent this one (`send_message`). Nobody here
@@ -20,6 +22,9 @@ import { BasicTool } from '../tool/shared/infrastructure';
  *
  * An idle notice says only that a teammate finished: one row like an agent's
  * finish, that opens to the rest. A shutdown request and its answer say so on the right.
+ *
+ * Under a "Worked for" row every message is one closed line: the answer next to
+ * it already says what it means, and the full text would say it twice.
  */
 
 /** An idle notice's text without the line that repeats the state, and its answer without the "Its last answer:" label. */
@@ -35,6 +40,7 @@ export function idleNoticeBody(text: string): string {
 
 export function PeerMessageRow({ info, actions }: { info: PeerMessagePromptInfo; actions?: React.ReactNode }) {
   const t = useTranslations('multiAgent.peer');
+  const inFold = useContext(WorkFoldContext);
   const from = info.from;
   const name = peerHandleLabel(from).replace(/^@/, '');
   const idle = info.kind === 'idle_notice';
@@ -54,10 +60,9 @@ export function PeerMessageRow({ info, actions }: { info: PeerMessagePromptInfo;
     <div data-testid="peer-message-turn" data-peer-kind={info.kind} data-peer-message-id={info.messageId} className="flex min-w-0 flex-col gap-1">
       <AgentRowScope>
         <BasicTool
-          icon={<AgentFace handle={from} />}
-          trigger={<AgentTrigger title={name} subtitle={idle ? preview : info.summary?.trim()} />}
+          trigger={<AgentTrigger handle={from} title={name} subtitle={idle ? preview : info.summary?.trim()} />}
           triggerAction={<AgentStatus status={idle ? 'done' : undefined} label={kindWord} opens={!!body} />}
-          defaultOpen={!idle}
+          defaultOpen={!idle && !inFold}
         >
           {body ? (
             <AgentRowBody>

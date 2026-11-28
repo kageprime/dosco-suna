@@ -140,17 +140,19 @@ export async function runChrome(argv: string[]): Promise<number> {
   let json: boolean;
   let ask: boolean;
   let host: string | undefined;
+  let workspace: string | undefined;
   try {
     json = takeFlagBool(rest, ['--json']);
     ask = takeFlagBool(rest, ['--ask']);
     host = takeFlagValue(rest, ['--host']);
+    workspace = takeFlagValue(rest, ['--project', '--workspace']);
   } catch (err) {
     return fail((err as Error).message);
   }
   const sub = rest.shift();
 
   if (sub === 'ls' || sub === 'list') {
-    const ctx = await resolveProjectContext({ hostArg: host });
+    const ctx = await resolveProjectContext({ hostArg: host, projectArg: workspace });
     if (!ctx) return 1;
     try {
       const list = await ctx.client.get<ChromeInfo[]>('/chrome/connections');

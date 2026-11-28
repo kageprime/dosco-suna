@@ -150,7 +150,7 @@ export function FileSearch() {
       }}
     >
       <div className="mx-auto mt-4 max-w-lg px-4">
-        <div className="border-border bg-card overflow-hidden rounded-2xl border shadow-2xl">
+        <div className="border-border bg-card overflow-hidden rounded-2xl border shadow-md">
           {/* Search input */}
           <div className="flex items-center gap-2 border-b px-3">
             <Search className="text-muted-foreground h-4 w-4 shrink-0" />

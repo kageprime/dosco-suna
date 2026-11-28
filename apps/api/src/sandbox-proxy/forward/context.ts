@@ -34,6 +34,8 @@ export interface ForwardRequest {
   prefetchedIngress: ReturnType<typeof resolveSandboxIngress> | null;
   promptDedupeKey: string | null;
   turnIdentity: SandboxTurnIdentity | null;
+  /** The person who wrote the prompt the API forwards (`postPrompt`), else null. Only the API sets it. */
+  promptAuthor?: string | null;
   turn: TurnLifecycle;
 }
 

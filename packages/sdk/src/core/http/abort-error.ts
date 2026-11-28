@@ -26,7 +26,7 @@
  */
 
 /** Error names whose mere presence identifies an abort, no text sniff needed. */
-const ABORT_ERROR_NAMES = new Set(['AbortError', 'MessageAbortedError']);
+const ABORT_ERROR_NAMES = new Set(['AbortError', 'AbortSignal', 'MessageAbortedError']);
 
 /**
  * Phrases that mean a HUMAN stopped this, not that a connection died.

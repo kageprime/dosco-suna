@@ -45,6 +45,7 @@ import {
   type DriveVolume,
   DriveStorageError,
   commitVolumeUpload,
+  isKortixInternalPath,
   listVolumeFilesPage,
   planVolumeUpload,
   putVolumeUploadBlock,
@@ -77,7 +78,8 @@ export const volumeFoldStorage: FoldStorage = {
     let cursor: string | undefined;
     do {
       const page = await listVolumeFilesPage(volume, '/', { recursive: true, ...(cursor ? { cursor } : {}) });
-      for (const e of page.entries) if (e.type === 'file') out.push({ path: e.path, size: Number(e.size ?? 0) });
+      // Kortix's own bookkeeping (staging, markers) is not the source's files.
+      for (const e of page.entries) if (e.type === 'file' && !isKortixInternalPath(e.path)) out.push({ path: e.path, size: Number(e.size ?? 0) });
       cursor = page.next_cursor ?? undefined;
     } while (cursor);
     return out;

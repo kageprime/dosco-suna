@@ -57,7 +57,7 @@ import { AnimatePresence, m } from 'motion/react';
 import { memo, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { AfterFirstPromptContext } from './after-first-prompt';
 import { type TranscriptAuthor, TranscriptRowsContext } from './transcript-rows';
-import { messageWorkerIds, ShowWork, WorkerStatusRows, WorkerTranscripts } from './show-work';
+import { messageWorkerIds, WorkerStatusRows } from './show-work';
 import { TypingIndicator } from './typing-indicator';
 import { AgentBusyRow } from './thread-boot-rows';
 import { MESSAGE_TEXT_CLASS, MessageRow } from '../turn/message-row';
@@ -2019,8 +2019,8 @@ function segmentRendersSomething(segment: SessionLogSegment): boolean {
  * `image_gen`), plus a call that waits on the person's permission or started a
  * connector sign-in (its Connect card). Never a
  * burst (tools, thinking) or another standalone call (a sub-agent card).
- * Settled, the interim sentences are work too: only the deliverables and the
- * final text stay, the rule of the "Worked for" fold (`splitSessionLogTurnWork`).
+ * Settled, the agent's sentences between its steps stay, in order, before the
+ * deliverables and the final text: a chat keeps what was said to you.
  * Exported for its test.
  */
 export function messageOnlySegments(
@@ -2041,79 +2041,24 @@ export function messageOnlySegments(
       toolCallConnectorSignIns(segment.block).length > 0
     );
   };
+  // Settled: the agent's own words stay where it said them (the sentences between its steps), then
+  // the cards, then the final answer. Only text and the kinds above pass `kept`: no tool rows.
   const split = options.working ? null : splitSessionLogTurnWork(visible, { working: false });
-  return (split ? [...split.hoisted, ...split.final] : visible).filter(kept);
+  return (split ? [...split.work, ...split.hoisted, ...split.final] : visible).filter(kept);
 }
 
 /**
- * "Show work" under a messages-only thread's agent message, and the work it
- * opens. A thread: the turn's segments the message does not show (its tools,
- * thinking, sub-agent rows and interim sentences), the "Worked for" fold's
- * content. A talk-only thread (`TranscriptRows.front`): the worker sessions
- * the turn started (`agent` calls) or whose report it answers, each as a
- * read-only transcript. Nothing to open: no control. Exported for its test.
+ * Under a messages-only thread's agent message: while a worker the turn
+ * started still runs, who it is and for how long. The work itself stays out
+ * of the chat (no "Show work"); the full session shows it. Exported for its test.
  */
 export function TurnMessageWork(
-  props: Pick<SessionTurnProps, 'turn' | 'sessionId' | 'permissions' | 'onPermissionReply' | 'disableToolNavigation' | 'isLast'> & {
-    model: TurnModelState;
-    segments: TurnSegments;
-    /** The segments the message itself draws (`messageOnlySegments`). */
-    shown: TurnSegments;
-    userContent: Pick<TurnUserContentState, 'sessionReport' | 'noticeBatch' | 'subagentNotice'>;
-    conversationDensity: ConversationDensity;
-    front: boolean;
-    defaultOpen?: boolean;
-  },
+  props: Pick<SessionTurnProps, 'turn'> & { front: boolean },
 ) {
-  const { turn, segments, shown, userContent, front } = props;
-  const work = useMemo(() => {
-    const kept = new Set(shown);
-    return segments.filter((segment) => segmentRendersSomething(segment) && !kept.has(segment));
-  }, [segments, shown]);
-  const { sessionReport, noticeBatch, subagentNotice } = userContent;
-  // A router thread shows each worker's work once: under the message that relays its report. The
-  // message that only started a worker ("On it.") shows it while it is the newest turn, as live progress.
-  const isLast = props.isLast;
-  const workers = useMemo(
-    () =>
-      front
-        ? messageWorkerIds(isLast ? turnBlocks(turn) : [], [
-            sessionReport?.sessionId,
-            subagentNotice?.sessionId,
-            ...(noticeBatch ?? []).map((item) => (item.kind === 'peer_idle' ? null : item.notice.sessionId)),
-          ])
-        : [],
-    [front, turn, sessionReport, subagentNotice, noticeBatch, isLast],
-  );
-  // The live status follows only the workers this turn started: a worker whose report this turn relays is done.
+  const { turn, front } = props;
   // Any turn: a follow-up sent while a worker runs must not hide it. A row shows only while its worker works.
   const started = useMemo(() => (front ? messageWorkerIds(turnBlocks(turn), []) : []), [front, turn]);
-  if (front ? workers.length === 0 : work.length === 0) return null;
-  return (
-    <>
-    {/* While a hidden worker runs: who, and for how long. It leaves when the worker is done. */}
-    {started.length > 0 ? <WorkerStatusRows sessionIds={started} /> : null}
-    <ShowWork defaultOpen={props.defaultOpen}>
-      {front ? (
-        <WorkerTranscripts sessionIds={workers} />
-      ) : (
-        <TurnToolBlocks
-          turn={turn}
-          sessionId={props.sessionId}
-          permissions={props.permissions}
-          onPermissionReply={props.onPermissionReply}
-          disableToolNavigation={props.disableToolNavigation}
-          model={props.model}
-          segments={work}
-          conversationDensity={props.conversationDensity}
-          // The work is already the fold's content: nothing is left to fold.
-          fold={false}
-          durationMs={null}
-        />
-      )}
-    </ShowWork>
-    </>
-  );
+  return started.length > 0 ? <WorkerStatusRows sessionIds={started} /> : null;
 }
 
 function TurnSegment({
@@ -2458,7 +2403,7 @@ function TurnFooter(
         Gated on `!working` for the same reason the action bar is — an
         outcome is a settled fact, and a card that appears mid-stream would
         claim a change request exists before the server has one. */}
-      {!working && <TurnOutcomes turnKey={turn.id} />}
+      {!working && <TurnOutcomes turnKey={turn.id} text={response} />}
 
       {/* ── Action bar (copy + turn meta) ──
           Gated on `!working` only. A turn that ends in tool calls has no closing
@@ -2547,7 +2492,7 @@ function TurnBusyRow(
     retry: TurnRetryState;
     status: TurnStatusState;
     tHardcodedUi: ReturnType<typeof useTranslations>;
-    /** "Kortix is typing…", no tool phrase or elapsed time (`messagesOnly`). */
+    /** Messages only: the agent's dots and its current step ("Searching the web · 3:19"), no tool rows. */
     quietBusy?: boolean;
     /** The answer already streams text: the dots are gone (the words are the signal). */
     hasText?: boolean;
@@ -2583,21 +2528,21 @@ function TurnBusyRow(
           />
         )}
         {quietBusy && rows && !retryInfo ? (
-          props.hasText ? (
-            // Words already stream: no dots. A long turn keeps only its clock, in the dots' place.
-            status.statusElapsedLabel ? (
-              <p className="text-muted-foreground text-xs tabular-nums">{tTurn('workingFor', { time: status.statusElapsedLabel })}</p>
-            ) : null
-          ) : (
-            // Dots, then "Working · 0:42" once the wait passes the stall mark: a long turn never reads as frozen.
+          // While new words stream in, the words are the signal. Otherwise the agent's dots and what it
+          // does right now ("Searching the web · 3:19"), so a long turn never reads as finished or frozen.
+          answerStreaming ? null : (
             <TypingIndicator
               name={rows.agent}
               detail={
                 !runtimeReady
                   ? tTurn('starting')
-                  : status.statusElapsedLabel
-                    ? tTurn('workingFor', { time: status.statusElapsedLabel })
-                    : null
+                  : statusPhrase && status.statusElapsedLabel
+                    ? `${statusPhrase} · ${status.statusElapsedLabel}`
+                    : statusPhrase
+                      ? statusPhrase
+                      : status.statusElapsedLabel
+                        ? tTurn('workingFor', { time: status.statusElapsedLabel })
+                        : null
               }
               detailDelayMs={runtimeReady ? 0 : 2000}
             />
@@ -3004,7 +2949,8 @@ function SessionTurnImpl(props: SessionTurnProps) {
               )
             }
           >
-            <div className="mt-0.5 space-y-2.5">
+            {/* No top margin: the answer starts right under its name, on the line a person's message starts on. */}
+            <div className="space-y-2.5">
               {messagesOnly ? null : <TurnFallbackRows working={model.working} events={props.servedModel?.fallbacks} />}
               <GenuiTelemetryContext.Provider value={genuiTelemetry}>
                 {/* Messages only, no steps: the response block draws the words, and the
@@ -3029,15 +2975,7 @@ function SessionTurnImpl(props: SessionTurnProps) {
               ) : null}
               <TurnFooter {...props} hideActionBar quietBusy={messagesOnly} model={model} errors={errors} answered={answered} status={status} retry={retry} meta={meta} tHardcodedUi={tHardcodedUi} connectProviderOpen={connectProviderOpen} onConnectProviderOpenChange={setConnectProviderOpen} />
               {messagesOnly && !model.working ? (
-                <TurnMessageWork
-                  {...props}
-                  model={model}
-                  segments={segments}
-                  shown={shownSegments}
-                  userContent={userContent}
-                  conversationDensity={conversationDensity}
-                  front={rows.front === true}
-                />
+                <TurnMessageWork turn={props.turn} front={rows.front === true} />
               ) : null}
             </div>
           </MessageRow>

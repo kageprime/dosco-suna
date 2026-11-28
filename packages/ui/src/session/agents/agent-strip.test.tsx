@@ -319,7 +319,7 @@ describe('AgentsPanel — the popover rows', () => {
   const panel = (props: Partial<ComponentProps<typeof AgentsPanel>>) =>
     renderToStaticMarkup(wrap(<AgentsPanel {...baseProps} live={false} {...props} />));
 
-  test('one row per agent: state mark, handle, short state, "runs as" the agent display name', () => {
+  test('one row per agent: the agent chip, short state, and its result with "runs as" the agent display name', () => {
     const html = panel({
       agents: [
         row('namer', 'working', { agent_name: 'mykortix' }),
@@ -335,8 +335,11 @@ describe('AgentsPanel — the popover rows', () => {
     expect(text).not.toMatch(/\bmykortix\b/);
     expect(text).toContain('working');
     expect(text).toContain('done');
-    // The result is a hover hint, never inline.
-    expect(text).not.toContain('A haiku about the release');
+    // The result reads on the row's second line, before "runs as".
+    expect(text).toContain('A haiku about the release · runs as Kortix');
+    // The summary counts the colleagues and each state.
+    expect(text).toContain('2 agents');
+    expect(text).toContain('1 working · 1 done');
     // Open on every row; Stop only while it works or waits.
     expect(html).toContain('aria-label="Open namer"');
     expect(html).toContain('aria-label="Open poet"');

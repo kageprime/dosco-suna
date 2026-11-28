@@ -1397,6 +1397,12 @@
     "saving": "Wird gespeichert…",
     "openError": "Dieses Artefakt kann nicht geöffnet werden",
     "more": "Artefakt-Aktionen",
-    "unavailable": "Artefakte sind in diesem Workspace nicht verfügbar"
+    "unavailable": "Artefakte sind in diesem Workspace nicht verfügbar",
+    "moveToFolder": "In Ordner verschieben",
+    "folderRoot": "Kein Ordner",
+    "movedToFolder": "Verschoben nach {{name}}",
+    "moveFailed": "Artefakt konnte nicht verschoben werden",
+    "emptyFolder": "Keine Artefakte in diesem Ordner",
+    "emptyUnfiled": "Keine Artefakte ohne Ordner"
   }
 }

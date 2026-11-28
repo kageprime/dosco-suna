@@ -106,6 +106,9 @@ export function SetupLinkButton({
    * omits the field, and that card reads "Waiting for you" again after a reload.
    */
   const [settledHere, setSettled] = useState(false);
+  // A secret link that asks for a website login titles its dialog as one.
+  const [secretScope, setSecretScope] = useState<string | null>(null);
+  const tLogin = useTranslations('hardcodedUi');
   const inline = useContext(SetupLinkInlineContext);
   const localizedCopy = useLocalizedUiCatalog(COPY);
   const titles = useLocalizedUiCatalog(CONNECTOR_TITLES);
@@ -241,12 +244,23 @@ export function SetupLinkButton({
           <ModalContent className="lg:max-w-lg">
             {/* `pr-12` keeps the text clear of the absolute close button (`top-3 right-3 size-8`). */}
             <ModalHeader className="pr-12">
-              <ModalTitle>{copy.title}</ModalTitle>
-              <ModalDescription className="text-pretty">{copy.blurb}</ModalDescription>
+              <ModalTitle>
+                {secretScope === 'browser' ? tLogin.raw('secretIntakeLogin.modalTitle') : copy.title}
+              </ModalTitle>
+              <ModalDescription className="text-pretty">
+                {secretScope === 'browser'
+                  ? tLogin.raw('secretIntakeLogin.modalDescription')
+                  : copy.blurb}
+              </ModalDescription>
             </ModalHeader>
 
             <ModalBody className="max-h-[60vh] overflow-y-auto">
-              <SecretIntakeForm token={token} compact onDone={handleSettled} />
+              <SecretIntakeForm
+                token={token}
+                compact
+                onDone={handleSettled}
+                onLinkInfo={(linkInfo) => setSecretScope(linkInfo.scope ?? null)}
+              />
             </ModalBody>
           </ModalContent>
         </Modal>

@@ -18,6 +18,18 @@ export const AGENT_MODE_HELP: Record<(typeof AGENT_MODES)[number], string> = {
   subagent: 'Other agents call it. It never shows in the session picker.',
   all: 'People can start it, and other agents can call it.',
 };
+
+/**
+ * Whether a "Who can start it" change from `current` to `next` promotes the
+ * agent out of subagent — and must also clear "Show in pickers" (KRTX-4810).
+ * An agent created by My Kortix is a subagent hidden from the pickers; if
+ * promoting it left `hidden` set, the pickers would never list it and the
+ * promotion would look broken. `next` undefined is the workspace default,
+ * which reads as primary.
+ */
+export function agentPromotes(current: string | undefined, next: string | undefined): boolean {
+  return current === 'subagent' && next !== 'subagent';
+}
 export const THEME_COLORS = [
   'primary',
   'secondary',

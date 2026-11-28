@@ -23,6 +23,8 @@ import { ModelConnectionLayoutContext } from '../models/model-connection-layout'
 import { ImagesUnsupportedBar, ModelConnectionBar } from '../models/model-connection-gate';
 import { AnimatedComposerPlaceholder } from './animated-placeholder';
 import { AttachmentTiles } from './attachment-tiles';
+import { DictationControl } from './dictation/dictation-control';
+import { useComposerDictation } from './dictation/use-composer-dictation';
 import {
   EMPTY_AGENTS,
   EMPTY_COMMANDS,
@@ -262,6 +264,7 @@ export function ComposerCard({
     drawing itself (`ChatInputOverridesProvider`). Off, nothing here changes.
   */
   const chatInputEnabled = useFeatureFlag(projectId ?? null, 'chat_input').enabled;
+  const dictation = useComposerDictation({ projectId, editorRef });
   // Inside a space the `@` menu is its people and agents (`menus/space-mentions.ts`).
   const spaceMentions = useContext(SpaceMentionContext);
   const chatInputOpen = agentMenuOpen || modelMenuOpen || reasoningMenuOpen;
@@ -328,11 +331,10 @@ export function ComposerCard({
       onDragLeave={handleDragLeave}
       onDrop={handleDropFiles}
       className={cn(
-        // One shadow, from the ladder. `shadow-card` is defined nowhere in
-        // `globals.css` and `shadow-xl` was dead — twMerge dropped it for the
-        // arbitrary `shadow-[…oklch…]` that followed, which was the only
-        // raw colour left in the composer.
-        'bg-background border-border relative isolate z-10 w-full rounded-xl border',
+        // The global border (`border`: 0.8px `border-border`), like every other
+        // surface; not `border-strong` (Jay, 2026-11-26). No shadow: it sits in
+        // the page, flat.
+        'bg-background relative isolate z-10 w-full rounded-xl border',
         // `inline` draws its own even inset (below); the full composer keeps its top band,
         // and so does `inline` while tiles sit above the text.
         collapsed || (inline && attachedFiles.length === 0 && pastes.length === 0) ? 'pt-0' : 'pt-3',
@@ -341,7 +343,9 @@ export function ComposerCard({
         'duration-normal ease-default transition-[border-color]',
         'motion-reduce:transition-none',
         cardClassName,
-        isDragOver && 'border-ring ring-ring/15 border ring',
+        // `border-ring!`: the drag colour must beat any border colour a host
+        // passes in `cardClassName`.
+        isDragOver && 'border-ring! ring-ring/15 ring',
         // A layer above (`ComposerAboveCard`) owns the top corners: a notice,
         // or a visible strip (known only to CSS, through `data-composer-stack`).
         (notice || questionActive) &&
@@ -582,6 +586,8 @@ export function ComposerCard({
             modelUnavailable={modelUnavailable}
             agentUnavailable={agentUnavailable}
             call={call}
+            dictation={dictation ? <DictationControl dictation={dictation} disabled={disabled} /> : undefined}
+            dictationActive={!!dictation && dictation.phase !== 'idle' && dictation.phase !== 'starting'}
             onSubmit={() => handleSubmit()}
           />
         </div>

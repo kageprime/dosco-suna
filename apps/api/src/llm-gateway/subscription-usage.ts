@@ -12,16 +12,17 @@
  * A refresh the provider refuses keeps the last stored snapshot.
  */
 import { accountSecretResources } from '@kortix/db';
+import { CLAUDE_AGENT_PROVIDER_ID } from '@kortix/api-contract/claude-agent';
 import { byWindowLength, isBlockingWindow, resetIso, usageSnapshot, type SubscriptionUsage, type UsageWindowInput } from '@kortix/llm-gateway';
 import { and, eq, sql } from 'drizzle-orm';
 import { z } from '@hono/zod-openapi';
 import { db } from '../shared/db';
 import { logger } from '../lib/logger';
-import { readAccountSecret } from '../secrets/account-resource';
+import { coolDownAccountSecret, readAccountSecret } from '../secrets/account-resource';
 import { CODEX_USER_AGENT, resolveCodexAccountCredential } from './credentials/codex';
 import { parseCodexAuth } from './credentials/codex-core';
 import { isTokenExpired, parseAntigravityAuth, refreshAntigravityToken } from './credentials/antigravity';
-import { ANTIGRAVITY_HUB_USER_AGENT, extractCloudCodeModelQuotas } from './credentials/antigravity-cloudcode';
+import { ANTIGRAVITY_HUB_USER_AGENT, antigravityModelWindowId, extractCloudCodeModelQuotas } from './credentials/antigravity-cloudcode';
 
 export const SUBSCRIPTION_PROVIDERS = new Set(['codex', 'claude-agent', 'antigravity']);
 
@@ -136,18 +137,60 @@ export function mergeSubscriptionUsage(stored: SubscriptionUsage | null, next: S
  * Store a snapshot unless a newer one is already stored: two replicas may
  * report the same login out of order. A response snapshot keeps the stored
  * windows it does not name (`mergeSubscriptionUsage`).
+ *
+ * `served`: the snapshot came from a model answer on this login (the gateway's
+ * report), not from the provider's usage endpoint. It then also clears a Claude
+ * account's 403 reason (`markClaudeAccountForbidden`) stored before the answer:
+ * Anthropic serves the account again. A usage-endpoint read proves nothing about
+ * Claude Code access, so it never clears the reason.
  */
-export async function recordSubscriptionUsage(secretId: string, accountId: string, usage: SubscriptionUsage): Promise<void> {
+export async function recordSubscriptionUsage(secretId: string, accountId: string, usage: SubscriptionUsage, options: { served?: boolean } = {}): Promise<void> {
   const where = and(eq(accountSecretResources.secretId, secretId), eq(accountSecretResources.accountId, accountId));
   // Read, merge and write under the row lock: a concurrent write cannot land
   // between the read and the merge and be dropped.
   await db.transaction(async (tx) => {
-    const [row] = await tx.select({ usage: accountSecretResources.usage }).from(accountSecretResources).where(where).for('update');
+    const [row] = await tx.select({
+      usage: accountSecretResources.usage,
+      providerId: accountSecretResources.providerId,
+      verifyStatus: accountSecretResources.verifyStatus,
+      verifiedAt: accountSecretResources.verifiedAt,
+    }).from(accountSecretResources).where(where).for('update');
     if (!row) return;
+    const observedAt = Date.parse(usage.observed_at);
     const stored = storedSubscriptionUsage(row.usage);
-    if (stored && Date.parse(stored.observed_at) > Date.parse(usage.observed_at)) return;
-    await tx.update(accountSecretResources).set({ usage: mergeSubscriptionUsage(stored, usage) }).where(where);
+    const newer = !(stored && Date.parse(stored.observed_at) > observedAt);
+    // An answer observed before the 403 was stored (a request still in flight) clears nothing.
+    const servedAgain = Boolean(options.served) && row.providerId === CLAUDE_AGENT_PROVIDER_ID &&
+      row.verifyStatus === 'invalid' && (!row.verifiedAt || row.verifiedAt.getTime() < observedAt);
+    if (!newer && !servedAgain) return;
+    await tx.update(accountSecretResources).set({
+      ...(newer ? { usage: mergeSubscriptionUsage(stored, usage) } : {}),
+      ...(servedAgain ? { verifyStatus: null, verifyMessage: null, verifiedAt: null } : {}),
+    }).where(where);
   });
+}
+
+/**
+ * A Google `QUOTA_EXHAUSTED` 429 on one model. Store that model's exhausted
+ * window so the session leaves the account for this model only; other models
+ * on the same account stay usable. The 60 s account-wide rest stops concurrent
+ * requests stampeding the account while the window write lands.
+ */
+export async function noteModelQuotaLimit(
+  secretId: string, accountId: string, model: string, seconds: number,
+): Promise<void> {
+  await recordSubscriptionUsage(secretId, accountId, {
+    windows: [{
+      id: antigravityModelWindowId(model),
+      window_minutes: null,
+      used_percent: 100,
+      resets_at: new Date(Date.now() + seconds * 1000).toISOString(),
+    }],
+    limited: false,
+    observed_at: new Date().toISOString(),
+    source: 'response',
+  });
+  await coolDownAccountSecret(secretId, accountId, 60, 60);
 }
 
 type FetchImpl = (input: string, init: RequestInit) => Promise<Response>;

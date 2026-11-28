@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { ParsedManifest } from '../triggers';
 import { logger } from '../../lib/logger';
 import { VALID_ACTIONS, toLegacyAction } from '../../iam/actions';
@@ -160,7 +161,14 @@ export async function loadProjectAgents(
     issues: applied.issues,
     // The file's own switch: no manifest committed yet turns nothing on.
     builtinAgents: projectBuiltinAgents(manifest?.raw ?? null),
-    manifest: { revision: applied.revision ?? null, commit: applied.commit ?? null },
+    // An imported agent can change while the root blob stays identical. Grant
+    // provenance must identify the merged policy, not only kortix.yaml.
+    manifest: {
+      revision: applied.imports
+        ? createHash('sha256').update(JSON.stringify(applied.raw)).digest('hex')
+        : applied.revision ?? null,
+      commit: applied.commit ?? null,
+    },
   };
 }
 

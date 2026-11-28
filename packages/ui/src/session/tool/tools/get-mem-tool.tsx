@@ -201,7 +201,7 @@ export function GetMemTool({ call, defaultOpen, forceOpen, locked }: ToolProps) 
                         {report.filesRead.map((file) => (
                           <span
                             key={file}
-                            className="bg-background border-border/70 text-foreground/75 inline-flex h-6 items-center rounded-sm border px-2 font-mono text-xs break-all"
+                            className="bg-background border-border text-foreground/75 inline-flex h-6 items-center rounded-sm border px-2 font-mono text-xs break-all"
                           >
                             {file}
                           </span>

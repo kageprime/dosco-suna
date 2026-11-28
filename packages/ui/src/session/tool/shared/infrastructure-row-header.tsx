@@ -244,18 +244,20 @@ export function PanelRowTitle({
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
       {running ? (
-        <TextShimmer className={cn(PANEL_TITLE_CLASS, 'text-sm font-medium')}>
+        <TextShimmer className={cn(PANEL_TITLE_CLASS, 'text-sm')}>
           {trigger.title || 'Working'}
         </TextShimmer>
       ) : (
-        <span className={cn('text-foreground text-sm font-medium', PANEL_TITLE_CLASS)}>
+        // The verb is meta ink when a value follows it: the value is what the
+        // reader scans for. Alone, the title is the row's name.
+        <span className={cn('text-sm', subtitle ? 'text-muted-foreground' : 'text-foreground', PANEL_TITLE_CLASS)}>
           {trigger.title}
         </span>
       )}
       {subtitle && (
         <span
           className={cn(
-            'text-muted-foreground min-w-0 truncate font-mono text-xs',
+            'text-foreground min-w-0 truncate font-mono text-xs',
             onSubtitleClick &&
               'hover:text-foreground cursor-pointer underline-offset-2 hover:underline',
           )}

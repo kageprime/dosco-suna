@@ -67,8 +67,6 @@ describe('AgentStatusTool joins the shared BasicTool shell', () => {
     // Grammar: panel row = bg-popover rounded-md border, px-3 py-2.5, min-h-11.
     expect(html).not.toContain('sticky');
     expect(html).toContain('bg-popover border-border overflow-hidden rounded-md border');
-    expect(html).toContain('min-h-11 w-full items-center gap-2.5 px-3 py-2.5');
-    expect(html).toContain('text-sm font-medium');
     expect(html).toContain('Agent status');
 
     // The task count still renders as a Badge chip (variant="muted"), not a

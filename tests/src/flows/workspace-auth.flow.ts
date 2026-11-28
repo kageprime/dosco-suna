@@ -45,6 +45,52 @@ function expectFence(res: { statusCode: number; text(): string; json<T>(): T }, 
   }
 }
 
+/**
+ * A confidential OAuth client with the `kortix` scope, registered in
+ * `accountId`, and the owner's consent to it. `redeem` approves one request
+ * (with or without `workspace_id`) and exchanges the code for a token pair.
+ */
+async function oauthConsentClient(ctx: FlowContext, accountId: string, label: string) {
+  const redirectUri = 'https://app.example.test/oauth/callback';
+  const verifier = Buffer.from(crypto.getRandomValues(new Uint8Array(48))).toString('base64url');
+  const challenge = Buffer.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)))).toString('base64url');
+  const form = (fields: Record<string, string>) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    return fd;
+  };
+  const registered = await ctx.client.as(ctx.P.OWNER).post(`/v1/accounts/${accountId}/iam/oauth-clients`, {
+    name: ctx.fixtures.name(label),
+    redirect_uris: [redirectUri],
+    scopes: ['profile', 'kortix'],
+  });
+  registered.status(201);
+  const clientId = registered.json<{ client_id: string }>().client_id;
+  const secret = registered.json<{ client_secret: string }>().client_secret;
+
+  const authorize = async () => {
+    const r = await ctx.client.as(ctx.P.ANON).get('/v1/oauth/authorize', {
+      query: { client_id: clientId, redirect_uri: redirectUri, response_type: 'code', scope: 'profile kortix', code_challenge: challenge, code_challenge_method: 'S256' },
+    });
+    r.status(302);
+    return new URL(r.header('location')!).searchParams.get('request_id')!;
+  };
+  const redeem = async (consent: Record<string, unknown>) => {
+    const ok = await ctx.client.as(ctx.P.OWNER).post('/v1/oauth/authorize/consent', consent);
+    ok.status(200);
+    const code = new URL(ok.json<{ redirect_uri: string }>().redirect_uri).searchParams.get('code')!;
+    const t = await ctx.client.as(ctx.P.ANON).post(
+      '/v1/oauth/token',
+      form({ grant_type: 'authorization_code', client_id: clientId, client_secret: secret, code, redirect_uri: redirectUri, code_verifier: verifier }),
+    );
+    t.status(200);
+    return t.json<{ access_token: string; refresh_token: string }>();
+  };
+  const refresh = (refreshToken: string) =>
+    ctx.client.as(ctx.P.ANON).post('/v1/oauth/token', form({ grant_type: 'refresh_token', client_id: clientId, client_secret: secret, refresh_token: refreshToken }));
+  return { authorize, redeem, refresh };
+}
+
 // ── WS-AUTH-1 — an accepted invite IS access to the workspace ───────────────
 flow(
   'WS-AUTH-1',
@@ -786,47 +832,14 @@ flow(
       'POST /v1/billing/plan/preview',
       'GET /v1/projects',
       'GET /v1/drives/usage',
+      'POST /v1/workspaces',
     ],
   },
   async (ctx) => {
     const a = await (await ctx.fixtures.team()).project();
     const bTeam = await ctx.fixtures.team();
     const b = await bTeam.project();
-    const redirectUri = 'https://app.example.test/oauth/callback';
-    const verifier = Buffer.from(crypto.getRandomValues(new Uint8Array(48))).toString('base64url');
-    const challenge = Buffer.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)))).toString('base64url');
-    const form = (fields: Record<string, string>) => {
-      const fd = new FormData();
-      for (const [k, v] of Object.entries(fields)) fd.append(k, v);
-      return fd;
-    };
-    const registered = await ctx.client.as(ctx.P.OWNER).post(`/v1/accounts/${bTeam.id}/iam/oauth-clients`, {
-      name: ctx.fixtures.name('wsa13-app'),
-      redirect_uris: [redirectUri],
-      scopes: ['profile', 'kortix'],
-    });
-    registered.status(201);
-    const clientId = registered.json<{ client_id: string }>().client_id;
-    const secret = registered.json<{ client_secret: string }>().client_secret;
-
-    const authorize = async () => {
-      const r = await ctx.client.as(ctx.P.ANON).get('/v1/oauth/authorize', {
-        query: { client_id: clientId, redirect_uri: redirectUri, response_type: 'code', scope: 'profile kortix', code_challenge: challenge, code_challenge_method: 'S256' },
-      });
-      r.status(302);
-      return new URL(r.header('location')!).searchParams.get('request_id')!;
-    };
-    const redeem = async (consent: Record<string, unknown>) => {
-      const ok = await ctx.client.as(ctx.P.OWNER).post('/v1/oauth/authorize/consent', consent);
-      ok.status(200);
-      const code = new URL(ok.json<{ redirect_uri: string }>().redirect_uri).searchParams.get('code')!;
-      const t = await ctx.client.as(ctx.P.ANON).post(
-        '/v1/oauth/token',
-        form({ grant_type: 'authorization_code', client_id: clientId, client_secret: secret, code, redirect_uri: redirectUri, code_verifier: verifier }),
-      );
-      t.status(200);
-      return t.json<{ access_token: string; refresh_token: string }>();
-    };
+    const { authorize, redeem, refresh } = await oauthConsentClient(ctx, bTeam.id, 'wsa13-app');
     const members = (token: string, workspaceId: string) =>
       ctx.client.as(ctx.P.ANON).get(`/v1/workspaces/${workspaceId}/members`, { headers: { Authorization: `Bearer ${token}` } });
 
@@ -847,7 +860,7 @@ flow(
       const listed = (await ctx.client.as(ctx.P.ANON).get('/v1/workspaces', { headers: { Authorization: `Bearer ${pair.access_token}` } }))
         .status(200).json<any[]>();
       if (listed.length !== 1 || listed[0]?.workspace_id !== a.id) throw new Error(`bound token listed ${JSON.stringify(listed.map((r) => r.workspace_id))}`);
-      const refreshed = await ctx.client.as(ctx.P.ANON).post('/v1/oauth/token', form({ grant_type: 'refresh_token', client_id: clientId, client_secret: secret, refresh_token: pair.refresh_token }));
+      const refreshed = await refresh(pair.refresh_token);
       refreshed.status(200);
       const next = refreshed.json<{ access_token: string }>().access_token;
       (await members(next, a.id)).status(200);
@@ -877,10 +890,64 @@ flow(
       (await ctx.client.as(ctx.P.ANON).get('/v1/drives/usage', { headers: bearer })).status([200, 404]);
     });
 
-    await ctx.step('a consent that names no workspace (an older consent screen) stays unbound: A and B → 200', async () => {
+    await ctx.step('a token bound to A names the fix: the fence refusal and POST /workspaces (403 new_workspace_requires_person) both say to reconnect and choose All my workspaces', async () => {
+      const pair = await redeem({ request_id: await authorize(), approved: true, workspace_id: a.id });
+      const refused = await members(pair.access_token, b.id);
+      expectFence(refused, 'cross-workspace', 'B with a token bound to A');
+      const message = refused.json<{ message: string }>().message;
+      if (!message.includes('reconnect the app and choose All my workspaces')) throw new Error(`fence refusal names no fix: ${message}`);
+      const create = await ctx.client.as(ctx.P.ANON).post('/v1/workspaces', { name: ctx.fixtures.name('wsa13-create') }, { headers: { Authorization: `Bearer ${pair.access_token}` } });
+      create.status(403).body().has('$.code', 'new_workspace_requires_person');
+      const error = create.json<{ error: string }>().error;
+      if (!error.includes('choose All my workspaces')) throw new Error(`create refusal names no fix: ${error}`);
+    });
+
+    await ctx.step('a consent that names no workspace (All my workspaces, or an older consent screen) stays unbound: A and B → 200', async () => {
       const pair = await redeem({ request_id: await authorize(), approved: true });
       (await members(pair.access_token, a.id)).status(200);
       (await members(pair.access_token, b.id)).status(200);
+    });
+  },
+);
+
+// ── WS-AUTH-16 — All my workspaces: an unbound OAuth token creates a workspace ─
+flow(
+  'WS-AUTH-16',
+  {
+    domain: 'workspaces',
+    requires: ['managedGit'],
+    serial: true,
+    timeoutMs: 120_000,
+    routes: [
+      'POST /v1/accounts/:workspaceId/iam/oauth-clients',
+      'GET /v1/oauth/authorize',
+      'POST /v1/oauth/authorize/consent',
+      'POST /v1/oauth/token',
+      'GET /v1/workspaces',
+      'POST /v1/workspaces',
+    ],
+  },
+  async (ctx) => {
+    const team = await ctx.fixtures.team();
+    await team.project();
+    const { authorize, redeem } = await oauthConsentClient(ctx, team.id, 'wsa16-app');
+
+    await ctx.step('an unbound token (the consent named no workspace) creates a workspace: 201 owner, a new account, and the same token lists it', async () => {
+      const pair = await redeem({ request_id: await authorize(), approved: true });
+      const bearer = { Authorization: `Bearer ${pair.access_token}` };
+      const before = (await ctx.client.as(ctx.P.ANON).get('/v1/workspaces', { headers: bearer })).status(200).json<any[]>();
+      if (!before.some((w) => w.account_id === team.id)) throw new Error(`an unbound token lists ${before.length} workspaces, without the client's own`);
+      const created = await ctx.client.as(ctx.P.ANON).post(
+        '/v1/workspaces',
+        { name: ctx.fixtures.name('wsa16-create'), idempotency_key: ctx.fixtures.name('wsa16-key') },
+        { headers: bearer },
+      );
+      created.status(201).body().has('$.role', 'owner').has('$.state', 'active');
+      const ws = created.json<{ workspace_id: string; account_id: string }>();
+      ctx.track('project', ws.workspace_id);
+      if (before.some((w) => w.account_id === ws.account_id)) throw new Error('the create reused an account the person already had');
+      const after = (await ctx.client.as(ctx.P.ANON).get('/v1/workspaces', { headers: bearer })).status(200).json<any[]>();
+      if (!after.some((w) => w.workspace_id === ws.workspace_id)) throw new Error('the token does not list the workspace it created');
     });
   },
 );

@@ -1,3 +1,4 @@
+import { PROJECT_ACTIONS as LIVE_PROJECT_ACTIONS, WORKSPACE_ACTION_BY_LEGACY } from '../../../iam-actions';
 import type { ReviewVerdict } from './review';
 import { type ReviewItem, reviewItemTarget } from './review-items';
 
@@ -6,72 +7,21 @@ import { type ReviewItem, reviewItemTarget } from './review-items';
  * permission a project route asserts. Ask `useCan` / `useCans` for the leaf the
  * route you are about to call asserts, never for a role name.
  *
- * Byte-identical to `PROJECT_ACTIONS` in `apps/api/src/iam/actions.ts`: the
- * API answers an unknown leaf with 400, so a typo here means no verdict at all.
- * `iam-actions.test.ts` fails when the two catalogs differ.
+ * Derived from the live catalog, with deprecated Rooms leaves retained for
+ * published consumers until the next major.
  */
+// Keep the published insertion order: deprecated Rooms precede Artifacts.
+const {
+  PROJECT_ARTIFACT_READ,
+  PROJECT_ARTIFACT_WRITE,
+  PROJECT_ARTIFACT_MANAGE,
+  PROJECT_ARTIFACT_PUBLIC,
+  PROJECT_CREDENTIALS_ISSUE,
+  ...PROJECT_ACTIONS_BEFORE_ROOMS
+} = LIVE_PROJECT_ACTIONS;
+
 export const PROJECT_ACTIONS = {
-  PROJECT_READ: 'project.read',
-  PROJECT_WRITE: 'project.write',
-  /** Archiving the project (`DELETE /projects/:id`). Not implied by `project.write`. */
-  PROJECT_DELETE: 'project.delete',
-
-  PROJECT_SESSION_READ: 'project.session.read',
-  PROJECT_SESSION_START: 'project.session.start',
-  PROJECT_SESSION_STOP: 'project.session.stop',
-  PROJECT_SESSION_BINDINGS_WRITE: 'project.session.bindings.write',
-
-  PROJECT_MEMBERS_READ: 'project.members.read',
-  PROJECT_MEMBERS_MANAGE: 'project.members.manage',
-
-  PROJECT_TRIGGER_READ: 'project.trigger.read',
-  PROJECT_TRIGGER_CREATE: 'project.trigger.create',
-  PROJECT_TRIGGER_UPDATE: 'project.trigger.update',
-  PROJECT_TRIGGER_DELETE: 'project.trigger.delete',
-  PROJECT_TRIGGER_FIRE: 'project.trigger.fire',
-
-  PROJECT_GATEWAY_LOGS_READ: 'project.gateway.logs.read',
-  PROJECT_GATEWAY_SPEND_READ: 'project.gateway.spend.read',
-  PROJECT_USAGE_READ: 'project.usage.read',
-  PROJECT_GATEWAY_BUDGET_SET: 'project.gateway.budget.set',
-  PROJECT_GATEWAY_KEYS_MANAGE: 'project.gateway.keys.manage',
-
-  PROJECT_AGENT_READ: 'project.agent.read',
-  PROJECT_AGENT_WRITE: 'project.agent.write',
-  PROJECT_SKILL_READ: 'project.skill.read',
-  PROJECT_SKILL_WRITE: 'project.skill.write',
-  PROJECT_COMMAND_READ: 'project.command.read',
-  PROJECT_COMMAND_WRITE: 'project.command.write',
-  PROJECT_FILE_READ: 'project.file.read',
-  PROJECT_FILE_WRITE: 'project.file.write',
-  /** Project settings: name, branch, manifest path, icon, sandbox provider, feature flags. */
-  PROJECT_SETTINGS_WRITE: 'project.settings.write',
-  PROJECT_SANDBOX_WRITE: 'project.sandbox.write',
-  PROJECT_MODEL_READ: 'project.model.read',
-  PROJECT_MODEL_WRITE: 'project.model.write',
-  PROJECT_GITOPS_READ: 'project.gitops.read',
-  /** Opening a change request, and every push. */
-  PROJECT_GITOPS_PUSH: 'project.gitops.push',
-  /** Merging a change request into the base branch. */
-  PROJECT_GITOPS_MERGE: 'project.gitops.merge',
-  PROJECT_GITOPS_REF_ANY: 'project.gitops.ref.any',
-  PROJECT_GITOPS_REF_DELETE: 'project.gitops.ref.delete',
-  PROJECT_SECRET_READ: 'project.secret.read',
-  PROJECT_SECRET_WRITE: 'project.secret.write',
-  PROJECT_CONNECTOR_READ: 'project.connector.read',
-  PROJECT_CONNECTOR_CONNECTIONS_MANAGE: 'project.connector.connections.manage',
-  PROJECT_CONNECTOR_WRITE: 'project.connector.write',
-
-  PROJECT_APP_READ: 'project.app.read',
-  PROJECT_APP_WRITE: 'project.app.write',
-  PROJECT_APP_DEPLOY: 'project.app.deploy',
-  PROJECT_APP_ADMIN: 'project.app.admin',
-
-  PROJECT_REVIEW_READ: 'project.review.read',
-  PROJECT_REVIEW_SUBMIT: 'project.review.submit',
-  /** A verdict on a review item: approve, reject, request changes, answer. */
-  PROJECT_REVIEW_ACT: 'project.review.act',
-
+  ...PROJECT_ACTIONS_BEFORE_ROOMS,
   /**
    * List rooms and read their messages (`agent_rooms` flag).
    *
@@ -84,13 +34,11 @@ export const PROJECT_ACTIONS = {
    * @deprecated Rooms were removed (2026-11); the API no longer serves these routes. Removed in the next major.
    */
   PROJECT_ROOM_WRITE: 'project.room.write',
-  PROJECT_ARTIFACT_READ: 'project.artifact.read',
-  PROJECT_ARTIFACT_WRITE: 'project.artifact.write',
-  PROJECT_ARTIFACT_MANAGE: 'project.artifact.manage',
-  PROJECT_ARTIFACT_PUBLIC: 'project.artifact.public',
-
-  /** Minting a project CLI token or a project-scoped PAT. */
-  PROJECT_CREDENTIALS_ISSUE: 'project.credentials.issue',
+  PROJECT_ARTIFACT_READ,
+  PROJECT_ARTIFACT_WRITE,
+  PROJECT_ARTIFACT_MANAGE,
+  PROJECT_ARTIFACT_PUBLIC,
+  PROJECT_CREDENTIALS_ISSUE,
 } as const;
 
 /**
@@ -102,98 +50,9 @@ export const PROJECT_ACTIONS = {
  * The API accepts both names on every input, forever, and answers with both
  * (`action` plus `workspace_action`). Ask `useCan` / `useCans` with either.
  *
- * A copy of `@kortix/shared/workspace-actions`, which this published package
- * cannot import; `iam-actions.test.ts` holds the two equal.
+ * Re-exported from the lightweight canonical catalog.
  */
-export const WORKSPACE_ACTION_BY_LEGACY = {
-  // ── account-scoped (31) ────────────────────────────────────────────────
-  'account.read': 'workspace.account.read',
-  'account.write': 'workspace.account.write',
-  'account.delete': 'workspace.account.delete',
-  'billing.read': 'workspace.billing.read',
-  'billing.write': 'workspace.billing.write',
-  'audit.read': 'workspace.audit.read',
-  'member.read': 'workspace.member.read',
-  'member.invite': 'workspace.member.invite',
-  'member.update': 'workspace.member.update',
-  'member.remove': 'workspace.member.remove',
-  'member.super_admin.grant': 'workspace.member.super_admin.grant',
-  'group.read': 'workspace.group.read',
-  'group.create': 'workspace.group.create',
-  'group.update': 'workspace.group.update',
-  'group.delete': 'workspace.group.delete',
-  'group.members.manage': 'workspace.group.members.manage',
-  'policy.read': 'workspace.policy.read',
-  'policy.create': 'workspace.policy.create',
-  'policy.delete': 'workspace.policy.delete',
-  'role.read': 'workspace.role.read',
-  'role.create': 'workspace.role.create',
-  'role.update': 'workspace.role.update',
-  'role.delete': 'workspace.role.delete',
-  'token.read': 'workspace.token.read',
-  'token.create': 'workspace.token.create',
-  'token.revoke': 'workspace.token.revoke',
-  'token.personal.create': 'workspace.token.personal.create',
-  'token.personal.revoke': 'workspace.token.personal.revoke',
-  'project.create': 'workspace.create',
-  'capture.read_all': 'workspace.capture.read_all',
-  'capture.manage': 'workspace.capture.manage',
-
-  // ── project-scoped (54) ────────────────────────────────────────────────
-  'project.read': 'workspace.read',
-  'project.write': 'workspace.write',
-  'project.delete': 'workspace.delete',
-  'project.session.read': 'workspace.session.read',
-  'project.session.start': 'workspace.session.start',
-  'project.session.stop': 'workspace.session.stop',
-  'project.session.bindings.write': 'workspace.session.bindings.write',
-  'project.members.read': 'workspace.members.read',
-  'project.members.manage': 'workspace.members.manage',
-  'project.trigger.read': 'workspace.trigger.read',
-  'project.trigger.create': 'workspace.trigger.create',
-  'project.trigger.update': 'workspace.trigger.update',
-  'project.trigger.delete': 'workspace.trigger.delete',
-  'project.trigger.fire': 'workspace.trigger.fire',
-  'project.gateway.logs.read': 'workspace.gateway.logs.read',
-  'project.gateway.spend.read': 'workspace.gateway.spend.read',
-  'project.usage.read': 'workspace.usage.read',
-  'project.gateway.budget.set': 'workspace.gateway.budget.set',
-  'project.gateway.keys.manage': 'workspace.gateway.keys.manage',
-  'project.agent.read': 'workspace.agent.read',
-  'project.agent.write': 'workspace.agent.write',
-  'project.skill.read': 'workspace.skill.read',
-  'project.skill.write': 'workspace.skill.write',
-  'project.command.read': 'workspace.command.read',
-  'project.command.write': 'workspace.command.write',
-  'project.file.read': 'workspace.file.read',
-  'project.file.write': 'workspace.file.write',
-  'project.settings.write': 'workspace.settings.write',
-  'project.sandbox.write': 'workspace.sandbox.write',
-  'project.model.read': 'workspace.model.read',
-  'project.model.write': 'workspace.model.write',
-  'project.gitops.read': 'workspace.gitops.read',
-  'project.gitops.push': 'workspace.gitops.push',
-  'project.gitops.merge': 'workspace.gitops.merge',
-  'project.gitops.ref.any': 'workspace.gitops.ref.any',
-  'project.gitops.ref.delete': 'workspace.gitops.ref.delete',
-  'project.secret.read': 'workspace.secret.read',
-  'project.secret.write': 'workspace.secret.write',
-  'project.connector.read': 'workspace.connector.read',
-  'project.connector.connections.manage': 'workspace.connector.connections.manage',
-  'project.connector.write': 'workspace.connector.write',
-  'project.app.read': 'workspace.app.read',
-  'project.app.write': 'workspace.app.write',
-  'project.app.deploy': 'workspace.app.deploy',
-  'project.app.admin': 'workspace.app.admin',
-  'project.review.read': 'workspace.review.read',
-  'project.review.submit': 'workspace.review.submit',
-  'project.review.act': 'workspace.review.act',
-  'project.artifact.read': 'workspace.artifact.read',
-  'project.artifact.write': 'workspace.artifact.write',
-  'project.artifact.manage': 'workspace.artifact.manage',
-  'project.artifact.public': 'workspace.artifact.public',
-  'project.credentials.issue': 'workspace.credentials.issue',
-} as const;
+export { WORKSPACE_ACTION_BY_LEGACY } from '../../../iam-actions';
 
 /** A legacy IAM action name, e.g. `'project.read'`. */
 export type LegacyIamAction = keyof typeof WORKSPACE_ACTION_BY_LEGACY;

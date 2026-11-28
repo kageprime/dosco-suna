@@ -33,8 +33,6 @@ import { seedProjectDefaultModelOnConnect } from '../../llm-gateway/models/seed-
 import { verifyAndRecordAccountKey } from '../../llm-gateway/provider-verify';
 import { deleteWorkspaceProviderKeys, writeWorkspaceProviderKey } from '../../secrets/llm-credential-move';
 import { createRoute, z } from '@hono/zod-openapi';
-import { featureDisabledBody } from '../../feature-flags/gate';
-import { resolveFeatureFlag } from '../../feature-flags/registry';
 import { projectSecrets } from '@kortix/db';
 import { and, eq, isNull } from 'drizzle-orm';
 import {
@@ -423,21 +421,19 @@ export function registerSecretsRoutes(): void {
     if (!existing && value === null) {
       return c.json({ error: 'value is required' }, 400);
     }
+    // A website login holds `{ username, password }` for the sandbox browser
+    // (projects/lib/browser-logins.ts). A plain value or a delivery change here
+    // would break it or move it into the env: a person enters it again
+    // through a login link instead.
+    if (existing?.consumer === 'browser') {
+      return c.json({
+        error: `${identifier} is a website login. Enter it again through a login link: kortix secrets request ${identifier} --login --site <host>`,
+        code: 'browser_login_read_only',
+      }, 409);
+    }
     if (existing?.consumer === 'llm_gateway' && explicitConsumer === undefined && explicitStrategy === undefined && value !== null) {
       const redirected = await redirectProviderKey();
       if (redirected) return redirected;
-    }
-    // Network-Enforced Secrets is an experimental feature (`secrets_egress`).
-    // With the flag off a project cannot MOVE a secret into egress delivery — a
-    // new egress secret, or an existing non-egress one switched to it. A secret
-    // that is already egress keeps serving and stays editable, so turning the
-    // flag off never strands one. Runtime/broker/denied are unaffected.
-    if (
-      explicitStrategy === 'egress' &&
-      existing?.strategy !== 'egress' &&
-      !resolveFeatureFlag(loaded.row.metadata, 'secrets_egress')
-    ) {
-      return c.json(featureDisabledBody('secrets_egress'), 403);
     }
     // An identifier is a stable handle to ONE secret — redefining its underlying
     // KEY via upsert would silently retarget every agent grant that references

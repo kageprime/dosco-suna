@@ -197,6 +197,8 @@ RUN PNPM_VERSION="$(python -c "import json; print(json.load(open('/tmp/kortix-ru
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
     AGENT_BROWSER_EXECUTABLE_PATH=/home/kortix/.local/bin/chromium \
     AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage,--test-type,--disable-infobars \
+    AGENT_BROWSER_IDLE_TIMEOUT_MS=0 \
+    AGENT_BROWSER_NO_VERSION_CHECK=1 \
     PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=1800000
 # The non-root sandbox user has passwordless sudo by design (sudoers above);
 # playwright --with-deps installs apt packages as root.
@@ -225,6 +227,12 @@ RUN AGENT_BROWSER_VERSION="$(node -e "console.log(require('/tmp/kortix-runtime-v
     && test -x "${pw_shell_dir}/${pw_shell}" \
     && chromium --version \
     && env -u AGENT_BROWSER_EXECUTABLE_PATH agent-browser doctor 2>&1 | grep -qE 'pass.+chrome-linux64/chrome'
+
+# The `kortix` agent-browser credential plugin (website logins the agent never
+# sees). Same bytes as AGENT_BROWSER_PLUGIN_CONFIG_B64 in
+# packages/shared/src/sandbox/dockerfile-layer.ts (unit-runtime-versions.test.ts).
+RUN printf %s eyJwbHVnaW5zIjpbeyJuYW1lIjoia29ydGl4IiwiY29tbWFuZCI6Ii91c3IvbG9jYWwvYmluL2tvcnRpeCIsImFyZ3MiOlsic2VjcmV0cyIsImJyb3dzZXItcGx1Z2luIl0sImNhcGFiaWxpdGllcyI6WyJjcmVkZW50aWFsLnJlYWQiXX1dfQ== | base64 -d > /home/kortix/.agent-browser/config.json \
+    && agent-browser plugin list 2>&1 | grep -q kortix
 
 # hadolint ignore=DL4006
 RUN BUN_VERSION="$(node -e "console.log(require('/tmp/kortix-runtime-versions.json').bun)")" \

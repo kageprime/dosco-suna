@@ -14,7 +14,7 @@
  * The flows that run a turn are registered with `harnessFlow`: every new
  * session runs pi (OpenCode is sunset, 2026-10-23), and each boot proves it.
  * They drive the session through the Kortix routes (`/start`, `/prompts`,
- * `/turn`, `/transcript`, `/events`, `/commit-push`) and never through a
+ * `/turn`, `/log`, `/events`, `/commit-push`) and never through a
  * harness's own REST API. Two calls still use the runtime behind the preview proxy
  * `/p/:sandboxId/:port/*`, because no Kortix route exists for them yet: the
  * Stop abort and the daemon's `/kortix/health` (see fixtures/session-run.ts).
@@ -82,7 +82,7 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
       'GET /v1/workspaces/:projectId/sessions',
       'GET /v1/workspaces/:projectId/sessions/:sessionId',
     ],
@@ -195,7 +195,7 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/prompts',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
       'GET /v1/workspaces/:projectId/sessions/:sessionId',
     ],
   },
@@ -328,7 +328,7 @@ harnessFlow(
       'GET /v1/workspaces/:projectId/sessions/:sessionId',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
     ],
   },
   async (ctx, harness) => {
@@ -382,14 +382,14 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
     ],
   },
   async (ctx, harness) => {
     const { projectId, sessionId } = await bootSession(ctx, harness);
     const marker = `RUN6_RESULT_${Date.now()}`;
     await sendPrompt(ctx, projectId, sessionId, echo(marker));
-    await ctx.step('GET .../transcript → the prompt, then a completed reply with the marker', async () => {
+    await ctx.step('GET .../log → the prompt, then a completed reply with the marker', async () => {
       await waitForAssistantText(ctx, projectId, sessionId, marker);
       const transcript = await waitFor(() => readTranscript(ctx, projectId, sessionId), {
         until: (t) =>
@@ -399,8 +399,9 @@ harnessFlow(
         description: 'the reply to be completed',
         retryOnError: isKe2eRetryableError,
       });
-      if (!transcript.available || transcript.source !== 'live') {
-        throw new Error(`a running session must answer live, got ${transcript.source} (${transcript.reason})`);
+      // The box journals the running turn into the stored session log (at most 5 s behind).
+      if (!transcript.available || transcript.source !== 'log') {
+        throw new Error(`a running session must answer from its stored log, got ${transcript.source} (${transcript.reason})`);
       }
       const prompt = transcript.messages.findIndex((m) => m.role === 'user' && m.text.includes(marker));
       const reply = transcript.messages.findIndex((m) => m.role === 'assistant' && m.text.includes(marker));
@@ -426,7 +427,7 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/commit-push',
       'GET /v1/workspaces/:projectId/files/content',
     ],
@@ -804,7 +805,7 @@ flow(
       'POST /v1/workspaces/:projectId/sessions',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/commit-push',
       'GET /v1/workspaces/:projectId/snapshots',
       'POST /v1/workspaces/:projectId/change-requests',
@@ -1094,7 +1095,7 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
       'GET /v1/workspaces/:projectId/sessions/:sessionId',
     ],
   },
@@ -1180,7 +1181,7 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
     ],
   },
   async (ctx, harness) => {
@@ -1244,7 +1245,7 @@ flow(
       'PATCH /v1/workspaces/:projectId/features',
       'POST /v1/workspaces/:projectId/sessions',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
       'GET /v1/workspaces/:projectId/sessions/:sessionId',
     ],
   },
@@ -1362,7 +1363,7 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
     ],
   },
   async (ctx, harness) => {
@@ -1451,7 +1452,7 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
     ],
   },
   async (ctx, harness) => {
@@ -1508,7 +1509,7 @@ type RuntimeMessage = { info: Record<string, any>; parts: Array<Record<string, a
 
 /**
  * The session runtime's own message list (`/kortix/runtime/messages/<root>`),
- * read through the sandbox proxy. `GET …/transcript` flattens parts to text and
+ * read through the sandbox proxy. The stored log rows (`readTranscript`) flatten parts to text and
  * tools; a compaction and an expanded command are visible only here.
  */
 async function runtimeMessages(ctx: FlowContext, sandboxId: string, root: string): Promise<RuntimeMessage[]> {
@@ -1545,7 +1546,7 @@ harnessFlow(
       'GET /v1/workspaces/:projectId/sessions/:sessionId',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
     ],
   },
   async (ctx, harness) => {
@@ -1629,7 +1630,7 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'GET /v1/workspaces/:projectId/sessions/:sessionId',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
     ],
   },
   async (ctx, harness) => {
@@ -1743,7 +1744,7 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
     ],
   },
   async (ctx, harness) => {
@@ -1800,7 +1801,7 @@ flow(
       'POST /v1/workspaces/:projectId/sessions',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
     ],
   },
   async (ctx) => {
@@ -1849,7 +1850,7 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
     ],
   },
   async (ctx, harness) => {

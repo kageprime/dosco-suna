@@ -516,7 +516,7 @@ export function ExperimentalTab({ projectId }: { projectId: string }) {
 
   // the Channels switch changes the sidebar for everyone, so only a
   // viewer who may flip it sees it (hidden while that answer loads).
-  const visible = canEdit ? withPending : withPending.filter((f) => f.key !== 'chat');
+  const visible = canEdit ? withPending : withPending.filter((f) => f.key !== 'channels');
   const features = filterFeatures(visible, query);
 
   // The position a change lands on: a reset (`next: null`) lands on the
@@ -535,7 +535,7 @@ export function ExperimentalTab({ projectId }: { projectId: string }) {
   const [channelsTarget, setChannelsTarget] = useState<{ next: boolean | null } | null>(null);
   const handleToggle = (key: string, next: boolean | null) => {
     const enabled = rawFeatures.find((f) => f.key === key)?.enabled;
-    if (key === 'chat' && landsOn(key, next) !== enabled) setChannelsTarget({ next });
+    if (key === 'channels' && landsOn(key, next) !== enabled) setChannelsTarget({ next });
     else apply(key, next);
   };
 
@@ -544,10 +544,10 @@ export function ExperimentalTab({ projectId }: { projectId: string }) {
       <ChannelsSwitchDialog
         open={channelsTarget !== null}
         onOpenChange={(open) => !open && setChannelsTarget(null)}
-        turningOn={channelsTarget !== null && landsOn('chat', channelsTarget.next)}
+        turningOn={channelsTarget !== null && landsOn('channels', channelsTarget.next)}
         projectName={project?.name ?? ''}
         onConfirm={() => {
-          if (channelsTarget) apply('chat', channelsTarget.next);
+          if (channelsTarget) apply('channels', channelsTarget.next);
           setChannelsTarget(null);
         }}
       />

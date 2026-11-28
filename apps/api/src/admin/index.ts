@@ -483,8 +483,8 @@ adminApp.openapi(
 );
 
 // ── Set a project's feature flag (operator) ─────────────────────────────────
-// The operator lever for internal-only flags (`workspace_volume`): Kortix
-// turns them on per project on request.
+// The operator lever for internal-only flags (none today; `workspace_volume`
+// graduated on 2026-11-23): Kortix turns them on per project on request.
 // `PATCH /v1/projects/:id/features` refuses those flags for everyone but a
 // platform operator, and this route needs no project membership. Any flag key
 // works here. Audited on the project.
@@ -501,7 +501,7 @@ adminApp.openapi(
         content: {
           'application/json': {
             schema: z.object({
-              feature: z.string().openapi({ description: 'Flag key, for example `workspace_volume`.' }),
+              feature: z.string().openapi({ description: 'Flag key, for example `goals`.' }),
               enabled: z.boolean().nullable().openapi({ description: '`true`/`false` sets the override; `null` clears it.' }),
             }),
           },

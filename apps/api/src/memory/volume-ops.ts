@@ -9,6 +9,7 @@ import { type DriveRow, readDriveVolume, writeDriveVolume } from '../drives/serv
 import {
   DriveStorageError,
   driveStorageAvailable,
+  isKortixInternalPath,
   listVolumeCommits,
   listVolumeFiles,
   readVolumeFile,
@@ -54,7 +55,9 @@ const missingAsNull = async <T>(run: () => Promise<T>): Promise<T | null> => {
 const driveOps: VolumeOps = {
   available: driveStorageAvailable,
   list: async (drive, folder) =>
-    (await missingAsNull(() => readDriveVolume(drive, (volume) => listVolumeFiles(volume, folder, true), () => []))) ?? [],
+    ((await missingAsNull(() => readDriveVolume(drive, (volume) => listVolumeFiles(volume, folder, true), () => []))) ?? []).filter(
+      (e) => !isKortixInternalPath(e.path),
+    ),
   read: (drive, path, opts) =>
     missingAsNull(() =>
       readDriveVolume(

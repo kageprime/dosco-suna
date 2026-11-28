@@ -61,7 +61,7 @@ beforeAll(async () => {
     accountId: ACCOUNT,
     name: 'Northwind',
     repoUrl: 'https://example.test/n.git',
-    metadata: { experimental: { chat: true } },
+    metadata: { experimental: { channels: true } },
     splitPending: true,
   });
   // A second active project makes the account a split_pending legacy account: there a member reaches a project only through a grant, which is what this suite tests (on a 1:1 workspace membership is access, design.md C3).

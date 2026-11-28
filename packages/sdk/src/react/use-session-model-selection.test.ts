@@ -26,8 +26,9 @@ const errors: string[] = [];
 let projectSessionId: string | undefined = 'synthetic-project-session';
 let runtimeSessionId = 'ses_synthetic_runtime';
 let heldWrite: Promise<void> | undefined;
+let modelChanges = 0;
 function Probe() {
-  selection = useSessionModelSelection({ sessionId: runtimeSessionId, projectSessionId, providers: {
+  selection = useSessionModelSelection({ onModelChanged: () => { modelChanges++; }, sessionId: runtimeSessionId, projectSessionId, providers: {
     all: [{ id: 'kortix', name: 'Kortix', source: 'custom', env: [], options: {}, models: { 'model-a': model('model-a'), 'model-b': model('model-b') } }],
     connected: ['kortix'], default: { kortix: 'model-a' },
   } });
@@ -44,6 +45,7 @@ afterEach(() => {
   projectSessionId = 'synthetic-project-session';
   runtimeSessionId = 'ses_synthetic_runtime';
   heldWrite = undefined;
+  modelChanges = 0;
   runIdentityResets();
 });
 
@@ -80,13 +82,16 @@ test('an intentional composer pick writes the durable session model API as the C
   const client = await mount();
   await act(async () => { selection?.model.set({ providerID: 'kortix', modelID: 'model-a' }, { autoSeed: true }); });
   expect(writes).toEqual([]);
+  expect(modelChanges).toBe(0);
   await act(async () => { selection?.model.set({ providerID: 'kortix', modelID: 'model-b' }, { recent: true }); });
   expect(writes).toEqual([{ path: '/v1/workspaces/synthetic-project/sessions/synthetic-project-session/model', body: { model: 'model-b' } }]);
   expect(selection?.model.sendKey).toEqual({ providerID: 'kortix', modelID: 'model-b' });
+  expect(modelChanges).toBe(1);
   rejectWrite = true;
   await act(async () => { selection?.model.set({ providerID: 'kortix', modelID: 'model-a' }, { recent: true }); });
   expect(selection?.model.sendKey).toEqual({ providerID: 'kortix', modelID: 'model-b' });
   expect(errors).toHaveLength(1);
+  expect(modelChanges).toBe(1);
   client.clear();
 });
 

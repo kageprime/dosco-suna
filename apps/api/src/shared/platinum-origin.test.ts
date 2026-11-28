@@ -21,6 +21,7 @@ const {
   acceptedPlatinumOrigin,
   platinumJson,
   platinumOriginForSandbox,
+  platinumHomeOrigin,
   platinumOriginForRegion,
   platinumRegionControlPlane,
   PlatinumSandboxNotRunningError,
@@ -382,6 +383,17 @@ test('a deployment configured with the region itself sends its region calls ther
   await platinumJson('/v1/sandboxes', { method: 'POST', body: JSON.stringify({ template: 't', region: 'us-east' }) });
 
   expect(calls.map((c) => c.url)).toEqual([`${US}/v1/sandboxes`]);
+});
+
+test("a deployment configured with the region itself reaches that region's volumes on the configured origin", async () => {
+  mockPlatinumApiUrl = US;
+
+  // Not us-east.us-east.api.platinum.dev: that name does not resolve.
+  expect(platinumRegionControlPlane('us-east')).toBe(US);
+  expect(platinumHomeOrigin()).toBe(US);
+  await platinumJson('/v1/volumes/kd-test', { method: 'PUT', body: '{}' }, platinumRegionControlPlane('us-east') ?? undefined);
+
+  expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual([`PUT ${US}/v1/volumes/kd-test`]);
 });
 
 test('a regional create whose connection never opened retries once via global and forgets the region', async () => {

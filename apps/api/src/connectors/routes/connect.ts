@@ -1,7 +1,8 @@
 /** Easy-connect routes: start and finalize an authorization, session connect requests, the Pipedream webhook. */
 import { type OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
+import type { Context } from 'hono';
 import { auth, errors, json, lenientBody } from '../../openapi';
-import { parseConnectorConnectOwner } from '../../projects/lib/connection-access';
+import { type ConnectorConnectOwner, parseConnectorConnectOwner } from '../../projects/lib/connection-access';
 import { reconcileEventSubscriptionsFromCatalog } from '../../projects/surface';
 import type { ConnectorRouterDeps } from '../router';
 import { OkSchema, OpaqueSchema, ProjectSlugParam, featureNotSupportedResponse } from './shared';
@@ -31,15 +32,6 @@ export function registerConnectRoutes(app: OpenAPIHono, deps: ConnectorRouterDep
     async (c: any) => {
       const projectId = workspaceIdParam(c);
       const slug = c.req.param('slug');
-      const admin = await deps.resolveAdmin(c, projectId);
-      if (!admin) return c.json({ error: 'forbidden' }, 403);
-      const connect = deps.connectorConnect ?? (deps.pipedreamConnect
-        ? async (pid: string, s: string, uid: string, r?: { success?: string; error?: string }) => {
-            const result = await deps.pipedreamConnect!(pid, s, uid, r);
-            return result ? { provider: 'pipedream', ...result } : null;
-          }
-        : undefined);
-      if (!connect) return featureNotSupportedResponse(c, 'connector_connect');
       // Native clients pass app deep-link redirect URIs so the in-app browser
       // auto-dismisses back to the app instead of landing on a web page.
       let redirects: { success?: string; error?: string } | undefined;
@@ -55,16 +47,15 @@ export function registerConnectRoutes(app: OpenAPIHono, deps: ConnectorRouterDep
       }
       const owner = parseConnectorConnectOwner(rawOwner);
       if (!owner) return c.json({ error: 'owner must be "me" or "project"' }, 400);
-      // Connecting an account the whole project can then use is administration:
-      // `project.connector.connections.manage`, for a person and for an agent
-      // session acting for one alike (the person's role ∩ the agent's grant).
-      // `me` — the default — is self-service and needs nothing beyond the
-      // connector-write gate already asserted above. Starting a connect hands
-      // back a sign-in URL; the person still signs in.
-      if (owner === 'project' && deps.resolveConnectionsManager) {
-        const manager = await deps.resolveConnectionsManager(c, projectId);
-        if (!manager) return c.json({ error: 'forbidden' }, 403);
-      }
+      const caller = await authorizeConnectOwner(c, deps, projectId, owner);
+      if (!caller) return c.json({ error: 'forbidden' }, 403);
+      const connect = deps.connectorConnect ?? (deps.pipedreamConnect
+        ? async (pid: string, s: string, uid: string, r?: { success?: string; error?: string }) => {
+            const result = await deps.pipedreamConnect!(pid, s, uid, r);
+            return result ? { provider: 'pipedream', ...result } : null;
+          }
+        : undefined);
+      if (!connect) return featureNotSupportedResponse(c, 'connector_connect');
       // Set by the auth middleware from a scoped session token, so this is
       // populated exactly when the agent in a sandbox made the call — and null
       // when a human clicked Connect in project settings, which has no session
@@ -73,7 +64,7 @@ export function registerConnectRoutes(app: OpenAPIHono, deps: ConnectorRouterDep
       const result = await connect(
         projectId,
         slug,
-        admin.userId,
+        caller.userId,
         redirects,
         requestingSessionId,
         owner,
@@ -102,15 +93,6 @@ export function registerConnectRoutes(app: OpenAPIHono, deps: ConnectorRouterDep
     async (c: any) => {
       const projectId = workspaceIdParam(c);
       const slug = c.req.param('slug');
-      const admin = await deps.resolveAdmin(c, projectId);
-      if (!admin) return c.json({ error: 'forbidden' }, 403);
-      const finalize = deps.connectorFinalize ?? (deps.pipedreamFinalize
-        ? async (pid: string, s: string, uid: string) => {
-            const result = await deps.pipedreamFinalize!(pid, s, uid);
-            return result ? { provider: 'pipedream', ...result } : null;
-          }
-        : undefined);
-      if (!finalize) return featureNotSupportedResponse(c, 'connector_finalize');
       let selector: { connectionId?: string; requestId?: string } | undefined;
       let rawOwner: unknown;
       try {
@@ -120,18 +102,19 @@ export function registerConnectRoutes(app: OpenAPIHono, deps: ConnectorRouterDep
       } catch { /* no body */ }
       const owner = parseConnectorConnectOwner(rawOwner);
       if (!owner) return c.json({ error: 'owner must be "me" or "project"' }, 400);
-      // Same gate the `/connect` START route asserts above: landing an account
-      // the WHOLE project can then use is administration, not self-service, and
-      // finalize is what actually persists `connected_account_id` on the shared
-      // connection. Without this a principal holding `project.connector.write`
-      // but NOT `project.connector.connections.manage` was refused when
-      // STARTING a project-owned connection and still allowed to FINISH one —
-      // sibling routes on one resource disagreeing about who may act (CWE-862).
-      // `me` stays self-service on both routes.
-      if (owner === 'project' && deps.resolveConnectionsManager) {
-        const manager = await deps.resolveConnectionsManager(c, projectId);
-        if (!manager) return c.json({ error: 'forbidden' }, 403);
-      }
+      // The START route's gate, per owner: finalize is what persists
+      // `connected_account_id`, so sibling routes on one resource must agree
+      // about who may act (CWE-862). A `me` finalize only ever selects the
+      // caller's own member row (`connectorFinalize`).
+      const admin = await authorizeConnectOwner(c, deps, projectId, owner);
+      if (!admin) return c.json({ error: 'forbidden' }, 403);
+      const finalize = deps.connectorFinalize ?? (deps.pipedreamFinalize
+        ? async (pid: string, s: string, uid: string) => {
+            const result = await deps.pipedreamFinalize!(pid, s, uid);
+            return result ? { provider: 'pipedream', ...result } : null;
+          }
+        : undefined);
+      if (!finalize) return featureNotSupportedResponse(c, 'connector_finalize');
       const result = await finalize(projectId, slug, admin.userId, selector, owner);
       if (!result) return c.json({ error: 'not a supported connect connector' }, 404);
       const source = analyticsSource(c);
@@ -179,14 +162,52 @@ export function registerConnectRoutes(app: OpenAPIHono, deps: ConnectorRouterDep
     async (c: any) => {
       const projectId = workspaceIdParam(c);
       const sessionId = c.req.param('sessionId');
-      const admin = await deps.resolveAdmin(c, projectId);
-      if (!admin) return c.json({ error: 'forbidden' }, 403);
+      // The person in the session reads what it waits on: their own private
+      // sign-ins and the shared ones. A plain member needs nothing more than
+      // the session itself; connector administration never gated this.
+      const reader = deps.resolveAccountHolder
+        ? await deps.resolveAccountHolder(c, projectId)
+        : await deps.resolveAdmin(c, projectId);
+      if (!reader) return c.json({ error: 'forbidden' }, 403);
       if (!deps.listSessionConnectRequests) {
         return featureNotSupportedResponse(c, 'session_connect_requests');
       }
-      return c.json({ connectors: await deps.listSessionConnectRequests(projectId, sessionId, admin.userId) });
+      if (deps.sessionVisibleTo && !(await deps.sessionVisibleTo(c, projectId, sessionId))) {
+        return c.json({ connectors: [] });
+      }
+      return c.json({ connectors: await deps.listSessionConnectRequests(projectId, sessionId, reader.userId) });
     },
   );
+}
+
+/**
+ * Who may start or finish an authorization for `owner`:
+ *
+ *   `me`      the caller's own private account: any person who may use the
+ *             workspace (`resolveAccountHolder`). The start creates or reuses
+ *             a member row owned by the caller; the finalize selects only that.
+ *   `project` the account shared with the whole workspace: connector
+ *             administration (`project.connector.write`) AND
+ *             `project.connector.connections.manage`, for a person and for an
+ *             agent session acting for one alike (the role ∩ the agent grant).
+ *
+ * Starting returns a sign-in URL; the person still signs in. Null → 403.
+ */
+async function authorizeConnectOwner(
+  c: Context,
+  deps: ConnectorRouterDeps,
+  projectId: string,
+  owner: ConnectorConnectOwner,
+): Promise<{ accountId: string; userId: string } | null> {
+  if (owner === 'me') {
+    return deps.resolveAccountHolder
+      ? deps.resolveAccountHolder(c, projectId)
+      : deps.resolveAdmin(c, projectId);
+  }
+  const admin = await deps.resolveAdmin(c, projectId);
+  if (!admin) return null;
+  if (deps.resolveConnectionsManager && !(await deps.resolveConnectionsManager(c, projectId))) return null;
+  return admin;
 }
 
 export function registerPipedreamWebhookRoutes(app: OpenAPIHono, deps: ConnectorRouterDeps): void {

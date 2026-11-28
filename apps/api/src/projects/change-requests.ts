@@ -181,17 +181,26 @@ export const CHANGE_REQUEST_TRANSITIONS = {
   reopen: { from: ['closed'], to: 'open' },
 } as const satisfies Record<string, { from: readonly ChangeRequestStatus[]; to: ChangeRequestStatus }>;
 
-/** Record a merge that landed. Lost race: another merge recorded it first. */
+/**
+ * Record a merge that landed. Lost race: another merge recorded it first.
+ * `metadataPatch` merges its keys into the row's metadata inside the same
+ * UPDATE (`secret_override`, `secret_scan_skipped`), so a concurrent write of
+ * another key (`requested_changes`) is never lost.
+ */
 export function recordChangeRequestMerge(
   crId: string,
   set: Pick<
     typeof changeRequests.$inferInsert,
     'mergedAt' | 'mergedBy' | 'mergeCommitSha' | 'headCommitSha' | 'baseCommitSha'
   >,
+  metadataPatch?: Record<string, unknown>,
 ): Promise<TransitionResult<ChangeRequestRow>> {
+  const metadata = metadataPatch
+    ? { metadata: sql`coalesce(${changeRequests.metadata}, '{}'::jsonb) || ${JSON.stringify(metadataPatch)}::jsonb` }
+    : {};
   return transitionStatus(changeRequests, changeRequests.status, CHANGE_REQUEST_TRANSITIONS.merge, {
     where: eq(changeRequests.crId, crId),
-    set: { ...set, closedAt: null, closedBy: null, updatedAt: new Date() },
+    set: { ...set, ...metadata, closedAt: null, closedBy: null, updatedAt: new Date() },
   });
 }
 

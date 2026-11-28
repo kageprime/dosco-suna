@@ -47,13 +47,17 @@ export function createSessionAttachmentStore(
     ) {
       if (input.bytes.byteLength > MAX_SESSION_ATTACHMENT_BYTES)
         throw new Error("Attachments must be 50 MiB or smaller.");
-      const result = await storage
-        .from(BUCKET)
-        .upload(key(input), input.bytes, {
-          upsert: false,
-          contentType: input.mime,
-          cacheControl: "0",
-        });
+      const upload = () => storage.from(BUCKET).upload(key(input), input.bytes, {
+        upsert: false,
+        contentType: input.mime,
+        cacheControl: "0",
+      });
+      let result = await upload();
+      // The gateway may fail after committing. A retry still verifies a 409's bytes below.
+      if (result.error && [502, 503, 504].includes(result.error.status ?? 0)) {
+        await Bun.sleep(250);
+        result = await upload();
+      }
       if (result.error) {
         const failure: StorageError = result.error;
         if (

@@ -55,7 +55,7 @@ export function FeatureGateScreen({
     },
     onError: (cause: Error) => setError(cause.message),
   });
-  const channels = featureKey === 'chat';
+  const channels = featureKey === 'channels';
   const [confirming, setConfirming] = useState(false);
   const project = useQuery({
     queryKey: qk.project.summary(projectId ?? ''),

@@ -104,7 +104,7 @@ function panelValue(overrides: Partial<SessionPanelValue>): SessionPanelValue {
     files: [],
     context: [] as unknown as SessionPanelValue['context'],
     apps: [],
-    outputsDefaultOpen: false,
+    isSessionBusy: false,
     detail: null,
     terminalOpen: false,
     terminalSwap: false,

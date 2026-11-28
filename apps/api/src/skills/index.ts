@@ -34,15 +34,19 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { auth, errors, json, makeOpenApiApp } from '../openapi';
 import type { AppEnv } from '../types';
+import { config } from '../config';
 import { featureFlagDef, isFeatureFlagKey } from '../feature-flags/registry';
 import { getManagedSkill, getManagedSkillFile, listManagedSkills } from './catalog';
 
 /**
- * A skill behind a flag this platform does not offer (`available` is false, for
- * example `chrome` on a self-hosted server) does not exist here: no project can turn it on,
- * so no box has it. It is not listed and not served, to the CLI, MCP and the API.
+ * A skill behind a flag this platform does not offer (`available` is false) does not
+ * exist here: no project can turn it on, so no box has it. It is not listed and not
+ * served, to the CLI, MCP and the API. `chrome` graduated on 2026-11-24 and is no flag,
+ * but the kortix-chrome skill keeps `kortix-feature-flag: chrome`: it exists only where
+ * the API serves Kortix in Chrome (not on a self-hosted server).
  */
 function offered(featureFlag: string | null | undefined): boolean {
+  if (featureFlag === 'chrome') return config.KORTIX_CHROME_ENABLED;
   return !featureFlag || !isFeatureFlagKey(featureFlag) || featureFlagDef(featureFlag).available();
 }
 

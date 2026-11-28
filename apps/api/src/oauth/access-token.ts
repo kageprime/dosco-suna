@@ -92,6 +92,9 @@ export interface OAuthAccessTokenValidation {
   /** The workspace the consent bound the token to (the fence judges it like a
    *  workspace key). Null = unbound: it acts as the person everywhere. */
   boundWorkspaceId?: string | null;
+  /** The App whose viewer token this is (`oauth_clients.app_id`), or null for
+   *  a token a person granted on the consent screen. */
+  appId?: string | null;
   /** The second factor the minting session passed ('aal2'), or null. Honored
    *  in `accountId` only (`middleware/actor.ts`). */
   mfaAal?: string | null;
@@ -128,6 +131,7 @@ export async function validateOAuthAccessToken(token: string): Promise<OAuthAcce
       expiresAt: oauthAccessTokens.expiresAt,
       clientActive: oauthClients.active,
       boundWorkspaceId: oauthAccessTokens.boundWorkspaceId,
+      appId: oauthClients.appId,
       mfaAal: oauthAccessTokens.mfaAal,
     })
     .from(oauthAccessTokens)
@@ -146,6 +150,7 @@ export async function validateOAuthAccessToken(token: string): Promise<OAuthAcce
     clientId: row.clientId,
     scopes: (row.scopes as string[] | null) ?? [],
     boundWorkspaceId: row.boundWorkspaceId ?? null,
+    appId: row.appId ?? null,
     mfaAal: row.mfaAal ?? null,
   };
 }

@@ -115,8 +115,10 @@ RUN uv pip install --python /home/kortix/.local/bin/python3 --break-system-packa
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \\
     AGENT_BROWSER_EXECUTABLE_PATH=/home/kortix/.local/bin/chromium \\
     AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage,--test-type,--disable-infobars \\
+    AGENT_BROWSER_IDLE_TIMEOUT_MS=0 \\
+    AGENT_BROWSER_NO_VERSION_CHECK=1 \\
     PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=1800000
-RUN pnpm add -g --allow-build=agent-browser "agent-browser@0.27.0" \\
+RUN pnpm add -g --allow-build=agent-browser "agent-browser@0.43.0" \\
     && agent-browser --version \\
     && for pw_try in 1 2 3 4 5; do \\
         pnpm dlx playwright@1.60.0 install --with-deps --no-shell chromium && break; \\
@@ -138,6 +140,9 @@ RUN pnpm add -g --allow-build=agent-browser "agent-browser@0.27.0" \\
     && test -x "\${pw_shell_dir}/\${pw_shell}" \\
     && chromium --version \\
     && env -u AGENT_BROWSER_EXECUTABLE_PATH agent-browser doctor 2>&1 | grep -qE 'pass.+chrome-linux64/chrome'
+
+RUN printf %s eyJwbHVnaW5zIjpbeyJuYW1lIjoia29ydGl4IiwiY29tbWFuZCI6Ii91c3IvbG9jYWwvYmluL2tvcnRpeCIsImFyZ3MiOlsic2VjcmV0cyIsImJyb3dzZXItcGx1Z2luIl0sImNhcGFiaWxpdGllcyI6WyJjcmVkZW50aWFsLnJlYWQiXX1dfQ== | base64 -d > /home/kortix/.agent-browser/config.json \\
+    && agent-browser plugin list 2>&1 | grep -q kortix
 
 RUN pnpm add -g "@firecrawl/anydoc@0.1.6" \\
     && command -v anydoc \\
@@ -313,8 +318,10 @@ RUN uv pip install --python /home/kortix/.local/bin/python3 --break-system-packa
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \\
     AGENT_BROWSER_EXECUTABLE_PATH=/home/kortix/.local/bin/chromium \\
     AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage,--test-type,--disable-infobars \\
+    AGENT_BROWSER_IDLE_TIMEOUT_MS=0 \\
+    AGENT_BROWSER_NO_VERSION_CHECK=1 \\
     PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=1800000
-RUN pnpm add -g --allow-build=agent-browser "agent-browser@0.27.0" \\
+RUN pnpm add -g --allow-build=agent-browser "agent-browser@0.43.0" \\
     && agent-browser --version \\
     && for pw_try in 1 2 3 4 5; do \\
         pnpm dlx playwright@1.60.0 install --with-deps --no-shell chromium && break; \\
@@ -336,6 +343,9 @@ RUN pnpm add -g --allow-build=agent-browser "agent-browser@0.27.0" \\
     && test -x "\${pw_shell_dir}/\${pw_shell}" \\
     && chromium --version \\
     && env -u AGENT_BROWSER_EXECUTABLE_PATH agent-browser doctor 2>&1 | grep -qE 'pass.+chrome-linux64/chrome'
+
+RUN printf %s eyJwbHVnaW5zIjpbeyJuYW1lIjoia29ydGl4IiwiY29tbWFuZCI6Ii91c3IvbG9jYWwvYmluL2tvcnRpeCIsImFyZ3MiOlsic2VjcmV0cyIsImJyb3dzZXItcGx1Z2luIl0sImNhcGFiaWxpdGllcyI6WyJjcmVkZW50aWFsLnJlYWQiXX1dfQ== | base64 -d > /home/kortix/.agent-browser/config.json \\
+    && agent-browser plugin list 2>&1 | grep -q kortix
 
 RUN pnpm add -g "@firecrawl/anydoc@0.1.6" \\
     && command -v anydoc \\

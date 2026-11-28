@@ -38,6 +38,20 @@ describe('featureFlagsEnvValue', () => {
       settings.PLATINUM_API_KEY = before;
     }
   });
+  test('chrome is listed exactly where the API serves Kortix in Chrome, over a stored flag-era `chrome: false`', () => {
+    // Graduated 2026-11-24: kortixd withholds the kortix-chrome skill (`kortix-feature-flag: chrome`)
+    // and CLIs built before then hide `kortix chrome` unless the box lists it.
+    const before = config.KORTIX_CHROME_ENABLED;
+    try {
+      config.KORTIX_CHROME_ENABLED = true;
+      expect(featureFlagsEnvValue({ experimental: { chrome: false } }).split(',')).toContain('chrome');
+      expect(featureFlagsEnvValue(null).split(',')).toContain('chrome');
+      config.KORTIX_CHROME_ENABLED = false;
+      expect(featureFlagsEnvValue({ experimental: { chrome: true } }).split(',')).not.toContain('chrome');
+    } finally {
+      config.KORTIX_CHROME_ENABLED = before;
+    }
+  });
   test('env name is the one kortixd and the CLI read', () => {
     expect(FEATURE_FLAGS_ENV_NAME).toBe('KORTIX_FEATURE_FLAGS');
   });

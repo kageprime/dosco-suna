@@ -7,7 +7,7 @@
  * not brought back.
  */
 
-import { splitPastedContent } from '@kortix/shared';
+import { STALE_RUNTIME_DELIVERY_ERROR, splitPastedContent } from '@kortix/shared';
 
 interface QueuedLike {
   id: string;
@@ -46,12 +46,28 @@ const STEER_FALLBACK_CAPTION = {
   turn_ended: 'Runs as its own turn. The turn ended first.',
 } as const;
 
-/** The second line of a queue row: when a steered message is read, or why it
- *  waits instead. Null for a plain queued message. Copy matches web. */
+/** The second line of a queue row: why a failed row was not sent, when a
+ *  steered message is read, or why it waits instead. Null for a plain queued
+ *  message. Copy matches web: a failed row reads "Not sent · <reason>", and a
+ *  session that lost the API reads web's `queuedDisconnected` sentence. */
 export function queueRowCaption(prompt: {
+  state?: string;
+  last_error?: string | null;
   delivery?: 'steer' | 'queue' | 'interrupt';
   steer_fallback?: keyof typeof STEER_FALLBACK_CAPTION | null;
 }): string | null {
+  if (prompt.state === 'failed') {
+    const reason = prompt.last_error === STALE_RUNTIME_DELIVERY_ERROR ? DISCONNECTED_REASON : prompt.last_error;
+    return reason ? `Not sent · ${reason}` : 'Not sent';
+  }
   if (prompt.steer_fallback) return STEER_FALLBACK_CAPTION[prompt.steer_fallback];
   return prompt.delivery === 'steer' ? 'Read at next step' : null;
+}
+
+const DISCONNECTED_REASON = 'This session lost its connection to Kortix. Start a new session to continue.';
+
+/** The queue row's action: "Try again" re-runs a row the server failed (the
+ *  thread's "Not sent · Try again"), "Send now" sends a waiting one next. */
+export function queueRowSendLabel(prompt: { state?: string }): string {
+  return prompt.state === 'failed' ? 'Try again' : 'Send now';
 }

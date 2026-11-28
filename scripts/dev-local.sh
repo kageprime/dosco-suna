@@ -555,7 +555,8 @@ run_sandbox_dev() {
     fi
   fi
 
-  # Local Supabase (Postgres + auth + REST + storage). Stop first for a clean
+  # Local Supabase (Postgres + auth + storage; no PostgREST, see
+  # supabase/config.toml). Stop first for a clean
   # slate — a partial/leftover start holds ports (e.g. 54324) and makes the
   # next `supabase start` fail with "address already in use".
   #
@@ -566,7 +567,7 @@ run_sandbox_dev() {
   if ! (cd "$SUPABASE_DIR" && supabase status >/dev/null 2>&1); then
     echo "[dev] supabase start…"
     (cd "$SUPABASE_DIR" && supabase stop --no-backup >/dev/null 2>&1 || true)
-    (cd "$SUPABASE_DIR" && supabase start -x studio,imgproxy)
+    (cd "$SUPABASE_DIR" && supabase start -x studio,imgproxy,postgrest)
   fi
   # Deterministic local dev credentials from the running stack.
   eval "$(cd "$SUPABASE_DIR" && supabase status -o env 2>/dev/null | sed 's/^/export SB_/')"
@@ -748,7 +749,7 @@ if [[ "$SUPABASE_IS_LOCAL" == "1" || "$DB_IS_LOCAL" == "1" ]]; then
     # stack is throwaway; this one is the developer's real database.
     echo "[dev] Local Supabase is down or half-up — clearing stale containers…"
     (cd "$SUPABASE_DIR" && supabase stop >/dev/null 2>&1 || true)
-    (cd "$SUPABASE_DIR" && supabase start)
+    (cd "$SUPABASE_DIR" && supabase start -x postgrest)
   fi
   # GitHub App manifest-state flows sign with the same JWT secret used by the
   # local Supabase instance. Export it only for the local data plane.

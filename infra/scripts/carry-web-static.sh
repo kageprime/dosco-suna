@@ -17,7 +17,7 @@
 #                  unreadable image is skipped with a warning: the first build
 #                  has nothing to carry, and a carry must never fail a deploy.
 #
-# The new build's files win (`cp --update=none`). Every file keeps its build-time mtime
+# The new build's files win (`cp -n`). Every file keeps its build-time mtime
 # (docker cp and COPY preserve it), and one build writes its files within
 # ~30 s of its `<buildId>/_buildManifest.js`. Files more than 10 min older than
 # the oldest kept build's manifest belong to a dropped build and are deleted.
@@ -53,7 +53,7 @@ for image in "$@"; do
       echo "::warning::carry-web-static: cannot read $image; nothing carried from it"
     fi
   fi
-  if [ -d "$dest/static" ]; then cp -a --update=none "$dest/static/." "$static_dir/"; fi
+  if [ -d "$dest/static" ]; then cp -an "$dest/static/." "$static_dir/"; fi
 done
 
 merged=$(find "$static_dir" -type f | wc -l)

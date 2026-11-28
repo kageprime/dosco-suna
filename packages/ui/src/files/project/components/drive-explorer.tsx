@@ -1669,7 +1669,7 @@ export function DriveExplorer({
 
       {/* History popover */}
       {historyPopoverPath && (
-        <div className="bg-popover border-border animate-in slide-in-from-bottom-4 fade-in-0 fixed right-4 bottom-4 z-50 overflow-hidden rounded-md border shadow-xl duration-(--duration-moderate) motion-reduce:animate-none">
+        <div className="bg-popover border-border animate-in slide-in-from-bottom-4 fade-in-0 fixed right-4 bottom-4 z-50 overflow-hidden rounded-md border shadow-md duration-(--duration-moderate) motion-reduce:animate-none">
           <FileHistoryPopoverContent
             filePath={historyPopoverPath}
             onClose={() => setHistoryPopoverPath(null)}

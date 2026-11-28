@@ -315,7 +315,7 @@ test('34 — a reload with every read held shows the project, its session list a
       await route.continue().catch(() => {});
     });
     // Once `holding`, every read the reload depends on waits for the end of the test.
-    for (const path of ['snapshot', 'transcript', 'log']) {
+    for (const path of ['snapshot', 'log']) {
       await page.route(`**/sessions/${sessionId}/${path}*`, hold);
     }
     await page.route(
@@ -500,7 +500,7 @@ test('34 — a saved tool call shows its command and output, from the server and
       await held;
       await route.continue().catch(() => {});
     });
-    for (const path of ['snapshot', 'transcript', 'log']) {
+    for (const path of ['snapshot', 'log']) {
       await page.route(`**/sessions/${sessionId}/${path}*`, hold);
     }
     await page.route(

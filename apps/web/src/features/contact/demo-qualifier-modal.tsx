@@ -340,7 +340,7 @@ export function DemoQualifierModal({
           // A confirmation must not vanish on a stray click or a focus shift.
           // Only Done, the close button and Escape dismiss it.
           closeOnOutsideClick={false}
-          className="gap-0 space-y-0 border-0 p-0 shadow-none drop-shadow-xl lg:max-w-sm"
+          className="gap-0 space-y-0 border-0 p-0 shadow-none drop-shadow-md lg:max-w-sm"
         >
           <div className="bg-background rounded-t-xl pb-8" style={TICKET_TOP}>
             <div className="flex items-center justify-between pt-4 pr-3 pl-5">

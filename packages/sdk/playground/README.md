@@ -44,7 +44,6 @@ Stack must be up (`pnpm dev` from the repo root; `curl localhost:8008/v1/health`
 | 24 | `triggers/24-triggers.ts` | trigger list (cron/event automations) | no |
 | 26 | `audit/26-audit.ts` | account audit log + SIEM webhooks | no |
 | 27 | `session-extras/27-session-lifecycle.ts` | get/health/transcript/audit/shares/previews + previewUrl/proxyUrl + file search/status | **yes** |
-| 28 | `channels/28-email-and-meet.ts` | email installation/mode, meet voices | no |
 | 29 | `github/29-github.ts` | GitHub App installations + repositories (reports the no-installation 409 gate) | no |
 | 30 | `sessions/30-session-crud.ts` | `generateSessionId` client-id create → get → rename → stop → delete → verify gone | no |
 | 31 | `session-extras/31-files-deep.ts` | files create/readBlob/copy/rename/findText round-trip in a temp dir | **yes** |

@@ -3,7 +3,7 @@ import { featureFlagDef, resolveFeatureFlag } from '../../feature-flags/registry
 import { startsFrontThread } from './front-thread';
 
 // A talk-only thread (`chat_front`) is decided from server-side state only.
-const ON = { experimental: { chat: true, chat_front: true } };
+const ON = { experimental: { channels: true, chat_front: true } };
 const base = {
   projectMetadata: ON,
   spaceId: '00000000-0000-4000-8000-000000000001',
@@ -15,12 +15,12 @@ const base = {
 };
 
 describe('startsFrontThread', () => {
-  test('a top-level My Kortix thread in a space, with chat and chat_front on, is a front', () => {
-    expect(startsFrontThread(base)).toBe(true);
+  test('chat_front is withdrawn (2026-11-25): even with channels and chat_front stored on, no thread is a front', () => {
+    expect(startsFrontThread(base)).toBe(false);
   });
 
   test('either flag off: never a front', () => {
-    expect(startsFrontThread({ ...base, projectMetadata: { experimental: { chat: true } } })).toBe(false);
+    expect(startsFrontThread({ ...base, projectMetadata: { experimental: { channels: true } } })).toBe(false);
     expect(startsFrontThread({ ...base, projectMetadata: { experimental: { chat_front: true } } })).toBe(false);
   });
 
@@ -37,7 +37,7 @@ describe('startsFrontThread', () => {
 describe('the chat_front flag', () => {
   test('is the router, off by default', () => {
     const def = featureFlagDef('chat_front');
-    expect(def.name).toBe('Spaces-Router');
+    expect(def.name).toBe('Channels-Router');
     expect(resolveFeatureFlag({}, 'chat_front')).toBe(false);
   });
 });

@@ -61,6 +61,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { drivePathToParam } from '@kortix/ui/files';
 import { useLocale, useTranslations } from '@/i18n/use-translations';
 
+import { ArtifactFolderPath } from './artifact-folder-tree';
 import { ArtifactFrame, artifactFrameKey, printArtifact } from '@kortix/ui/artifacts';
 import { VISIBILITY_ICON, relativeTime } from './artifact-meta';
 import { AskAgentSheet } from './ask-agent-sheet';
@@ -350,6 +351,7 @@ function ArtifactViewerContent({ projectId, artifactId, onClose }: ArtifactViewe
                 <BreadcrumbSeparator>
                   <CaretRightIcon />
                 </BreadcrumbSeparator>
+                <ArtifactFolderPath projectId={projectId} folderId={artifact?.folder_id} />
               </>
             )}
             <BreadcrumbItem className="min-w-0 flex-1 gap-2">

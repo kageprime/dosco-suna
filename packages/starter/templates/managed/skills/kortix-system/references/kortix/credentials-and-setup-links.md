@@ -15,6 +15,7 @@ settings page.
 | You need | Mint | The user gets |
 | --- | --- | --- |
 | A key, token or other secret value | A secret link: `kortix secrets request` | A fill-in form |
+| A website's username and password, to sign in with the browser | A login link: `kortix secrets request NAME --login --site HOST` | A sign-in form |
 | An app account (Gmail, GitHub, …) | A connect link: `kortix connectors connect` | A sign-in |
 
 Slack is neither: `kortix channels connect` prints its install link. Never
@@ -43,15 +44,34 @@ kortix secrets request APOLLO_API_KEY SMARTLEAD_API_KEY --scope runtime     # yo
 kortix secrets request BILLING_API_TOKEN --scope connector                  # only a connector spends it
 ```
 
-- **`runtime` (the default) delivers the value to you as an env var.**
-  `connector` keeps it server-side for a connector, never in the sandbox.
 - One link asks for several keys. Ask for everything in one message.
 - A link lasts 7 days (`--expires <minutes>`, at most 30 days) and sets only its names.
-- Minting is not idempotent: every call makes a new link. A looping task
-  (trigger, retry) records the link and its `expires_at`, checks whether the
-  secret is set, and mints again only when the link expired.
-  `kortix secrets request <names> --show` prints the saved link.
+- Every call makes a new link. A looping task (trigger, retry) records the
+  link and its `expires_at` and mints again only when the secret is unset and
+  the link expired. `kortix secrets request <names> --show` prints it.
 - `withheld` names keys your agent will not receive: relay its `withheld_fix`.
+
+## Sign in to a website
+
+A website login is a username and password the browser types into a sign-in
+page. You see only its name. Use it for a site with no connector.
+
+```sh
+kortix secrets logins                                            # your logins, their sites, ready or not
+kortix secrets request CRM_LOGIN --login --site app.example.com  # ask the person for one
+agent-browser auth login crm --credential-provider kortix --item CRM_LOGIN --url https://app.example.com/login
+```
+
+- `--site` names every host of the sign-in flow exactly (`app.example.com`,
+  not `example.com`). On any other host the sign-in is refused.
+- Unusual fields: `--username-selector`, `--password-selector`,
+  `--submit-selector`. A form reached by clicking: `--no-navigate`, same `--url`.
+- The login stays saved: in a later session, run `auth login` again.
+- "could not resolve credentials": `kortix secrets logins` prints the fix.
+- Never ask for a password in chat, type one with `fill` or `type`, read a
+  password field back, screenshot it or print it.
+- Two-page sign-in, one-time code, passkey or CAPTCHA: ask the person to take
+  over the Desktop.
 
 ## Mint a connect link
 
@@ -85,17 +105,8 @@ identity, then `kortix connectors accounts <slug> --default <label>`, then
 
 ## Write links in the reply
 
-The web app turns each link into a card with the app's logo and a button.
-
-```
-I need two apps connected for the report:
-
-https://<app>/connect/ksl_…
-https://<app>/connect/ksl_…
-```
-
-- One link per line. Never put links in a table.
-- One line above them says what they are for.
+Put each link on its own line, never in a table, under one line that says
+what they are for. The web app turns each link into a card with a button.
 
 ## After the user fills it in
 
@@ -124,14 +135,3 @@ acts as the person or holds sensitive data (payroll, a bank, a personal
 login), tell them once: "Everyone in the workspace can use it now. To keep it
 to you, run `kortix secrets share <NAME> --user me`." For a value only one
 agent's trigger needs, suggest `kortix secrets share <NAME> --agent <agent>`.
-
-## Quick reference
-
-| Goal | Command |
-| --- | --- |
-| Store a value you have | `kortix secrets set <NAME>=- [--scope connector]` |
-| Ask for a value your code reads | `kortix secrets request <NAME…> --scope runtime` |
-| Ask for a connector's key | `kortix secrets request <NAME…> --scope connector` |
-| Connect an app account | `kortix connectors connect <slug> [--owner project] --label "<name>"` |
-| Check a secret arrived | `kortix secrets ls` |
-| Check an app connected | `kortix connectors ls`, `kortix connectors accounts <slug>` |

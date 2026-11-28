@@ -84,8 +84,10 @@ export interface AccountSecretResource {
    *  again with `rotateAccountSecretResource` (a ChatGPT login: reconnect).
    *  Absent from APIs older than this field. */
   status?: SecretValueStatus;
-  /** The provider API key's last check; `null` for a ChatGPT or Claude login
-   *  and for a key never checked. Absent from APIs older than this field. */
+  /** The provider API key's last check; `null` for a key never checked. A
+   *  Claude login carries `invalid` with Anthropic's words while Anthropic
+   *  forbids it (a 403 on a model call; the gateway skips it), else `null`. A
+   *  ChatGPT login: always `null`. Absent from APIs older than this field. */
   verification?: AccountKeyVerification | null;
 }
 

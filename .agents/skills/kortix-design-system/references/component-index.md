@@ -59,7 +59,7 @@ raw color allowed).
 | `settings-row`, `settings-section-header`, `settings-subsection-header` | settings screens | | use |
 | `stepper` | a numbered flow | | use |
 | `section-card` | a second panel system beside `Card` | `#pat-banned` | legacy: `Card` or `bg-popover rounded-md border px-4 py-5` |
-| `list` | `List` / `ListRow`, a divider-separated list | `#pat-banned` | legacy: `<ul className="space-y-2">` + entity row classes |
+| `list` | `List` / `ListRow`, a divider-separated list | `#pat-banned` | legacy: hairline rows ("Recipe: list rows with groups" in SKILL.md) |
 
 ## Overlays
 

@@ -5,11 +5,7 @@ import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-WEB_ENVIRONMENTS = (
-    "dev-web-us-east-2",
-    "staging-web-eu-west-2",
-    "prod-web",
-)
+WEB_ENVIRONMENTS = ("dev-web-us-east-2",)
 
 
 class WebWafAssociationTests(unittest.TestCase):
@@ -40,9 +36,7 @@ class WebWafAssociationTests(unittest.TestCase):
         # us-west-2 runs no ALB since 2026-10-12 and has no association.
         self.assertNotIn("usw2_albs", config)
         self.assertIn("for_each     = local.euw2_compliance_waf_albs", config)
-        self.assertIn(
-            '["kortix-prod-web-alb", "kortix-staging-euw2-web-alb"]', config
-        )
+        self.assertNotIn("kortix-prod-web-alb", config)
 
     def test_common_rules_exclude_only_registered_oauth_loopback_authorize_requests(self):
         config = (

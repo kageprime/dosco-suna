@@ -1,10 +1,14 @@
 import { describe, expect, test } from 'bun:test';
+import { KORTIX_JSON_SCHEMA } from '@kortix/manifest-schema';
 import {
+  MANIFEST_SECTION_ACTIONS,
   MANIFEST_WRITE_ACTIONS,
+  UNLISTED_SECTION_ACTION,
   refusesSelfMerge,
   requiredManifestActions,
   resolveChangeRequestBase,
   resolveChangeRequestOrigin,
+  secretMergeRefusal,
 } from './change-request-policy';
 
 const SESSION = 'sess-a';
@@ -126,8 +130,8 @@ describe('requiredManifestActions — a merge needs what the direct route assert
   const base = 'default_agent: a\nagents:\n  a:\n    kortix_permissions: ["project.read"]\n';
   const withTrigger = `${base}triggers:\n  - slug: hourly\n    type: cron\n    cron: "0 * * * *"\n    prompt: tidy\n    agent: a\n`;
 
-  test('no governed section changed → nothing extra', () => {
-    expect(requiredManifestActions(base, `${base}project:\n  name: renamed\n`)).toEqual([]);
+  test('no section changed → nothing extra', () => {
+    expect(requiredManifestActions(base, `# a comment\n${base}`)).toEqual([]);
     expect(requiredManifestActions(base, base)).toEqual([]);
     expect(requiredManifestActions(null, null)).toEqual([]);
   });
@@ -159,5 +163,123 @@ describe('requiredManifestActions — a merge needs what the direct route assert
 
   test('a side that does not parse needs every manifest-write permission (fail closed)', () => {
     expect(requiredManifestActions(base, 'agents: [unclosed')).toEqual([...MANIFEST_WRITE_ACTIONS]);
+    expect(MANIFEST_WRITE_ACTIONS).toContain('project.connector.write');
+  });
+
+  test('connectors: added, changed or removed → project.connector.write', () => {
+    const desk = '  - slug: desk\n    provider: mcp\n    url: https://desk.example.test/mcp\n';
+    const withDesk = `${base}connectors:\n${desk}`;
+    expect(requiredManifestActions(base, withDesk)).toEqual(['project.connector.write']);
+    expect(requiredManifestActions(withDesk, withDesk.replace('/mcp', '/v2/mcp'))).toEqual(['project.connector.write']);
+    expect(requiredManifestActions(withDesk, base)).toEqual(['project.connector.write']);
+    expect(requiredManifestActions(withDesk, `# a comment\n${withDesk}`)).toEqual([]);
+  });
+
+  test('workspace connector rules (policies, policy) → project.connector.write', () => {
+    expect(requiredManifestActions(base, `${base}policies:\n  - match: send_*\n    action: block\n`)).toEqual([
+      'project.connector.write',
+    ]);
+    expect(requiredManifestActions(base, `${base}policy:\n  default_mode: ask\n`)).toEqual(['project.connector.write']);
+  });
+
+  test("an agent's policy_sets → project.agent.write and project.connector.write, as on the direct agent routes", () => {
+    const withSets = base.replace('    kortix_permissions: ["project.read"]\n', '    kortix_permissions: ["project.read"]\n    policy_sets: { gmail: read_only }\n');
+    expect(requiredManifestActions(base, withSets)).toEqual(['project.agent.write', 'project.connector.write']);
+    expect(requiredManifestActions(withSets, withSets.replace('read_only', 'everything'))).toEqual([
+      'project.agent.write',
+      'project.connector.write',
+    ]);
+    // Removing an agent that runs under a set removes the set.
+    expect(requiredManifestActions(`${withSets}  b: {}\n`, 'default_agent: b\nagents:\n  b: {}\n')).toContain('project.connector.write');
+    // Any other agent edit stays agent.write only.
+    expect(requiredManifestActions(withSets, withSets.replace('["project.read"]', 'all'))).toEqual(['project.agent.write']);
+  });
+
+  test('apps → project.app.write; skills → project.skill.write', () => {
+    expect(requiredManifestActions(base, `${base}apps:\n  site:\n    always_on: true\n`)).toEqual(['project.app.write']);
+    expect(requiredManifestActions(base, `${base}skills:\n  triage: skills/triage\n`)).toEqual(['project.skill.write']);
+    // Removing a registered skill also asks project.agent.write, as DELETE /skills does.
+    expect(requiredManifestActions(`${base}skills:\n  triage: skills/triage\n`, base)).toEqual([
+      'project.agent.write',
+      'project.skill.write',
+    ]);
+    expect(MANIFEST_WRITE_ACTIONS).toEqual(expect.arrayContaining(['project.app.write', 'project.skill.write']));
+  });
+
+  test('sandbox → sandbox.write; tools and extensions → agent.write; project → settings.write; env → secret.write', () => {
+    expect(requiredManifestActions(base, `${base}sandbox:\n  default: big\n`)).toEqual(['project.sandbox.write']);
+    expect(requiredManifestActions(base, `${base}tools:\n  lookup: tools/lookup.ts\n`)).toEqual(['project.agent.write']);
+    expect(requiredManifestActions(base, `${base}project:\n  name: renamed\n`)).toEqual(['project.settings.write']);
+    expect(requiredManifestActions(base, `${base}env:\n  optional: [ORDERS_API_KEY]\n`)).toEqual(['project.secret.write']);
+  });
+
+  test('every top-level kortix.yaml key has a row; a key without one needs project.settings.write', () => {
+    const rows = new Set(MANIFEST_SECTION_ACTIONS.map(([section]) => section));
+    const keys = Object.keys((KORTIX_JSON_SCHEMA as { properties: Record<string, unknown> }).properties);
+    expect(keys.length).toBeGreaterThan(10);
+    expect(keys.filter((key) => key !== 'triggers' && !rows.has(key))).toEqual([]);
+    expect(requiredManifestActions(base, `${base}some_future_key: 1\n`)).toEqual([UNLISTED_SECTION_ACTION]);
+    for (const [, action] of MANIFEST_SECTION_ACTIONS) expect(MANIFEST_WRITE_ACTIONS as readonly string[]).toContain(action);
+  });
+
+  test('one change touching agents and connectors needs both', () => {
+    const changed = `${base.replace('["project.read"]', 'all')}connectors:\n  - slug: desk\n    provider: mcp\n    url: https://desk.example.test/mcp\n`;
+    expect(requiredManifestActions(base, changed)).toEqual(['project.agent.write', 'project.connector.write']);
+  });
+});
+
+describe('secretMergeRefusal — a person may override, an agent may not', () => {
+  const scan = {
+    findings: [{ commit: '1a2b3c4d5e6f', file: 'src/config.ts', line: 2, rule: 'github_token', label: 'GitHub token' }],
+    total: 1,
+  };
+  const input = { crNumber: 7, baseRef: 'main', scan, actorIsPerson: true, allowSecrets: false };
+
+  test('nothing found → merges for everyone', () => {
+    expect(secretMergeRefusal({ ...input, scan: { findings: [], total: 0 } })).toBeNull();
+    expect(secretMergeRefusal({ ...input, scan: { findings: [], total: 0 }, actorIsPerson: false, allowSecrets: true })).toBeNull();
+  });
+
+  test('found, no override → 409 CR_SECRET_DETECTED naming file, line, commit and the fix', () => {
+    for (const actorIsPerson of [true, false]) {
+      const refusal = secretMergeRefusal({ ...input, actorIsPerson });
+      expect(refusal?.status).toBe(409);
+      expect(refusal?.body.code).toBe('CR_SECRET_DETECTED');
+      expect(refusal?.body.findings).toEqual(scan.findings);
+      expect(refusal?.body.error).toContain('src/config.ts:2 (GitHub token, commit 1a2b3c4d5e6f)');
+      expect(refusal?.body.remediation).toContain('kortix secrets request <NAME>');
+      expect(refusal?.body.remediation).toContain('origin/main');
+      expect(refusal?.body.remediation).toContain('kortix cr merge 7 --allow-secrets');
+    }
+  });
+
+  test('a person overrides → merges', () => {
+    expect(secretMergeRefusal({ ...input, allowSecrets: true })).toBeNull();
+  });
+
+  test('nothing found but not read in full: a person merges as is; any other principal gets 409 CR_SECRET_SCAN_INCOMPLETE', () => {
+    const incomplete = { findings: [], total: 0, unscanned: 'more than 500 commits' };
+    expect(secretMergeRefusal({ ...input, scan: incomplete })).toBeNull();
+    const refusal = secretMergeRefusal({ ...input, scan: incomplete, actorIsPerson: false });
+    expect(refusal?.status).toBe(409);
+    expect(refusal?.body.code).toBe('CR_SECRET_SCAN_INCOMPLETE');
+    expect(refusal?.body.unscanned).toBe('more than 500 commits');
+    expect(refusal?.body.remediation).toContain('ask a person to merge it');
+    expect(secretMergeRefusal({ ...input, scan: incomplete, actorIsPerson: false, allowSecrets: true })?.body.code).toBe(
+      'CR_SECRET_OVERRIDE_REFUSED',
+    );
+  });
+
+  test('found and not read in full: a person still needs allow_secrets', () => {
+    const both = { ...scan, unscanned: 'a patch over 32 MB' };
+    expect(secretMergeRefusal({ ...input, scan: both })?.body.code).toBe('CR_SECRET_DETECTED');
+    expect(secretMergeRefusal({ ...input, scan: both, allowSecrets: true })).toBeNull();
+  });
+
+  test('an agent session, a service account or a workspace key overrides → 403 CR_SECRET_OVERRIDE_REFUSED', () => {
+    const refusal = secretMergeRefusal({ ...input, actorIsPerson: false, allowSecrets: true });
+    expect(refusal?.status).toBe(403);
+    expect(refusal?.body.code).toBe('CR_SECRET_OVERRIDE_REFUSED');
+    expect(refusal?.body.findings).toEqual(scan.findings);
   });
 });

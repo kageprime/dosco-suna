@@ -31,7 +31,7 @@ import {
 import { getCreditSummary } from './credits';
 import { initializeFreeTierAccount } from './free-tier';
 import { PLAN_CATALOG, PLAN_FAMILY_LABELS } from './plan-catalog';
-import { canonicalTier, getTier, getTierEntitlements, planMonthlyUsd } from './tiers';
+import { canonicalTier, getTier, getTierEntitlements, planCreditsUsd, planMonthlyUsd } from './tiers';
 import { getAccountEntitlements } from './entitlements';
 import { currentPeriodStart, getUsageBreakdownThisPeriod } from './usage-breakdown';
 
@@ -195,7 +195,8 @@ export async function buildMinimalAccountState(accountId: string): Promise<Accou
       display_name: isAdmin && tierName === 'none' ? 'Admin' : resolved.features.displayName,
       // STORED: `monthly_credits` is the recurring GRANT, which Stripe owns.
       // 0 on a Free workspace that gets no free credits.
-      monthly_credits: monthlyUsd ?? (freeEligible ? tier.monthlyCredits : 0),
+      // On Credits: the amount billed plus its volume bonus (planCreditsUsd).
+      monthly_credits: monthlyUsd != null ? planCreditsUsd(monthlyUsd) : (freeEligible ? tier.monthlyCredits : 0),
       // Not widened for admins: the purchase and auto top-up routes gate on the
       // resolved entitlement, so reporting `true` would show buttons that 400.
       can_purchase_credits: resolved.entitlements.canPurchaseCredits,
@@ -411,8 +412,8 @@ function extractScheduledChange(
     const to = Number(sub.scheduledMonthlyUsd);
     return {
       type: 'downgrade',
-      current_tier: { name: 'credits', display_name: 'Credits', monthly_credits: from * 100, monthly_usd: from },
-      target_tier: { name: 'credits', display_name: 'Credits', monthly_credits: to * 100, monthly_usd: to },
+      current_tier: { name: 'credits', display_name: 'Credits', monthly_credits: Math.round(planCreditsUsd(from) * 100), monthly_usd: from },
+      target_tier: { name: 'credits', display_name: 'Credits', monthly_credits: Math.round(planCreditsUsd(to) * 100), monthly_usd: to },
       effective_date: isoValue(sub.scheduledTierChangeDate) ?? new Date((periodEndSeconds(sub, currentTierName) ?? 0) * 1000).toISOString(),
     };
   }

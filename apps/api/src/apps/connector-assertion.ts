@@ -17,10 +17,10 @@ import { appsLocalMode, resolveAppHost } from './hostnames';
 import { projectsView } from '../workspaces/rows';
 
 export interface AppAssertionLookup {
-  /** The App behind a route key. `agentPrincipal` is always true now. */
+  /** The App behind a route key. */
   loadAppByRouteKey(
     routeKey: string,
-  ): Promise<{ appId: string; projectId: string; agentPrincipal: boolean } | null>;
+  ): Promise<{ appId: string; projectId: string } | null>;
   /** Whether `*.apps.localhost` hosts are this deployment's (local dev only). */
   localMode: boolean;
 }
@@ -33,10 +33,7 @@ const DEFAULT_LOOKUP: AppAssertionLookup = {
       .innerJoin(projectsView, eq(projectsView.projectId, apps.projectId))
       .where(and(eq(apps.routeKey, routeKey), isNull(apps.deletedAt)))
       .limit(1);
-    return row
-      // ponytail: always true now that every governed agent is a principal; drop the field from the lookup type when this file is next touched.
-      ? { appId: row.appId, projectId: row.projectId, agentPrincipal: true }
-      : null;
+    return row ?? null;
   },
   get localMode() {
     return appsLocalMode();
@@ -58,6 +55,6 @@ export async function appAuthorizationForConnectorCall(
   if (matched.local ? !lookup.localMode : url.protocol !== 'https:') return null;
   const app = await lookup.loadAppByRouteKey(matched.routeKey);
   // Same project only.
-  if (!app || app.projectId !== input.projectId || !app.agentPrincipal) return null;
+  if (!app || app.projectId !== input.projectId) return null;
   return `Bearer ${createAppAgentAssertion({ appId: app.appId, projectId: app.projectId, tokenId: input.tokenId })}`;
 }

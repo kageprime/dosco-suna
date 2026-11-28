@@ -367,6 +367,8 @@ Source: `src/workspace/index.ts`. `PROJECT_PAGE_HEADER_CLASS` is the shared work
 
 Mount: `SessionWorkspace` takes `session` (the `useSession` result): the thread plus the resizable side panel. `children` replaces the thread. `SessionLayout` is the same layout with explicit ids (`sessionId` = runtime id, `projectId`, `projectSessionId`, `bootStage`, `transient`) and the thread as `children`. Workspace screens take `projectId`; `ProjectSessionList` mounts inside a `SidebarProvider`. `ProjectHome` sends by itself (`useProjectHomeSend`: create the session with the prompt, open it); `beforeSend` gates it, `onSend` replaces it.
 
+`AgentChatView` composes `SpaceView` for `agentName`; it accepts the remaining `SpaceViewProps` except target, composer, headerActions and detailsBody.
+
 Props:
 - `SessionWorkspace`: `session` (the `useSession` result, required), `children` (replaces the thread), `hideHeader`, `readOnly`, `className`.
 - `SessionLayout`: `sessionId` (runtime id), `projectId`, `projectSessionId`, `children` (the thread), `bootStage`, `transient`.

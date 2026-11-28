@@ -52,7 +52,7 @@ export function WallpaperCard({
       <div
         className={cn(
           'bg-background duration-moderate relative isolate aspect-video w-full overflow-hidden rounded-md border transition-colors',
-          isActive ? 'border-primary/40' : 'border-border group-hover:border-border/80',
+          isActive ? 'border-primary/40' : 'border-border',
         )}
       >
         <div className="absolute inset-0" aria-hidden="true">

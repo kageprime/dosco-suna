@@ -11,7 +11,10 @@ const {
   billingPeriodForSubscription,
   canonicalTier,
   getTier,
-  monthlyCreditsForSubscription,
+  monthlyUsdForSubscription,
+  PLAN_PRESETS,
+  planBonusPercent,
+  planCreditsUsd,
   planForSubscription,
   planMonthlyUsd,
   revenueCatProductMonthlyUsd,
@@ -53,32 +56,32 @@ describe('canonicalTier: every legacy plan key folds into credits', () => {
   });
 });
 
-describe('monthlyCreditsForSubscription: the one allowance rule', () => {
+describe('monthlyUsdForSubscription: the one allowance rule', () => {
   test('credits price: quantity × $0.01', () => {
-    expect(monthlyCreditsForSubscription(sub([{ id: CREDITS_PRICE, quantity: 10_000 }]))).toBe(100);
-    expect(monthlyCreditsForSubscription(sub([{ id: CREDITS_TEST_PRICE, quantity: 2_000 }]))).toBe(20);
+    expect(monthlyUsdForSubscription(sub([{ id: CREDITS_PRICE, quantity: 10_000 }]))).toBe(100);
+    expect(monthlyUsdForSubscription(sub([{ id: CREDITS_TEST_PRICE, quantity: 2_000 }]))).toBe(20);
   });
 
   test('per-seat: the full $40 a seat becomes credits (was $25)', () => {
-    expect(monthlyCreditsForSubscription(sub([{ id: 'price_1TdyruG6l1KZGqIrMzPVmQSO', quantity: 6 }]))).toBe(240);
+    expect(monthlyUsdForSubscription(sub([{ id: 'price_1TdyruG6l1KZGqIrMzPVmQSO', quantity: 6 }]))).toBe(240);
   });
 
   test('legacy monthly prices grant their price', () => {
-    expect(monthlyCreditsForSubscription(sub([{ id: 'price_1RILb4G6l1KZGqIrhomjgDnO' }]))).toBe(20);
-    expect(monthlyCreditsForSubscription(sub([{ id: 'price_1RILb3G6l1KZGqIrmauYPOiN' }]))).toBe(1000);
+    expect(monthlyUsdForSubscription(sub([{ id: 'price_1RILb4G6l1KZGqIrhomjgDnO' }]))).toBe(20);
+    expect(monthlyUsdForSubscription(sub([{ id: 'price_1RILb3G6l1KZGqIrmauYPOiN' }]))).toBe(1000);
   });
 
   test('legacy yearly prices keep the monthly allowance, not price ÷ 12', () => {
-    expect(monthlyCreditsForSubscription(sub([{ id: 'price_1ReH9uG6l1KZGqIrsvMLHViC', unit: 204_000, interval: 'year' }]))).toBe(200);
+    expect(monthlyUsdForSubscription(sub([{ id: 'price_1ReH9uG6l1KZGqIrsvMLHViC', unit: 204_000, interval: 'year' }]))).toBe(200);
   });
 
   test('an unknown price grants its list price per month', () => {
-    expect(monthlyCreditsForSubscription(sub([{ id: 'price_machine', unit: 4_000 }]))).toBe(40);
-    expect(monthlyCreditsForSubscription(sub([{ id: 'price_machine_y', unit: 48_000, interval: 'year' }]))).toBe(40);
+    expect(monthlyUsdForSubscription(sub([{ id: 'price_machine', unit: 4_000 }]))).toBe(40);
+    expect(monthlyUsdForSubscription(sub([{ id: 'price_machine_y', unit: 48_000, interval: 'year' }]))).toBe(40);
   });
 
   test('the free price grants 0 (the free plan has its own $2)', () => {
-    expect(monthlyCreditsForSubscription(sub([{ id: 'price_1RIGvuG6l1KZGqIrw14abxeL', unit: 0 }]))).toBe(0);
+    expect(monthlyUsdForSubscription(sub([{ id: 'price_1RIGvuG6l1KZGqIrw14abxeL', unit: 0 }]))).toBe(0);
   });
 });
 
@@ -137,5 +140,32 @@ describe('planMonthlyUsd: stored amount, legacy fallback', () => {
     expect(revenueCatProductMonthlyUsd('kortix_plus_monthly')).toBe(20);
     expect(revenueCatProductMonthlyUsd('ultra:ultra-monthly')).toBe(200);
     expect(revenueCatProductMonthlyUsd('unknown')).toBeNull();
+  });
+});
+
+describe('planCreditsUsd: a larger plan buys more credits per dollar', () => {
+  test('each bonus step grants the amount billed plus its percent', () => {
+    expect([50, 99, 100, 199, 200, 499, 500, 999, 1_000, 2_999, 3_000, 7_499, 7_500, 10_000].map((usd) => [usd, planBonusPercent(usd)])).toEqual([
+      [50, 0], [99, 0], [100, 5], [199, 5], [200, 10], [499, 10], [500, 15], [999, 15], [1_000, 20], [2_999, 20], [3_000, 25], [7_499, 25], [7_500, 30], [10_000, 30],
+    ]);
+    expect(planCreditsUsd(50)).toBe(50);
+    expect(planCreditsUsd(100)).toBe(105);
+    expect(planCreditsUsd(200)).toBe(220);
+    expect(planCreditsUsd(500)).toBe(575);
+    expect(planCreditsUsd(1_000)).toBe(1_200);
+    expect(planCreditsUsd(10_000)).toBe(13_000);
+  });
+
+  test('no amount pays, and a $0 or negative amount grants nothing', () => {
+    expect(planCreditsUsd(0)).toBe(0);
+    expect(planCreditsUsd(-5)).toBe(0);
+  });
+
+  test('up the ladder, credits per dollar never drops and credits always grow', () => {
+    for (let i = 1; i < PLAN_PRESETS.length; i++) {
+      const [prev, next] = [PLAN_PRESETS[i - 1].monthlyUsd, PLAN_PRESETS[i].monthlyUsd];
+      expect(planCreditsUsd(next) / next).toBeGreaterThanOrEqual(planCreditsUsd(prev) / prev);
+      expect(planCreditsUsd(next)).toBeGreaterThan(planCreditsUsd(prev));
+    }
   });
 });

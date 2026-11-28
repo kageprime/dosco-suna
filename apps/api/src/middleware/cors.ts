@@ -122,6 +122,8 @@ export function createCorsMiddleware(options: CorsMiddlewareOptions) {
       'X-Audit-Capped',
       'X-Audit-Complete',
       'X-Audit-Next-Cursor',
+      // Cost-export callers need the cap to warn when a cross-origin CSV reaches it.
+      'X-Kortix-Row-Cap',
       // The sandbox proxy's failure attribution (`proxy-hop.ts`). It HAS to be
       // declared here and not only on the proxy's own response: this middleware
       // is mounted with `app.use('*', …)` on the same app the proxy is routed

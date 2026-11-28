@@ -11,7 +11,8 @@ import Hint from '../../primitives/hint';
  * and the channel row of the same prompt read at one size and weight. The 600
  * name above it, at the same size, carries the row's hierarchy.
  */
-export const MESSAGE_TEXT_CLASS = 'text-foreground text-sm leading-relaxed font-medium';
+// Regular weight, the agent's Markdown answers' own: every message body in a chat reads alike.
+export const MESSAGE_TEXT_CLASS = 'text-foreground text-sm leading-relaxed';
 
 /**
  * One message in a channel or a thread: the author's 36px avatar in a fixed
@@ -51,17 +52,22 @@ export function MessageRow({
     <div
       data-slot="message-row"
       className={cn(
-        'group/message hover:bg-hover relative flex gap-2 px-5',
+        // `gap-3`: the avatar stands apart from the text it belongs to, the way a chat reads.
+        'group/message hover:bg-hover/60 relative flex gap-3 px-5',
         // Baseline: a compact row's gutter time sits on the body's first line.
         compact ? 'items-baseline py-0.5' : 'items-start pt-2 pb-1.5',
-        selected && 'bg-active hover:bg-active',
+        // Light fills: a row is a line of chat, not a button. Hover at 60% of the hover tone, selected at 60% of the active tone.
+        selected && 'bg-active/60 hover:bg-active/60',
         className,
       )}
     >
       {/* `w-10` is the `lg` avatar's own width: every body starts on one edge.
           A person's photo sits `rounded-md` with no hairline: in a row the
           face is the edge, and the ring read as a frame around it. */}
-      <div className="w-10 shrink-0 [&_[data-slot=avatar]]:rounded-md [&_[data-slot=avatar]]:after:hidden">
+      {/* `pt-0.5` (full rows): baseline-aligned beside the name, the time's
+          16px line box starts ~2px down the row (measured), so the avatar's
+          top meets the top of the time. */}
+      <div className={cn('w-10 shrink-0 [&_[data-slot=avatar]]:rounded-md [&_[data-slot=avatar]]:after:hidden', !compact && 'pt-0.5')}>
         {compact ? (
           time ? (
             <Hint label={time.title} side="top" sideOffset={6}>
@@ -105,7 +111,8 @@ export function MessageRow({
  * so Tab reaches its buttons and their focus reveals it. `p-[2px]`: the group
  * is `rounded-lg` (10px), so 2px of inset gives the `rounded-md` (8px)
  * buttons concentric corners. Its buttons are `icon-sm` (h-7), so the group is
- * ~32px tall; `-top-3.5` sits it on the row's top edge, half above it.
+ * ~32px tall; `-top-3.5` sits it on the row's top edge, half above it. No
+ * shadow: the hairline and the popover fill lift it off the row.
  *
  * A thread's first message is the one row whose overhang is cut off (its turn
  * paints with `content-visibility: auto`, which clips to the turn): that row
@@ -115,7 +122,7 @@ export function RowToolbar({ children }: { children: ReactNode }) {
   return (
     <div
       data-slot="row-toolbar"
-      className="bg-popover pointer-events-none absolute -top-3.5 right-5 z-10 flex items-center rounded-lg border p-[2px] opacity-0 shadow-md group-focus-within/message:pointer-events-auto group-focus-within/message:opacity-100 group-hover/message:pointer-events-auto group-hover/message:opacity-100 has-[[data-state=open]]:pointer-events-auto has-[[data-state=open]]:opacity-100"
+      className="bg-popover pointer-events-none absolute -top-3.5 right-5 z-10 flex items-center gap-px rounded-lg border p-[2px] opacity-0 group-focus-within/message:pointer-events-auto group-focus-within/message:opacity-100 group-hover/message:pointer-events-auto group-hover/message:opacity-100 has-[[data-state=open]]:pointer-events-auto has-[[data-state=open]]:opacity-100"
     >
       {children}
     </div>

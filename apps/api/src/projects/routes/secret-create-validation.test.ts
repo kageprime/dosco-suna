@@ -8,8 +8,7 @@
  * status code or a precedence: every case here returns BEFORE the first DB
  * read in the handler, so the test runs hermetically — no database, no
  * Docker. Cases that need a DB row (value-required on a new secret, the
- * secrets_egress gate, the identifier-key conflict, the boundary destination
- * conflict) are covered by unit-project-secret-strategy-route.test.ts and the
+ * identifier-key conflict, the boundary destination conflict) are covered by unit-project-secret-strategy-route.test.ts and the
  * REST flows, not here.
  */
 import { describe, expect, mock, test } from 'bun:test';
@@ -29,7 +28,7 @@ mock.module('../lib/access', () => ({
     row: {
       accountId: ACCOUNT_ID,
       projectId: PROJECT_ID,
-      metadata: { experimental: { secrets_egress: true } },
+      metadata: {},
     },
     userId: USER_ID,
     effectiveRole: 'owner',

@@ -1,5 +1,7 @@
 'use client';
 
+import { inboxReturnHref } from '@/features/notifications/inbox-navigation';
+import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
 import { useAuth } from '@/features/providers/auth-provider';
@@ -17,6 +19,8 @@ import { NotificationInbox } from '@kortix/ui/internal/notifications/notificatio
  */
 export default function InboxPage() {
   const t = useTranslations('newWorkspace');
+  const common = useTranslations('common');
+  const backHref = inboxReturnHref(useSearchParams().get('from'));
   const { user } = useAuth();
   // Never cleared: `performSignOut` replaces the document.
   const [signingOut, setSigningOut] = useState(false);
@@ -40,7 +44,10 @@ export default function InboxPage() {
               setSigningOut(true);
               void performSignOut();
             }}
-            back={{ href: '/projects', label: t('actions.back') }}
+            back={{
+              href: backHref,
+              label: backHref === '/workspaces' ? t('actions.back') : common('back'),
+            }}
             inbox={false}
           />
         </div>

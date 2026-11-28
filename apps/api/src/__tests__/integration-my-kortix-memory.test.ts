@@ -37,7 +37,7 @@ const SAM = crypto.randomUUID();
 const MK_SESSION = crypto.randomUUID();
 const WORKER_SESSION = crypto.randomUUID();
 // Channels off on purpose: My Kortix memory needs Files only.
-const project = { projectId: PROJECT, accountId: ACCOUNT, metadata: { experimental: { chat: false, drives: true } } };
+const project = { projectId: PROJECT, accountId: ACCOUNT, metadata: { experimental: { channels: false, drives: true } } };
 const person = (userId: string): Viewer => ({ userId, may: async (action) => action === 'session' });
 const volume = new FakeVolume();
 let priyaFolder = '';

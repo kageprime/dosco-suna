@@ -40,7 +40,15 @@ export function agentMarkTileClass(slug: string): string | undefined {
 /** The bare pixel figure, painted with `--mark-ink` from an ancestor. A 7 × 7
  *  mark fills `size`; a wider reserved grid (My Kortix's 12 × 10 symbol) keeps
  *  whole-pixel cells, `floor(size / 12)` px each. */
-export function AgentMarkGlyph({ slug, size }: { slug: string; size: AgentMarkSize }) {
+/** The first row holding a pixel and its row count. Paths are `Mx yhNv1h-Nz` runs. */
+function inkedRows(path: string, dither: string | null | undefined, height: number): [number, number] {
+  const ys = [...`${path}${dither ?? ''}`.matchAll(/M\d+ (\d+)/g)].map((match) => Number(match[1]));
+  if (ys.length === 0) return [0, height];
+  const top = Math.min(...ys);
+  return [top, Math.max(...ys) + 1 - top];
+}
+
+export function AgentMarkGlyph({ slug, size, trim = false }: { slug: string; size: AgentMarkSize; trim?: boolean }) {
   if (isMyKortixAgentName(slug)) {
     return (
       <span className="relative inline-flex items-center justify-center shrink-0">
@@ -65,15 +73,16 @@ export function AgentMarkGlyph({ slug, size }: { slug: string; size: AgentMarkSi
   }
   const mark = pixelMark(slug);
   const cell = mark.width === 7 ? size / 7 : Math.max(1, Math.floor(size / 12));
+  const [top, rows] = trim ? inkedRows(mark.path, mark.ditherPath, mark.height) : [0, mark.height];
   return (
     <svg
       aria-hidden
       width={mark.width * cell}
-      height={mark.height * cell}
-      viewBox={`0 0 ${mark.width} ${mark.height}`}
+      height={rows * cell}
+      viewBox={`0 ${top} ${mark.width} ${rows}`}
       // Inline, so a host's `[&_svg]:size-4` default (menu rows) cannot rescale
       // the pixel grid off whole device pixels.
-      style={{ width: mark.width * cell, height: mark.height * cell }}
+      style={{ width: mark.width * cell, height: rows * cell }}
       shapeRendering="crispEdges"
       className="shrink-0"
     >

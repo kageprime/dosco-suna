@@ -33,7 +33,8 @@ import {
   familyForTool,
   narrationToolName as humanizeToolName,
 } from '@kortix/sdk';
-import { imageGenView, toolCallMetadata, toolKind, type ToolCallBlock } from '@kortix/sdk';
+import { imageGenView, parseReachable, toolCallMetadata, toolKind, type ToolCallBlock } from '@kortix/sdk';
+import { multiAgentTool, parseKortixToolResult } from '../../tool/tools/kortix-tool-card';
 
 export interface OutputItemBase {
   callID: string;
@@ -142,6 +143,12 @@ function inputOf(call: ToolCallBlock): Record<string, unknown> {
   return typeof input === 'object' && input !== null && !Array.isArray(input)
     ? (input as Record<string, unknown>)
     : {};
+}
+
+/** A `list_agents` call that answered with no agent besides the asking session. */
+function foundNoAgents(call: ToolCallBlock): boolean {
+  const result = parseKortixToolResult(rawOutputOf(call), call.name);
+  return (parseReachable(result?.data)?.length ?? 0) === 0;
 }
 
 /** A completed call's output text as the tool returned it, without the
@@ -590,6 +597,11 @@ export function deriveContext(calls: ToolCallBlock[]): {
 
     const family = familyForTool(call.name);
     if (family === 'hidden') continue; // context-engine bookkeeping — never shown
+    // A question the agent asked the user is not something it looked at: the
+    // chat already shows it, with the answer.
+    if (toolKind(call.name) === 'question') continue;
+    // A check for other agents that found none says nothing: no row.
+    if (multiAgentTool(call.name) === 'list_agents' && foundNoAgents(call)) continue;
 
     if (toolKind(call.name) === 'read') {
       const path = filePathOf(call) ?? getToolPrimaryArg(call);

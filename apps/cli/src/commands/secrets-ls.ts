@@ -73,7 +73,9 @@ export function deliveryCell(row: {
       : row.strategy === 'denied'
         ? 'disabled'
         : row.strategy === 'broker'
-          ? (row.consumer ?? 'Kortix service')
+          ? row.consumer === 'browser'
+            ? 'website login'
+            : (row.consumer ?? 'Kortix service')
           : // Colon, not the ` · ` the markers below use — the exposure and its
             // hosts are one fact, and a second ` · ` would read as a third one.
             'enforced: approved hosts';

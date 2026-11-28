@@ -221,7 +221,7 @@ function PwaCard({
   return (
     <div className="fixed right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))] z-[110] w-[360px] max-w-[calc(100vw-2rem)]">
       {/* audit:allow device safe-area inset, not a spacing step */}
-      <div className="bg-background relative flex items-start gap-3 rounded-md border p-4 shadow-lg">
+      <div className="bg-background relative flex items-start gap-3 rounded-md border p-4 shadow-md">
         <div className="min-w-0 flex-1 pr-6">
           <h3 className="text-foreground text-sm font-semibold text-balance">
             {t.raw('i18nComplete.text569ca49f4aaf')}

@@ -3,6 +3,8 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
   createArtifact,
+  listArtifactFolders, createArtifactFolder, updateArtifactFolder, deleteArtifactFolder,
+  type ArtifactFolderInput,
   deleteArtifact,
   getArtifact,
   listArtifactTypes,
@@ -34,7 +36,13 @@ export function useArtifacts(
     queryFn: () => listArtifacts(projectId as string, filter),
     enabled: !!projectId,
     // A new filter keeps the cards (and their loaded previews) until the next list arrives.
-    placeholderData: (prev) => prev,
+    placeholderData: (prev, previousQuery) => {
+      const previousFilter = previousQuery?.queryKey.at(-1);
+      if (typeof previousFilter !== 'string') return undefined;
+      const previousFolder = JSON.parse(previousFilter).folder_id;
+      const rootScope = (folder: string | undefined) => folder === undefined || folder === 'root';
+      return previousFolder === filter.folder_id || (rootScope(previousFolder) && rootScope(filter.folder_id)) ? prev : undefined;
+    },
     ...contract('inventory'),
   });
 }
@@ -171,5 +179,25 @@ export function useArtifactMutations(projectId: string) {
       mutationFn: ({ artifactId, version }: { artifactId: string; version: string }) => restoreArtifactVersion(projectId, artifactId, version),
       ...opts,
     }),
+  };
+}
+
+/** Workspace-visible gallery folders, separate from Files paths. */
+/** `projectId` null: no request (a host that has not confirmed Artifacts yet fails closed). */
+export function useArtifactFolders(projectId: string | null | undefined) {
+  return useQuery({
+    queryKey: [...qk.project.artifacts(projectId ?? ''), 'folders'],
+    queryFn: () => listArtifactFolders(projectId as string),
+    enabled: !!projectId,
+    ...contract('inventory'),
+  });
+}
+export function useArtifactFolderMutations(projectId: string) {
+  const qc = useQueryClient();
+  const onSuccess = () => qc.invalidateQueries({ queryKey: qk.project.artifacts(projectId) });
+  return {
+    create: useMutation({ mutationFn: (input: ArtifactFolderInput) => createArtifactFolder(projectId, input), onSuccess }),
+    update: useMutation({ mutationFn: ({ folderId, ...input }: Partial<ArtifactFolderInput> & { folderId: string }) => updateArtifactFolder(projectId, folderId, input), onSuccess }),
+    remove: useMutation({ mutationFn: (folderId: string) => deleteArtifactFolder(projectId, folderId), onSuccess }),
   };
 }

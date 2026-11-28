@@ -2,21 +2,18 @@
  * The last saved copies of a user's sessions, kept on the device.
  *
  * Opening a session painted nothing until the control plane answered with the
- * saved copy it captured at the last turn end: skeleton rows for 0.3-2.3 s on
- * every cold open, and for as long as the backend took when it was slow. With
- * this store the next open paints the last copy as soon as the device reads it
- * (one task after the first frame), and the fresh one reconciles into it by
- * message id.
+ * session's saved history: skeleton rows for 0.3-2.3 s on every cold open, and
+ * for as long as the backend took when it was slow. With this store the next
+ * open paints the last copy as soon as the device reads it (one task after the
+ * first frame), and the fresh page reconciles into it by message id.
  *
- * WHAT IT STORES, AND WHY THAT IS SAFE. Only envelopes the SERVER sent: the
- * transcript mirror, which the API writes because a turn ended, carrying
- * the runtime's `info` verbatim (`time.completed` and `error` included) and the
- * runtime root it was captured from. It never stores the live transcript. An
- * IndexedDB mirror of the live store was deleted (`5a7a43517f`) because its
- * write test read the transcript's shape, missed a Stop, and painted a stopped
- * turn as running. A server capture has no client-side freshness test to get
- * wrong, and the painting side keeps its root-identity guard
- * (`shouldHydrateFromMirror`).
+ * WHAT IT STORES, AND WHY THAT IS SAFE. Only pages the SERVER sent: the newest
+ * page of the session log's root thread (`GET …/log`, `SessionLogPage`), which
+ * the daemon journals at each turn end. Every read validates the page
+ * (`isSessionLogPage`). It never stores the live transcript. An IndexedDB mirror
+ * of the live store was deleted (`5a7a43517f`) because its write test read the
+ * transcript's shape, missed a Stop, and painted a stopped turn as running. A
+ * server page has no client-side freshness test to get wrong.
  *
  * Framework-free: the host passes the storage (IndexedDB on web, through
  * `indexedDBKeyValueStorage`; AsyncStorage on mobile) and the signed-in user.
@@ -25,8 +22,8 @@
  */
 
 import type { KeyValueStorage } from '../cache/persisted-query-cache';
-import type { SessionTranscriptSyncEnvelope } from '../rest/projects-client/sessions';
-import { registerSessionLogCopies, SESSION_LOG_COPY } from '../session-log/saved-log';
+import { SESSION_LOG_COPY } from '../session-log/saved-log';
+import type { SessionLogPage } from '../session-log/source';
 import type { CopyCodec, CopyStore, StoredCopy } from './copy-store-types';
 import { VERSION, createSavedCopyIndex, isPromise, then, type IndexEntry } from './saved-copy-index';
 
@@ -39,50 +36,33 @@ export interface SavedCopyStoreOptions {
   /** Upper bound of all copies together, in UTF-16 code units. Default: 1,500,000. */
   maxBytes?: number;
   /**
-   * Upper bound of one session's copy, in UTF-16 code units. A larger copy
-   * keeps its newest messages that fit and pages the rest from the server;
-   * one whose newest message alone does not fit is not kept. Default: 300,000.
+   * Upper bound of one session's copy, in UTF-16 code units. A larger page
+   * keeps its newest messages that fit (`has_more: true`) and pages the rest
+   * from the server; one whose newest message alone does not fit is not kept.
+   * Default: 300,000.
    */
   maxEnvelopeBytes?: number;
   /** A copy older than this is not painted. Default: 14 days. */
   maxAgeMs?: number;
-  /** Storage key prefix. Default: `kortix.saved-copy`. */
+  /** Storage key prefix. Copies live under `<namespace>.log`. Default: `kortix.saved-copy`. */
   namespace?: string;
   now?: () => number;
 }
 
 export interface SavedCopyStore {
-  /** The storage key of one session's copy. */
+  /** The storage key of one session's copy: `<namespace>.log:<user>:<project>/<session>`. */
   keyFor(projectId: string, sessionId: string): string;
-  /** The last saved copy, synchronously when the storage is synchronous. */
-  read(
-    projectId: string,
-    sessionId: string,
-  ): SessionTranscriptSyncEnvelope | null | Promise<SessionTranscriptSyncEnvelope | null>;
+  /** The last saved page, synchronously when the storage is synchronous. */
+  read(projectId: string, sessionId: string): SessionLogPage | null | Promise<SessionLogPage | null>;
   /**
-   * Keep `envelope` as this session's copy. An envelope that cannot be painted
-   * (unavailable, empty, rootless) removes the copy instead: the server no
-   * longer vouches for one. An older capture never replaces a newer one.
+   * Keep `page` (the newest page of the session log's root thread) as this
+   * session's copy. A page that cannot be painted (invalid, or no messages)
+   * removes the copy instead: the server no longer vouches for one.
    */
-  write(projectId: string, sessionId: string, envelope: SessionTranscriptSyncEnvelope): Promise<void>;
+  write(projectId: string, sessionId: string, page: SessionLogPage): Promise<void>;
   remove(projectId: string, sessionId: string): Promise<void>;
   /** Forget every copy of this user. */
   clear(): Promise<void>;
-}
-
-/** A copy worth painting: a non-empty mirror window that names its runtime root. */
-export function isPaintableSavedCopy(
-  envelope: SessionTranscriptSyncEnvelope | null | undefined,
-): envelope is SessionTranscriptSyncEnvelope {
-  return (
-    !!envelope &&
-    envelope.available === true &&
-    envelope.source === 'mirror' &&
-    Array.isArray(envelope.messages) &&
-    envelope.messages.length > 0 &&
-    // A copy saved by an SDK before W4 names the root only `runtime_session_id`.
-    !!envelope.runtime_session_id
-  );
 }
 
 const DEFAULT_MAX_SESSIONS = 12;
@@ -92,80 +72,38 @@ const DEFAULT_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 const DEFAULT_NAMESPACE = 'kortix.saved-copy';
 
 /**
- * The serialized copy to keep within `maxChars`: the whole copy when it fits,
- * else its NEWEST messages that fit, with the cursor moved to the oldest one
- * kept (the server serves the window strictly older than the cursor). Null
- * when not even the newest message fits.
- *
- * Copies carry every tool call 1:1, so a 40-message window of a tool-heavy
- * thread outgrows the bound. The newest messages are what the first frame
- * shows; refusing the whole copy gave exactly those sessions a cold open.
+ * The v1 transcript window an SDK before the session-log major kept under `<namespace>:`.
+ * Never painted: a read deletes it, and `write`, `remove` and `clear` delete it too, so a
+ * device frees the space without a migration.
  */
-function fitSavedCopy(stored: StoredCopy<SessionTranscriptSyncEnvelope>, maxChars: number): string | null {
-  const whole = JSON.stringify(stored);
-  if (whole.length <= maxChars) return whole;
-  const { messages } = stored.e;
-  if (messages.length === 0) return null;
-  const trimmed = (keep: number): string => {
-    const kept = messages.slice(messages.length - keep);
-    return JSON.stringify({
-      ...stored,
-      e: {
-        ...stored.e,
-        messages: kept,
-        message_count: kept.length,
-        complete: false,
-        next_cursor: String(kept[0].info.id),
-      },
-    });
-  };
-  // Count what fits from the newest message back, then confirm on the real
-  // text: the cursor and count fields change length with the cut.
-  let size = trimmed(1).length - JSON.stringify(messages[messages.length - 1]).length;
-  let keep = 0;
-  while (keep < messages.length) {
-    const next = JSON.stringify(messages[messages.length - 1 - keep]).length + (keep > 0 ? 1 : 0);
-    if (size + next > maxChars) break;
-    size += next;
-    keep += 1;
-  }
-  for (; keep > 0; keep -= 1) {
-    const text = trimmed(keep);
-    if (text.length <= maxChars) return text;
-  }
-  return null;
-}
-
-function capturedAtMs(envelope: SessionTranscriptSyncEnvelope): number {
-  const parsed = envelope.captured_at ? Date.parse(envelope.captured_at) : Number.NaN;
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-const ENVELOPE: CopyCodec<SessionTranscriptSyncEnvelope> = {
-  paintable: isPaintableSavedCopy,
-  fit: fitSavedCopy,
-  capturedAt: capturedAtMs,
+const RETIRED_V1_COPY: CopyCodec<never> = {
+  paintable: (_value): _value is never => false,
+  fit: () => null,
+  capturedAt: () => 0,
 };
 
 /**
- * The v1 store. A second store under `<namespace>.log` keeps the v2 copies (the session-log
- * page, `core/session-log/saved-log.ts`): a separate key, so a copy one format wrote is never
- * read as the other. `remove` and `clear` forget both.
+ * The device's store of saved session-log pages, under `<namespace>.log`. It also deletes the
+ * v1 copies an older SDK kept under `<namespace>` (`RETIRED_V1_COPY`).
  */
 export function createSavedCopyStore(options: SavedCopyStoreOptions): SavedCopyStore {
-  const v1 = createCopyStore(options, ENVELOPE);
-  const v2 = createCopyStore({ ...options, namespace: `${options.namespace ?? DEFAULT_NAMESPACE}.log` }, SESSION_LOG_COPY);
-  const store: SavedCopyStore = {
-    ...v1,
+  const namespace = options.namespace ?? DEFAULT_NAMESPACE;
+  const pages = createCopyStore({ ...options, namespace: `${namespace}.log` }, SESSION_LOG_COPY);
+  const retired = createCopyStore({ ...options, namespace }, RETIRED_V1_COPY);
+  return {
+    keyFor: pages.keyFor,
+    read: pages.read,
+    write: async (projectId, sessionId, page) => {
+      await pages.write(projectId, sessionId, page);
+      await retired.remove(projectId, sessionId);
+    },
     remove: async (projectId, sessionId) => {
-      await Promise.all([v1.remove(projectId, sessionId), v2.remove(projectId, sessionId)]);
+      await Promise.all([pages.remove(projectId, sessionId), retired.remove(projectId, sessionId)]);
     },
     clear: async () => {
-      await Promise.all([v1.clear(), v2.clear()]);
+      await Promise.all([pages.clear(), retired.clear()]);
     },
   };
-  registerSessionLogCopies(store, v2, v1.remove);
-  return store;
 }
 
 function createCopyStore<T>(options: SavedCopyStoreOptions, codec: CopyCodec<T>): CopyStore<T> {
@@ -278,7 +216,7 @@ function createCopyStore<T>(options: SavedCopyStoreOptions, codec: CopyCodec<T>)
 let currentStore: SavedCopyStore | null = null;
 
 /**
- * The store the session transcript paints from and writes to. The host sets it
+ * The store the session log paints from and writes to. The host sets it
  * when a user signs in and sets `null` on sign-out (after `clear()`), because
  * only the host knows who is signed in. With no store, opening a session
  * behaves exactly as before: nothing is read or written on the device.

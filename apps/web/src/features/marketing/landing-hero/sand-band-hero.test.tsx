@@ -18,7 +18,7 @@ describe('SandBandHero characterization', () => {
     const html = renderToStaticMarkup(<SandBandHero />);
     expect(html).toContain('id="hero"');
     expect(html).toContain('The CompanyOS');
-    expect(html).toContain('The cloud-native agent harness for companies.');
+    expect(html).toContain('The operating system for the AI-native company.');
   });
 
   test('the removed trait labels and their icon list are gone', () => {

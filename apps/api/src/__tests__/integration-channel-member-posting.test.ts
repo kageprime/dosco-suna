@@ -82,7 +82,7 @@ const prompt = (sessionId: string, secret: string, agent?: string, project = PRO
 
 beforeAll(async () => {
   await db.insert(accounts).values({ accountId: ACCOUNT, name: 'channel-posting' });
-  const metadata = { experimental: { chat: true }, default_agent: 'kortix' };
+  const metadata = { experimental: { channels: true }, default_agent: 'kortix' };
   await db.insert(projects).values([
     { splitPending: true, projectId: PROJECT, accountId: ACCOUNT, name: 'Posting', repoUrl: 'https://example.test/p.git', metadata },
     { splitPending: true, projectId: FLAG_OFF_PROJECT, accountId: ACCOUNT, name: 'Off', repoUrl: 'https://example.test/o.git', metadata: { default_agent: 'kortix' } },

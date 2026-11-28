@@ -104,7 +104,7 @@ beforeAll(async () => {
     accountId: ACCOUNT,
     name: 'Chat threads',
     repoUrl: 'https://example.test/c.git',
-    metadata: { experimental: { chat: true } },
+    metadata: { experimental: { channels: true } },
   });
   for (const id of USERS) {
     await db.execute(sql`

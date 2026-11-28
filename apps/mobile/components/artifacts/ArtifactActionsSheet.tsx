@@ -14,6 +14,12 @@
  * signed page itself in the in-app browser: the app link there would ask the
  * viewer to sign in again, because the browser does not share the app's login.
  *
+ * Move to folder (`can_manage`, the workspace has folders) pushes a folder
+ * picker one level at a time, as web's submenus do: No folder and the root
+ * folders; a folder with subfolders opens its level (the folder itself first,
+ * then its subfolders); a folder without picks it. Back goes up one level. The
+ * current folder carries the check.
+ *
  * Stop sharing is web's "remove": the artifact leaves Artifacts and its links
  * stop working; its files stay in Files.
  *
@@ -27,8 +33,9 @@ import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import type { Artifact, ArtifactDetail } from '@kortix/sdk';
-import { useArtifactMutations } from '@kortix/sdk/react';
+import { useArtifactFolders, useArtifactMutations } from '@kortix/sdk/react';
 
+import { ArtifactFolderGlyph, folderChildren } from '@/components/artifacts/artifact-folders';
 import { useConfirmDialog } from '@/components/kortix/confirm-dialog';
 import { SettingsGroup, SettingsRow } from '@/components/kortix/settings-list';
 import { KortixBottomSheetModal, useCloseThen } from '@/components/kortix/sheet';
@@ -42,6 +49,8 @@ import { haptics } from '@/lib/haptics';
 import {
   ArrowClockwiseIcon,
   ArrowSquareOutIcon,
+  FolderIcon,
+  FolderSimpleDashedIcon,
   PencilSimpleIcon,
   PushPinIcon,
   PushPinSlashIcon,
@@ -68,7 +77,7 @@ interface ArtifactActionsSheetProps {
   pushed?: boolean;
 }
 
-type SheetView = 'options' | 'rename';
+type SheetView = 'options' | 'rename' | 'move';
 
 export const ArtifactActionsSheet = React.forwardRef<ArtifactActionsSheetRef, ArtifactActionsSheetProps>(
   function ArtifactActionsSheet({ projectId, onReload, onRemoved, pushed = false }, ref) {
@@ -85,6 +94,12 @@ export const ArtifactActionsSheet = React.forwardRef<ArtifactActionsSheetRef, Ar
     const [returning, setReturning] = React.useState(false);
     const [name, setName] = React.useState('');
     const [open, setOpen] = React.useState(false);
+    // The Move picker's open level: null is the root (No folder + root folders).
+    const [moveLevel, setMoveLevel] = React.useState<string | null>(null);
+    // Read only while the sheet is open: the list page mounts this sheet even
+    // where Artifacts are unavailable, and must not ask for folders there.
+    const folders = useArtifactFolders(open ? projectId : null);
+    const allFolders = folders.data ?? [];
 
     React.useImperativeHandle(
       ref,
@@ -118,6 +133,23 @@ export const ArtifactActionsSheet = React.forwardRef<ArtifactActionsSheetRef, Ar
       setView('options');
       sheetRef.current?.snapToIndex(0);
     }, []);
+    const openMove = React.useCallback(() => {
+      haptics.tap();
+      setReturning(false);
+      setMoveLevel(null);
+      setView('move');
+    }, []);
+    const moveLevelFolder = moveLevel ? allFolders.find((folder) => folder.folder_id === moveLevel) : undefined;
+    // Back in the picker: up one level, then to the options.
+    const moveBack = React.useCallback(() => {
+      if (moveLevel === null) {
+        backToOptions();
+        return;
+      }
+      haptics.tap();
+      setReturning(true);
+      setMoveLevel(moveLevelFolder?.parent_folder_id ?? null);
+    }, [backToOptions, moveLevel, moveLevelFolder]);
 
     // Android back: Rename goes back to the options, the options close the
     // sheet. Registered while open, so it runs before the viewer's and the
@@ -126,11 +158,12 @@ export const ArtifactActionsSheet = React.forwardRef<ArtifactActionsSheetRef, Ar
       if (Platform.OS !== 'android' || !open) return undefined;
       const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
         if (view === 'rename') backToOptions();
+        else if (view === 'move') moveBack();
         else closeSheet();
         return true;
       });
       return () => subscription.remove();
-    }, [backToOptions, closeSheet, open, view]);
+    }, [backToOptions, closeSheet, moveBack, open, view]);
     const closeThen = React.useCallback(
       (next: () => void) => {
         deferAfterClose(next);
@@ -205,6 +238,29 @@ export const ArtifactActionsSheet = React.forwardRef<ArtifactActionsSheetRef, Ar
       );
     }, [artifact, closeSheet, mutations.update, name, t, toast]);
 
+    const moveTo = React.useCallback(
+      (target: string | null) => {
+        if (!artifact) return;
+        closeSheet();
+        if (target === (artifact.folder_id ?? null)) return;
+        const name = target ? allFolders.find((folder) => folder.folder_id === target)?.name : t('artifacts.title');
+        mutations.update.mutate(
+          { artifactId: artifact.artifact_id, folder_id: target },
+          {
+            onSuccess: () => {
+              haptics.success();
+              toast.success(t('artifacts.movedToFolder', { name: name ?? t('artifacts.title') }));
+            },
+            onError: () => {
+              haptics.warning();
+              toast.error(t('artifacts.moveFailed'));
+            },
+          },
+        );
+      },
+      [allFolders, artifact, closeSheet, mutations.update, t, toast],
+    );
+
     const stopSharing = React.useCallback(() => {
       if (!artifact) return;
       const target = artifact;
@@ -242,10 +298,18 @@ export const ArtifactActionsSheet = React.forwardRef<ArtifactActionsSheetRef, Ar
       <>
         <KortixBottomSheetModal
           ref={sheetRef}
-          title={view === 'rename' ? t('artifacts.rename') : (artifact?.title ?? t('artifacts.title'))}
+          title={
+            view === 'rename'
+              ? t('artifacts.rename')
+              : view === 'move'
+                ? (moveLevelFolder?.name ?? t('artifacts.moveToFolder'))
+                : (artifact?.title ?? t('artifacts.title'))
+          }
           titleLeading={
             view === 'rename' ? (
               <SheetBackButton onPress={backToOptions} />
+            ) : view === 'move' ? (
+              <SheetBackButton onPress={moveBack} />
             ) : undefined
           }
           {...(pushed ? { stackBehavior: 'push' as const } : null)}
@@ -285,6 +349,9 @@ export const ArtifactActionsSheet = React.forwardRef<ArtifactActionsSheetRef, Ar
                     {artifact.can_manage ? (
                       <SettingsRow icon={PencilSimpleIcon} label={t('artifacts.rename')} onPress={startRename} />
                     ) : null}
+                    {artifact.can_manage && allFolders.length ? (
+                      <SettingsRow icon={FolderIcon} label={t('artifacts.moveToFolder')} onPress={openMove} />
+                    ) : null}
                   </SettingsGroup>
                   {artifact.can_manage ? (
                     <SettingsGroup>
@@ -295,6 +362,56 @@ export const ArtifactActionsSheet = React.forwardRef<ArtifactActionsSheetRef, Ar
                         right={null}
                         onPress={stopSharing}
                       />
+                    </SettingsGroup>
+                  ) : null}
+                </View>
+              </Animated.View>
+            ) : view === 'move' ? (
+              <Animated.View key={`move-${moveLevel ?? 'root'}`} entering={returning ? POP_IN : PUSH_IN}>
+                <View className="px-4" style={{ gap: 18 }}>
+                  <SettingsGroup>
+                    {moveLevel === null ? (
+                      <SettingsRow
+                        icon={FolderSimpleDashedIcon}
+                        label={t('artifacts.folderRoot')}
+                        checked={!artifact.folder_id}
+                        right={null}
+                        onPress={() => moveTo(null)}
+                      />
+                    ) : moveLevelFolder ? (
+                      // The open level's own folder first: pick it to move there.
+                      <SettingsRow
+                        leading={<ArtifactFolderGlyph folder={moveLevelFolder} />}
+                        label={moveLevelFolder.name}
+                        checked={artifact.folder_id === moveLevelFolder.folder_id}
+                        right={null}
+                        onPress={() => moveTo(moveLevelFolder.folder_id)}
+                      />
+                    ) : null}
+                  </SettingsGroup>
+                  {folderChildren(allFolders, moveLevel).length ? (
+                    <SettingsGroup>
+                      {folderChildren(allFolders, moveLevel).map((folder) => {
+                        const deeper = folderChildren(allFolders, folder.folder_id).length > 0;
+                        return (
+                          <SettingsRow
+                            key={folder.folder_id}
+                            leading={<ArtifactFolderGlyph folder={folder} />}
+                            label={folder.name}
+                            checked={!deeper && artifact.folder_id === folder.folder_id}
+                            right={deeper ? undefined : null}
+                            onPress={() => {
+                              if (!deeper) {
+                                moveTo(folder.folder_id);
+                                return;
+                              }
+                              haptics.tap();
+                              setReturning(false);
+                              setMoveLevel(folder.folder_id);
+                            }}
+                          />
+                        );
+                      })}
                     </SettingsGroup>
                   ) : null}
                 </View>

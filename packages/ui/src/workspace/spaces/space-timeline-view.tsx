@@ -1,15 +1,27 @@
 'use client';
 
 import type { ProjectSession, ProjectSpace } from '@kortix/sdk';
-import { type UseProjectSessionsOptions, useFeatureFlag, useProjectSessions, useSessionNeedsYou } from '@kortix/sdk/react';
 import {
+  type UseProjectSessionsOptions,
+  useFeatureFlag,
+  useProjectSessions,
+  useSessionNeedsYou,
+  useWorkspaceSpaceActivity,
+} from '@kortix/sdk/react';
+import {
+  ArrowBendUpLeftIcon,
   CaretRightIcon,
-  ChatTeardropTextIcon,
+  CopyIcon,
+  DotsThreeIcon,
   type Icon,
   LightningIcon,
   LinkSimpleIcon,
+  MarkdownLogoIcon,
   PulseIcon,
   TimerIcon,
+  TrashIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
   WebhooksLogoIcon,
 } from '@phosphor-icons/react';
 import { type ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -25,6 +37,20 @@ import { Button } from '../../primitives/button';
 import { EntityAvatar } from '../../primitives/entity-avatar';
 import { ErrorState } from '../../primitives/error-state';
 import Hint from '../../primitives/hint';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../../primitives/dropdown-menu';
+import { Calendar } from '../../primitives/calendar';
+import { Popover, PopoverAnchor, PopoverContent } from '../../primitives/popover';
+import { Separator } from '../../primitives/separator';
+import { successToast } from '../../primitives/toast';
+import { SessionDeleteModal } from '../../session/actions/session-delete-modal';
+import { useUiViewerId } from '../../providers/ui-provider';
 import Loading from '../../primitives/loading';
 import { UserAvatar } from '../../primitives/user-avatar';
 import { sessionDisplayLabel, sessionDisplayStatus } from '../../session/actions/session-label';
@@ -34,7 +60,6 @@ import { TypingIndicator, useElapsedLabel } from '../../session/thread/typing-in
 import { formatDuration } from '../../internal/session-types';
 import { MESSAGE_TEXT_CLASS, MessageRow } from '../../session/turn/message-row';
 import { SolidCheckIcon } from '../../internal/icons/solid-check-icon';
-import { RememberThisButton } from '../memory/remember-this';
 import { SessionStatusMark } from '../../session/list/session-status-mark';
 import {
   agentLabel,
@@ -53,6 +78,10 @@ import {
   threadMessageText,
   threadStatus,
   type TimelineDay,
+  type TimelineJoin,
+  jumpTargetDate,
+  markdownToPlainText,
+  timelineEntries,
 } from './space-timeline';
 import { oneLineWithoutEmails, spaceDisplayName } from './space-identity';
 import { useMentionNames } from './space-people';
@@ -159,13 +188,43 @@ export function SpaceTimeline({
   const t = useTranslations('spaces.view');
   const locale = useLocale();
   const days = useMemo(() => buildSpaceTimeline(threads.sessions), [threads.sessions]);
+  // The channel's activity: who joined or was added, and which agents were added or removed, on the day it happened.
+  const activity = useWorkspaceSpaceActivity(projectId, space.kind === 'channel' ? space.space_id : undefined);
+  const joins = useMemo<TimelineJoin[]>(() => activity.data ?? [], [activity.data]);
+  const groups = useMemo(() => timelineEntries(days, joins, !threads.hasNextPage), [days, joins, threads.hasNextPage]);
   const loading = threads.isLoading || threads.isScanning;
+
+  // Jump to a date: older pages load until one holds a message from that day or
+  // earlier (at most 20), then the closest day at or after it scrolls into view.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const jumpRef = useRef<{ target: number; pages: number } | null>(null);
+  const [jumpTick, setJumpTick] = useState(0);
+  const jumpTo = (target: Date | 'first') => {
+    jumpRef.current = { target: target === 'first' ? Number.NEGATIVE_INFINITY : target.getTime(), pages: 0 };
+    setJumpTick((tick) => tick + 1);
+  };
+  useEffect(() => {
+    const job = jumpRef.current;
+    if (!job) return;
+    const oldest = threads.sessions.reduce((min, session) => Math.min(min, Date.parse(session.created_at)), Number.POSITIVE_INFINITY);
+    if (oldest > job.target && threads.hasNextPage && job.pages < 20) {
+      if (!threads.isFetchingNextPage) {
+        job.pages += 1;
+        void threads.fetchNextPage();
+      }
+      return;
+    }
+    jumpRef.current = null;
+    const sections = Array.from(scrollRef.current?.querySelectorAll<HTMLElement>('[data-day]') ?? []);
+    const section = sections.find((el) => Number(el.dataset.day) >= job.target) ?? sections.at(-1);
+    section?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [jumpTick, threads]);
   const needsYou = useThreadNeedsYou(projectId);
   // Chat (`chat`): Kortix's newest reply shows under each message.
   const oneChat = useFeatureFlag(projectId, 'chat').enabled;
   const now = new Date();
 
-  const dayLabel = (day: TimelineDay) => {
+  const dayLabel = (day: { date: Date }) => {
     const kind = dayKind(day.date, now);
     if (kind === 'today') return t('today');
     if (kind === 'yesterday') return t('yesterday');
@@ -184,7 +243,7 @@ export function SpaceTimeline({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col-reverse overflow-y-auto">
+    <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col-reverse overflow-y-auto">
       <div className="pt-4 pb-3">
         {threads.isError && !threads.data ? (
           <div className="px-5 py-8">
@@ -197,21 +256,25 @@ export function SpaceTimeline({
             ) : (
               <SpaceWelcome space={space} empty={days.length === 0} />
             )}
-            {days.map((day) => (
-              <section key={day.date.getTime()} aria-label={dayLabel(day)}>
-                <DayDivider label={dayLabel(day)} />
-                {day.threads.map((session) => (
-                  <ThreadRow
-                    key={session.session_id}
-                    projectId={projectId}
-                    session={session}
-                    space={space}
-                    needsYou={needsYou(session)}
-                    latestReply={oneChat}
-                    selected={session.session_id === selectedId}
-                    onOpen={() => onOpenThread(session.session_id)}
-                  />
-                ))}
+            {groups.map((day) => (
+              <section key={day.date.getTime()} data-day={day.date.getTime()} aria-label={dayLabel(day)}>
+                <DayDivider label={dayLabel(day)} onJump={jumpTo} />
+                {day.entries.map((entry) =>
+                  entry.kind === 'join' ? (
+                    <JoinRow key={`join:${entry.join.id}`} join={entry.join} />
+                  ) : (
+                    <ThreadRow
+                      key={entry.session.session_id}
+                      projectId={projectId}
+                      session={entry.session}
+                      space={space}
+                      needsYou={needsYou(entry.session)}
+                      latestReply={oneChat}
+                      selected={entry.session.session_id === selectedId}
+                      onOpen={() => onOpenThread(entry.session.session_id)}
+                    />
+                  ),
+                )}
               </section>
             ))}
           </>
@@ -249,14 +312,107 @@ function SpaceWelcome({ space, empty }: { space: ProjectSpace; empty: boolean })
   );
 }
 
-/** A centred pill on a hairline: "Today", "Yesterday", "Thursday, October 15". */
-function DayDivider({ label }: { label: string }) {
+/**
+ * A centred label on a hairline: "Today", "Yesterday", "Thursday, October 15".
+ * The label opens Jump to: Today, Yesterday, a week or a month ago, the first
+ * message, or a picked date.
+ */
+function DayDivider({ label, onJump }: { label: string; onJump: (target: Date | 'first') => void }) {
+  const t = useTranslations('spaces.view.jump');
+  const [picking, setPicking] = useState(false);
+  const now = new Date();
   return (
-    <div className="relative flex items-center justify-center py-2" aria-hidden>
-      <div className="bg-border absolute inset-x-0 top-1/2 h-px" />
-      <span className="bg-background text-foreground relative rounded-full border px-3 py-0.5 text-xs font-medium">
-        {label}
+    <div className="relative flex items-center justify-center py-2">
+      {/* The global border (0.8px `border-border`), not a 1px fill. */}
+      <div aria-hidden className="absolute inset-x-0 top-1/2 border-t" />
+      <Popover open={picking} onOpenChange={setPicking}>
+        <DropdownMenu>
+          <PopoverAnchor asChild>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={t('label', { day: label })}
+                // No pill: the label on the hairline, its background masking the line; the hit area reaches past it.
+                className="bg-background text-muted-foreground hover:text-foreground focus-visible:ring-ring hit-area-x-2 hit-area-y-2 relative px-3 py-0.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
+              >
+                {label}
+              </button>
+            </DropdownMenuTrigger>
+          </PopoverAnchor>
+          <DropdownMenuContent align="center" className="min-w-44">
+            <DropdownMenuLabel>{t('title')}</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => onJump(jumpTargetDate('today', now))}>{t('today')}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onJump(jumpTargetDate('yesterday', now))}>{t('yesterday')}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onJump(jumpTargetDate('week', now))}>{t('week')}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onJump(jumpTargetDate('month', now))}>{t('month')}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onJump('first')}>{t('first')}</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setPicking(true)}>{t('pick')}</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <PopoverContent align="center" className="w-auto p-0">
+          <Calendar
+            mode="single"
+            disabled={{ after: now }}
+            onSelect={(picked) => {
+              if (!picked) return;
+              setPicking(false);
+              onJump(picked);
+            }}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+/**
+ * One activity line, quiet, on the day it happened: "Ana joined", "Ana was
+ * added by Jay", "Kortix was added by Jay", "Kortix was removed by Jay". Its
+ * mark sits in the avatar column: an arrow for a person, the agent's own mark
+ * for an agent added, an arrow out for an agent removed.
+ */
+function JoinRow({ join }: { join: TimelineJoin }) {
+  const t = useTranslations('spaces.view.activity');
+  const locale = useLocale();
+  const at = new Date(join.at);
+  const agent = join.subject.kind === 'agent';
+  const name = agent ? agentLabel(join.subject.id) : join.subject.name;
+  const strong = (chunks: ReactNode) => <span className="text-foreground font-medium">{chunks}</span>;
+  const values = { name, actor: join.actor?.name ?? '', b: strong };
+  const key =
+    join.kind === 'member_joined'
+      ? 'joined'
+      : join.kind === 'member_added'
+        ? join.actor
+          ? 'added'
+          : 'addedUnknown'
+        : join.kind === 'agent_added'
+          ? join.actor
+            ? 'added'
+            : 'addedUnknown'
+          : join.actor
+            ? 'removed'
+            : 'removedUnknown';
+  return (
+    <div className="text-muted-foreground flex items-center gap-3 px-5 py-1.5 text-sm">
+      <span className="flex w-10 shrink-0 justify-center">
+        {join.kind === 'agent_added' ? (
+          <AgentMark slug={join.subject.id} size={21} tile={28} label={name} />
+        ) : (
+          <span aria-hidden className="bg-muted flex size-7 items-center justify-center rounded-md">
+            {join.kind === 'agent_removed' ? (
+              <ArrowLeftIcon className="size-4" />
+            ) : (
+              <ArrowRightIcon className="text-kortix-green size-4" />
+            )}
+          </span>
+        )}
       </span>
+      <span className="min-w-0 truncate">{t.rich(key, values)}</span>
+      <time dateTime={join.at} className="shrink-0 text-xs tabular-nums">
+        {at.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })}
+      </time>
     </div>
   );
 }
@@ -375,12 +531,7 @@ function ThreadRow({
         gutter: gutterTime(created, locale),
         title: created.toLocaleString(locale, { dateStyle: 'full', timeStyle: 'short' }),
       }}
-      toolbar={
-        <>
-          <ThreadToolbar sessionId={session.session_id} onOpen={onOpen} />
-          <RememberThisButton session={session} space={space} />
-        </>
-      }
+      toolbar={<ThreadToolbar session={session} onOpen={onOpen} name={name} />}
     >
       <ThreadPrompt projectId={projectId} session={session} onOpen={onOpen} />
       {latestReply ? (
@@ -440,75 +591,63 @@ function ThreadReplyLine({
   // Nothing to say yet (no reply, no work, nothing waiting): no line, as in Slack.
   if (!needsYou && !asks.needsYou && !working && !childAgent && !reply && replies === 0) return null;
   const time = <time dateTime={session.updated_at}>{relativeTime(session.updated_at, locale)}</time>;
-  if (childAgent) {
-    return (
-      <div className="-mx-1 mt-1 flex w-full max-w-2xl min-w-0 items-center gap-1 rounded-md pl-1">
-        <PrincipalHover projectId={projectId} principal={{ kind: 'agent', name: childAgent }} className="shrink-0">
-          <AgentMark slug={childAgent} size={14} label={agentLabel(childAgent)} />
+  const leadAgent = childAgent ?? agentName ?? DEFAULT_AGENT_SLUG;
+  // The count and the last reply: what a reader scans for. The reply's own words wait in the thread.
+  const counts = (
+    <>
+      <span className="text-foreground shrink-0 font-medium">{t('replies', { count: Math.max(replies, 1) })}</span>
+      <span className="text-muted-foreground min-w-0 truncate">{t('lastReply', { time: relativeTime(session.updated_at, locale) })}</span>
+    </>
+  );
+  const state = asks.needsYou ? (
+    <span className="text-foreground flex min-w-0 items-center gap-1 font-medium">
+      <SessionStatusMark status="needs-you" waitingOn="answer" />
+      <span className="truncate" title={askHeader ?? undefined}>
+        {askHeader ? tTurn('needsYouOn', { header: askHeader }) : tf('statusValue.needsYou')}
+      </span>
+    </span>
+  ) : needsYou ? (
+    <span className="text-foreground flex shrink-0 items-center gap-1 font-medium">
+      <SessionStatusMark status="needs-you" waitingOn={needsYou} />
+      {tf('statusValue.needsYou')}
+    </span>
+  ) : childAgent ? (
+    <TypingIndicator name={agentLabel(childAgent)} className="h-5" detail={tTurn('agentIsWorking', { agent: agentLabel(childAgent) })} />
+  ) : working ? (
+    <TypingIndicator name={agent} className="h-5" detail={waitDetail} detailDelayMs={2000} />
+  ) : null;
+  return (
+    // An elbow from under the avatar into the reply chip, so the replies read as the message's own.
+    // The chip sits out by its own inset (`-ml-1.5` for its `pl-1.5`), so the agent's icon starts on the name's edge.
+    // This wrapper is not `relative`: the elbow is placed on the `MessageRow` (`relative`, `px-5 pt-2 pb-1.5`), so it
+    // runs from the avatar down to the chip however many lines the message takes. A fixed height left a gap under a
+    // long message. All of it is the row's own geometry:
+    //   left-10 = px-5 + half the w-10 avatar column (its centre line);
+    //   w-6.5   = to the chip's edge: half the avatar (5) + gap-3 (3) − the chip's -ml-1.5;
+    //   top     = pt-2 + the column's pt-0.5 + the size-10 avatar + 1 of air (13.5);
+    //   bottom  = pb-1.5 + the chip's py-1 (2.5) + half its 20px agent tile, the chip's centre.
+    // `border-strong`'s colour and width (`--border-strong-width`, 1px) on the two sides the elbow draws;
+    // the `border-strong` utility itself would draw all four.
+    <div className="mt-1.5 -ml-1.5 flex w-fit max-w-full min-w-0 items-center">
+      <span
+        aria-hidden
+        className="border-border-strong pointer-events-none absolute top-[calc(var(--spacing)*13.5)] bottom-[calc(var(--spacing)*2.5+10px)] left-10 w-6.5 rounded-bl-sm border-b-[length:var(--border-strong-width,1px)] border-l-[length:var(--border-strong-width,1px)]"
+      />
+      {/* The agent's tile opens its card; the rest of the chip opens the thread (two controls, never one inside the other). */}
+      <div className="ring-border hover:bg-hover flex min-w-0 items-center gap-2 rounded-md py-1 pr-1.5 pl-1.5 ">
+        <PrincipalHover projectId={projectId} principal={{ kind: 'agent', name: leadAgent }} className="shrink-0">
+          <AgentMark slug={leadAgent} size={14} label={agentLabel(leadAgent)} className="sm" />
         </PrincipalHover>
         <button
           type="button"
           onClick={onOpen}
-          className="hover:bg-hover focus-visible:ring-ring flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 pr-1.5 pl-1 text-left outline-none focus-visible:ring-2"
+          className="focus-visible:ring-ring flex min-w-0 items-center gap-2 rounded-sm text-left text-xs tabular-nums outline-none focus-visible:ring-2"
         >
-          <TypingIndicator name={agentLabel(childAgent)} className="h-5" detail={tTurn('agentIsWorking', { agent: agentLabel(childAgent) })} />
-          <span className="text-muted-foreground ml-auto shrink-0 pl-2 text-xs tabular-nums">
-            {replies > 0 ? `${t('replies', { count: replies })} · ` : ''}
-            {time}
-          </span>
+          {state ?? counts}
+          {state && replies > 0 ? <span className="text-muted-foreground shrink-0">· {t('replies', { count: replies })} · {time}</span> : null}
+          <CaretRightIcon aria-hidden className="text-muted-foreground size-3.5 shrink-0" />
         </button>
       </div>
-    );
-  }
-  // Replies without a text to show: the count and the time alone, no empty face.
-  if (!needsYou && !asks.needsYou && !working && !reply) {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        className="hover:bg-hover focus-visible:ring-ring text-muted-foreground -mx-1 mt-1 flex w-fit items-center gap-1 rounded-md px-1 py-1 text-xs tabular-nums outline-none focus-visible:ring-2"
-      >
-        <span className="text-foreground font-medium">{t('replies', { count: replies })}</span>
-        <span aria-hidden>·</span>
-        {time}
-      </button>
-    );
-  }
-  return (
-    // The agent's tile opens its card; the rest of the line opens the thread (two controls, never one inside the other).
-    <div className="-mx-1 mt-1 flex w-full max-w-2xl min-w-0 items-center gap-1 rounded-md pl-1">
-      <PrincipalHover projectId={projectId} principal={{ kind: 'agent', name: agentName ?? DEFAULT_AGENT_SLUG }} className="shrink-0">
-        <AgentMark slug={agentName ?? DEFAULT_AGENT_SLUG} size={14} label={agent} />
-      </PrincipalHover>
-      <button
-        type="button"
-        onClick={onOpen}
-        className="hover:bg-hover focus-visible:ring-ring flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 pr-1.5 pl-1 text-left outline-none focus-visible:ring-2"
-      >
-        {asks.needsYou ? (
-          <span className="text-foreground flex min-w-0 items-center gap-1 text-xs font-medium">
-            <SessionStatusMark status="needs-you" waitingOn="answer" />
-            <span className="truncate" title={askHeader ?? undefined}>
-              {askHeader ? tTurn('needsYouOn', { header: askHeader }) : tf('statusValue.needsYou')}
-            </span>
-          </span>
-        ) : needsYou ? (
-          <span className="text-foreground flex shrink-0 items-center gap-1 text-xs font-medium">
-            <SessionStatusMark status="needs-you" waitingOn={needsYou} />
-            {tf('statusValue.needsYou')}
-          </span>
-        ) : working ? (
-          <TypingIndicator name={agent} className="h-5" detail={waitDetail} detailDelayMs={2000} />
-        ) : reply ? (
-          <span className="text-foreground min-w-0 truncate text-sm" title={reply}>
-            {reply}
-          </span>
-        ) : null}
-        <span className="text-muted-foreground ml-auto shrink-0 pl-2 text-xs tabular-nums">
-          {replies > 0 ? `${t('replies', { count: replies })} · ` : ''}
-          {time}
-        </span>
-      </button>
     </div>
   );
 }
@@ -702,35 +841,113 @@ function ThreadSummary({
   );
 }
 
-/** The row's floating actions: reply in the thread (labelled), copy the thread's link. */
-function ThreadToolbar({ sessionId, onOpen }: { sessionId: string; onOpen: () => void }) {
+/**
+ * The row's floating actions, icon-only, in two groups split by a hairline:
+ * reply in the thread; then copy the message, copy the thread's link, More.
+ * Only actions the server serves today (no reactions, edit or forward yet).
+ * Every icon is 16px in a 28px (`icon-sm`) button, the toolbar's one size.
+ */
+function ThreadToolbar({ session, onOpen, name }: { session: ProjectSession; onOpen: () => void; name: string }) {
+  const sessionId = session.session_id;
   const t = useTranslations('spaces.view');
-  const { copied, copy } = useCopy({ toast: false });
+  const link = useCopy({ toast: false });
+  const message = useCopy({ toast: false });
   const copyLink = () => {
     const url = new URL(window.location.href);
     url.search = '';
     url.searchParams.set('thread', sessionId);
-    void copy(url.toString());
+    void link.copy(url.toString());
   };
-  const linkLabel = copied ? t('linkCopied') : t('copyLink');
+  const copyMessage = async () => {
+    await message.copy(markdownToPlainText(threadMessageText(session)));
+    successToast(t('messageCopied'));
+  };
+  const linkLabel = link.copied ? t('linkCopied') : t('copyLink');
   return (
     <>
-      {/* The one action a reader came for, so it says its name: "Reply",
-          at the icon button's height. `size="xs"` (h-7, no `py-*`), not the
-          default size: the default's `py-2` and `has-[>svg]:px-3` survive a
-          className override (tailwind-merge keeps variant classes), which
-          left the icon a content box shorter than itself, off centre. */}
-      <Hint label={t('replyInThread')} side="top">
-        <Button variant="ghost" size="xs" aria-label={t('replyInThread')} onClick={onOpen} className="gap-1 rounded-md text-xs">
-          <ChatTeardropTextIcon className="size-3.5 shrink-0" />
-          {t('reply')}
-        </Button>
-      </Hint>
-      <Hint label={linkLabel} side="top">
-        <Button variant="ghost" size="icon-sm" aria-label={linkLabel} onClick={copyLink}>
-          {copied ? <SolidCheckIcon className="size-3.5 shrink-0" /> : <LinkSimpleIcon className="size-3.5 shrink-0" />}
-        </Button>
-      </Hint>
+      <ToolbarButton label={t('replyInThread')} onClick={onOpen}>
+        <ArrowBendUpLeftIcon />
+      </ToolbarButton>
+      <Separator orientation="vertical" className="mx-0.5 data-[orientation=vertical]:h-4" />
+      <ToolbarButton label={t('copyMessage')} onClick={() => void copyMessage()}>
+        {message.copied ? <SolidCheckIcon /> : <CopyIcon />}
+      </ToolbarButton>
+      <ToolbarButton label={linkLabel} onClick={copyLink}>
+        {link.copied ? <SolidCheckIcon /> : <LinkSimpleIcon />}
+      </ToolbarButton>
+      <MessageMoreMenu session={session} name={name} />
+    </>
+  );
+}
+
+/** One icon-only toolbar action: its name in the hint and to a screen reader. */
+function ToolbarButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <Hint label={label} side="top">
+      <Button variant="ghost" size="icon-sm" aria-label={label} onClick={onClick} className="[&_svg]:size-4 [&_svg]:shrink-0">
+        {children}
+      </Button>
+    </Hint>
+  );
+}
+
+/**
+ * A message's More menu: copy it as plain text or as Markdown, and delete it
+ * (its whole thread, the server's own rule decides who may; the dialog offers
+ * Undo). Only actions the server serves today: no edit, forward or pin yet.
+ */
+function MessageMoreMenu({ session, name }: { session: ProjectSession; name: string }) {
+  const t = useTranslations('spaces.view');
+  const projectId = session.project_id;
+  const viewerId = useUiViewerId();
+  const [deleting, setDeleting] = useState(false);
+  const { copy } = useCopy({ toast: false });
+  const text = threadMessageText(session);
+  // The author deletes their own message; anyone else asks the author.
+  const own = !!viewerId && session.created_by === viewerId;
+  const copyText = async (value: string) => {
+    await copy(value);
+    successToast(t('messageCopied'));
+  };
+  return (
+    <>
+      <DropdownMenu>
+        <Hint label={t('moreActions')} side="top">
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon-sm" aria-label={t('moreActions')}>
+              <DotsThreeIcon weight="bold" className="size-4 shrink-0" />
+            </Button>
+          </DropdownMenuTrigger>
+        </Hint>
+        <DropdownMenuContent align="end" className="min-w-48">
+          <DropdownMenuItem onSelect={() => void copyText(markdownToPlainText(text))}>
+            <CopyIcon />
+            {t('copyMessage')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void copyText(text)}>
+            <MarkdownLogoIcon />
+            {t('copyMarkdown')}
+          </DropdownMenuItem>
+          {own ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(true)}>
+                <TrashIcon />
+                {t('deleteMessage')}
+              </DropdownMenuItem>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {own ? (
+        <SessionDeleteModal
+          projectId={projectId}
+          sessionId={deleting ? session.session_id : null}
+          sessionLabel={name}
+          open={deleting}
+          onOpenChange={setDeleting}
+        />
+      ) : null}
     </>
   );
 }

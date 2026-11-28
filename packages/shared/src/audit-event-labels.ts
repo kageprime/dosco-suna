@@ -68,6 +68,7 @@ export const AUDIT_EVENT_LABELS: Readonly<Record<string, string>> = {
   'iam.mfa_required.disable': 'Disabled MFA requirement',
   'iam.session_oversight.enable': 'Let admins open every session',
   'iam.session_oversight.disable': 'Stopped admins opening every session',
+  'project.settings.write': 'Changed workspace settings',
   'project.admin_bypass_read': 'Used admin bypass to view project',
   'project.admin_bypass_session_read': 'Used admin bypass to view session',
   'project.admin_oversight_session_read': 'Opened a member session as account admin',

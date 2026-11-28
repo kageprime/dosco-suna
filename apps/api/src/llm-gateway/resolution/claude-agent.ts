@@ -37,16 +37,28 @@ export function checkClaudeAgentRef(ref: string | null | undefined): ClaudeAgent
 export const CLAUDE_SUBSCRIPTION_REQUIRED = 'claude_subscription_required' as const;
 export const CLAUDE_SUBSCRIPTION_REQUIRED_MESSAGE = 'Connect your Claude subscription to use Claude models.';
 
+/** A turn's Claude subscription model that has no Claude account to run on, and why. */
+export interface ClaudeSubscriptionMissing {
+  model: string;
+  /**
+   * Why: `CLAUDE_SUBSCRIPTION_REQUIRED_MESSAGE` when no account is connected,
+   * else the reason the connected accounts cannot serve (resting at a usage
+   * limit, refused, forbidden by Anthropic) with its fix.
+   */
+  message: string;
+}
+
 /**
- * The 409 body of a turn on a Claude subscription model whose prompting person
- * has no Claude login. `code` is what a client branches on (a Connect button).
+ * The 409 body of a turn on a Claude subscription model with no Claude account
+ * to run on. `code` is what a client branches on (a Connect button); `message`
+ * says why, naming the accounts when some are connected.
  */
-export function claudeSubscriptionRequiredBody(model: string) {
+export function claudeSubscriptionRequiredBody(missing: ClaudeSubscriptionMissing) {
   return {
-    error: CLAUDE_SUBSCRIPTION_REQUIRED_MESSAGE,
-    message: CLAUDE_SUBSCRIPTION_REQUIRED_MESSAGE,
+    error: missing.message,
+    message: missing.message,
     code: CLAUDE_SUBSCRIPTION_REQUIRED,
     provider_id: CLAUDE_AGENT_PROVIDER_ID,
-    model,
+    model: missing.model,
   };
 }

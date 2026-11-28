@@ -111,7 +111,7 @@ test('a tab of a feature that is off is hidden', () => {
 test('the header shows only the configured items', () => {
   spaces = [{ name: 'sales', label: 'Sales', header: ['agents'] }];
   const html = render();
-  expect(html).toContain('aria-label="Agents in this space"');
+  expect(html).toContain('aria-label="Agents in this channel"');
   expect(html).not.toContain('New session');
   expect(html).not.toContain('Ask Orchestrator');
   spaces = [{ name: 'sales', label: 'Sales' }];
@@ -119,5 +119,5 @@ test('the header shows only the configured items', () => {
 });
 
 test('a space that is not in the config says so', () => {
-  expect(render('gone')).toContain('This space is gone');
+  expect(render('gone')).toContain('This channel is gone');
 });

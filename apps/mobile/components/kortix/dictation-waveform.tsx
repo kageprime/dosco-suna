@@ -1,12 +1,12 @@
 /**
  * DictationWaveform — the composer's listening indicator. One bar
- * per volume sample from the speech recogniser, newest on the right, so the
- * voice scrolls in from the right as it is heard. Older bars fade out toward
- * the left edge.
+ * per microphone level sample (the recorder's metering, every 80 ms), newest
+ * on the right, so the voice scrolls in from the right as it is heard. Older
+ * bars fade out toward the left edge.
  *
- * Runs on the UI thread: `levels` is a shared value the recogniser's
- * `volumechange` events write to, so the composer never re-renders per sample.
- * Before the recogniser reports `start`, the bars rest as dots at 40% opacity.
+ * Runs on the UI thread: `levels` is a shared value `useDictation` writes to,
+ * so the composer never re-renders per sample. Until recording starts, and
+ * while the clip is transcribed, the bars rest as dots at 40% opacity.
  */
 import Animated, {
   Easing,
@@ -72,7 +72,7 @@ export function DictationWaveform({
       style={[{ gap: BAR_GAP, height: MAX_HEIGHT }, restStyle]}
       accessible
       accessibilityRole="progressbar"
-      accessibilityLabel={listening ? 'Listening' : 'Starting microphone'}
+      accessibilityLabel={listening ? 'Listening' : 'Not listening'}
       accessibilityLiveRegion="polite">
       {Array.from({ length: DICTATION_BAR_COUNT }, (_, i) => (
         <Bar key={i} index={i} levels={levels} reduceMotion={reduceMotion} />

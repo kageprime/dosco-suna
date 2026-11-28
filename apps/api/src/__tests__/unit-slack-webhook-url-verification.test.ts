@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, jest, mock, test } from 'bun:test';
 import { createHmac } from 'node:crypto';
 import type { SlackInbound } from '../channels/slack/inbound';
 
@@ -55,6 +55,7 @@ const realLink = await import('../channels/slack/link');
 mock.module('../channels/slack/dispatch', () => ({
   ...realDispatch,
   maybeHandleDmCommand: async () => false,
+  resolveOauthProject: async () => ({ kind: 'project', projectId: BYO_PROJECT }),
   dispatchSlackEvent: async (projectId: string, envelope: unknown, opts: unknown) => {
     if (slowDispatchMs > 0) await new Promise((r) => setTimeout(r, slowDispatchMs));
     if (dispatchFails) throw new Error('dispatch failed');
@@ -109,6 +110,11 @@ mock.module('../channels/slack/interactivity', () => ({
   // from it fails this whole file before a single test runs. The "Request
   // changes" modal's submit lands here.
   handleViewSubmission: async () => {},
+}));
+
+let canonicalAvailable = true;
+mock.module('../channels/slack-oauth-mode', () => ({
+  slackOauthMode: () => ({ available: canonicalAvailable, signingSecret: 'canonical-secret' }),
 }));
 
 (await import('../channels/slack/routes')).registerSlackWebhookRoutes();
@@ -485,4 +491,71 @@ test('OAuth webhook rejects unsigned requests before checking installation confi
   });
   expect(response.status).toBe(401);
   expect(await response.json()).toEqual({ error: 'Invalid signature' });
+});
+
+describe('canonical Slack event acknowledgement parity', () => {
+  const envelope = {
+    type: 'event_callback', event_id: 'EvCanonical', team_id: 'T1',
+    event: { type: 'app_mention', channel: 'C1', user: 'U1', ts: '1.0', text: 'hi' },
+  };
+
+  test('pre-ack dispatch failure returns 500 without durable redelivery', async () => {
+    projectSigningSecret = 'canonical-secret';
+    dispatchFails = true;
+    const response = await slackWebhookApp.request('/', signed(JSON.stringify(envelope), 'application/json'));
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: 'processing failed' });
+    expect(redeliveries).toEqual([]);
+  });
+
+  test('post-ack dispatch failure returns 200 and queues canonical redelivery', async () => {
+    jest.useFakeTimers();
+    try {
+      projectSigningSecret = 'canonical-secret';
+      slowDispatchMs = 900;
+      dispatchFails = true;
+      const pending = slackWebhookApp.request('/', signed(JSON.stringify(envelope), 'application/json'));
+      for (let i = 0; i < 30; i++) await Promise.resolve();
+      jest.advanceTimersByTime(300);
+      for (let i = 0; i < 30; i++) await Promise.resolve();
+      const response = await pending;
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ ok: true });
+      expect(redeliveries).toEqual([]);
+      jest.advanceTimersByTime(700);
+      for (let i = 0; i < 30; i++) await Promise.resolve();
+      jest.advanceTimersByTime(0);
+      for (let i = 0; i < 30; i++) await Promise.resolve();
+      expect(redeliveries).toEqual([expect.objectContaining({
+        id: 'EvCanonical', source: 'slack:canonical',
+        data: { envelope, inbound: null },
+      })]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('canonical stale claims delay redelivery while released claims run immediately', async () => {
+    await enqueueSlackEventRedelivery(envelope, undefined, { claimsReleased: false });
+    expect(redeliveryOpts).toEqual([expect.objectContaining({ runAt: expect.any(Date) })]);
+    const held = redeliveryOpts[0];
+    if (!held || typeof held !== 'object' || !('runAt' in held) || !(held.runAt instanceof Date)) {
+      throw new Error('held claims must schedule a date');
+    }
+    expect(held.runAt.getTime()).toBeGreaterThan(Date.now() + 5 * 60_000);
+    await enqueueSlackEventRedelivery({ ...envelope, event_id: 'EvCanonicalFree' }, undefined, { claimsReleased: true });
+    expect(redeliveryOpts[1]).not.toHaveProperty('runAt');
+  });
+
+  test('missing headers still win over an unavailable canonical installation', async () => {
+    canonicalAvailable = false;
+    try {
+      const response = await slackWebhookApp.request('/', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(envelope),
+      });
+      expect(response.status).toBe(401);
+    } finally {
+      canonicalAvailable = true;
+    }
+  });
 });

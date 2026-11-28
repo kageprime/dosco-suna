@@ -76,8 +76,12 @@ mac:
       to: cua-driver/cua-driver
   x64ArchFiles: Contents/Resources/cua-driver/cua-driver
   extendInfo:
-    NSAppleEventsUsageDescription: Dosco agents use this to work with the apps on this computer when you allow Computer Use.
-    NSScreenCaptureUsageDescription: Dosco agents see this computer's screen when you allow Computer Use.
+    NSAppleEventsUsageDescription: Kortix agents use this to work with the apps on this computer when you allow Computer Use.
+    NSScreenCaptureUsageDescription: Kortix agents see this computer's screen when you allow Computer Use.
+    # Dictation and voice calls: the composer's microphone. Without this
+    # string macOS refuses getUserMedia for a hardened, signed app.
+    NSMicrophoneUsageDescription: Kortix uses the microphone when you dictate a message or start a voice call.
+
     NSAppTransportSecurity:
       NSAllowsArbitraryLoads: true
       NSAllowsArbitraryLoadsInWebContent: true

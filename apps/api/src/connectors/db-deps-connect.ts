@@ -40,6 +40,23 @@ export function composioConnectionMetadata(input: {
   };
 }
 
+/** Keep transcript references from the live row when provider IO used an older snapshot. */
+export function composioMetadataWrite(metadata: Record<string, unknown>, completed = false, preserveRequestingSession = false) {
+  const waiting = readRequestingSessionId(metadata);
+  return sql`(${JSON.stringify(metadata)}::jsonb
+    || jsonb_build_object('requesting_session_id', ${preserveRequestingSession
+      ? sql`coalesce(${connectorConnections.metadata}->'requesting_session_id', 'null'::jsonb)`
+      : sql`coalesce(to_jsonb(${waiting}::text), ${connectorConnections.metadata}->'requesting_session_id', 'null'::jsonb)`}))
+    || jsonb_build_object('connect_session_ids', (
+      select coalesce(jsonb_agg(distinct value), '[]'::jsonb)
+      from jsonb_array_elements(
+        coalesce(${connectorConnections.metadata}->'connect_session_ids', '[]'::jsonb)
+        || ${JSON.stringify(metadata.connect_session_ids ?? [])}::jsonb
+        || ${JSON.stringify(completed && waiting ? [waiting] : [])}::jsonb
+      ) entries(value)
+    ))`;
+}
+
 /**
  * The Dosco session whose agent asked for this connector, as stored on the
  * connection row. Provider-neutral on purpose: Composio writes it inside
@@ -58,32 +75,27 @@ export async function mergeRequestingSession(
   requestingSessionId: string | null | undefined,
 ): Promise<void> {
   if (!requestingSessionId) return;
-  const [row] = await db
-    .select({ metadata: connectorConnections.metadata })
-    .from(connectorConnections)
-    .where(eq(connectorConnections.connectionId, connectionId))
-    .limit(1);
   await db
     .update(connectorConnections)
     .set({
-      metadata: {
-        ...((row?.metadata ?? {}) as Record<string, unknown>),
-        requesting_session_id: requestingSessionId,
-      },
+      metadata: sql`coalesce(${connectorConnections.metadata}, '{}'::jsonb)
+        || jsonb_build_object('requesting_session_id', ${requestingSessionId}::text)`,
       updatedAt: sql`now()`,
     })
     .where(eq(connectorConnections.connectionId, connectionId));
 }
 
 /**
- * Clear the session waiting on this connection and return it, in one
- * statement: only the caller that clears it notifies, so the finalize poll,
+ * Archive the session for its transcript card, then consume its notification
+ * in one statement: only the caller that clears it notifies, so the finalize poll,
  * the completion watch and the OAuth callback tell the agent once between them.
  */
 export async function takeRequestingSession(connectionId: string): Promise<string | null> {
   const rows = (await db.execute(sql`
     update kortix.connector_connections c
-       set metadata = c.metadata - 'requesting_session_id'
+       set metadata = (c.metadata - 'requesting_session_id') || jsonb_build_object(
+         'connect_session_ids', coalesce(c.metadata->'connect_session_ids', '[]'::jsonb)
+           || jsonb_build_array(old.waiting))
       from (select connection_id, metadata->>'requesting_session_id' as waiting
               from kortix.connector_connections
              where connection_id = ${connectionId}
@@ -281,7 +293,7 @@ export async function recordFinishedComposioAuthorization(input: {
     previous: metadata,
     connectedAs,
   });
-  if (!(await completeConnection(input.connectionId, null, { metadata: next }))) return null;
+  if (!(await completeConnection(input.connectionId, null, { metadata: composioMetadataWrite(next, true, true) }))) return null;
   if (connectedAs) await relabelToIdentity({ connectionId: input.connectionId, identity: connectedAs });
   return next;
 }

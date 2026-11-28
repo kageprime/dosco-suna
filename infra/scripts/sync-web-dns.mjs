@@ -2,28 +2,24 @@ import { pathToFileURL } from 'node:url';
 
 const ZONE_ID = process.env.CLOUDFLARE_ZONE_ID || 'af378d3df4e4dd5052a1fcbf263b685d';
 
+// Only dev runs the frontend on ECS. Staging and prod serve it from Vercel.
 const ECS_WEB_HOSTS = {
   dev: 'dev.kortix.com',
-  staging: 'staging-fe-ecs.kortix.com',
-  prod: 'prod-fe-ecs.kortix.com',
 };
 
 export function webDnsRecord(environment, target) {
   const host = ECS_WEB_HOSTS[environment];
-  if (!host) throw new Error('environment must be dev, staging, or prod');
+  if (!host) throw new Error('environment must be dev');
   if (!/^[a-z0-9.-]+\.elb\.amazonaws\.com$/.test(target)) {
     throw new Error('target must be an AWS ELB hostname');
   }
-  const canonical = environment === 'dev';
   return {
     type: 'CNAME',
     name: host,
     content: target,
     proxied: true,
     ttl: 1,
-    comment: canonical
-      ? 'Kortix dev frontend on ECS Fargate; canonical ECS endpoint'
-      : `Kortix ${environment} frontend on ECS Fargate; canonical remains on Vercel`,
+    comment: 'Kortix dev frontend on ECS Fargate; canonical ECS endpoint',
   };
 }
 

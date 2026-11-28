@@ -281,7 +281,7 @@ flow(
     domain: 'sessions',
     requires: ['sandbox'],
     routes: [
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/snapshot',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/open-bundle',
@@ -290,10 +290,10 @@ flow(
   },
   async (ctx) => {
     const project = await ctx.fixtures.project();
-    await ctx.step('Session transcript returns 404 for an unknown session', async () => {
+    await ctx.step('Session log returns 404 for an unknown session', async () => {
       const response = await ctx.client
         .as(ctx.P.OWNER)
-        .get('/v1/workspaces/:projectId/sessions/:sessionId/transcript', {
+        .get('/v1/workspaces/:projectId/sessions/:sessionId/log', {
           params: { projectId: project.id, sessionId: ZERO_UUID },
         });
       response.status(404);
@@ -331,7 +331,7 @@ flow(
 
     await ctx.step('Session snapshot answers every leg in ONE round trip', async () => {
       // The bundle is what a session view opens with: one call replacing the
-      // session row + /turn + /prompts + /transcript + /model-defaults. Two
+      // session row + /turn + /prompts + /log + /model-defaults. Two
       // claims are asserted here because both are contract, not detail:
       // (1) every sub-object is TRI-STATE (`known`), so a degraded leg reads
       // as unknown and never as an empty queue or an idle turn; and
@@ -577,6 +577,7 @@ flow(
       'POST /internal/gateway/billing',
       'POST /internal/gateway/budget-check',
       'POST /internal/gateway/claude-credentials',
+      'POST /internal/gateway/claude-forbidden',
       'POST /internal/gateway/claude-refused',
       'POST /internal/gateway/idempotency/get',
       'POST /internal/gateway/idempotency/put',
@@ -596,6 +597,7 @@ flow(
       '/internal/gateway/billing',
       '/internal/gateway/budget-check',
       '/internal/gateway/claude-credentials',
+      '/internal/gateway/claude-forbidden',
       '/internal/gateway/claude-refused',
       '/internal/gateway/idempotency/get',
       '/internal/gateway/idempotency/put',

@@ -83,6 +83,7 @@ export function ProjectIconField({
   onClear,
   disabled,
   triggerClassName,
+  ariaLabel,
   fallbackLabel,
   align = 'start',
 }: {
@@ -92,6 +93,8 @@ export function ProjectIconField({
    * beside a `size="sm"` input and keeps the `size-9` default that matches it.
    */
   triggerClassName?: string;
+  /** Accessible name when this picker edits an entity other than a workspace. */
+  ariaLabel?: string;
   /**
    * What the unset face shows instead of the generic smiley: the workspace's
    * own initial, through `EntityAvatar`, chalk colour and all — the same tile
@@ -210,11 +213,11 @@ export function ProjectIconField({
           // that it stays live after a pick, so you reopen it and switch.
           disabled={disabled}
           aria-label={
-            emoji
+            ariaLabel ?? (emoji
               ? tI18nComplete('text13447731697e', { value0: emoji })
               : glyphFace
                 ? tI18nComplete('text13447731697e', { value0: glyphFace.name })
-                : tI18nComplete.raw('text39a1c11af6d3')
+                : tI18nComplete.raw('text39a1c11af6d3'))
           }
           // size-9 matches the sibling name Input (`size="sm"` => h-9), which is
           // what the field has to line up with. That is 33.11px, under the 40px

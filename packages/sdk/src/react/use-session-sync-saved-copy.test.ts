@@ -1,9 +1,8 @@
 import { afterEach, expect, mock, test } from 'bun:test';
 import React from 'react';
 import { type ReactTestRenderer, act, create } from 'react-test-renderer';
-import { hasOnlyCacheSourcedMessages, useSyncStore } from '../browser/stores/sync-store';
+import { useSyncStore } from '../browser/stores/sync-store';
 import { configureKortix } from '../core/http/config';
-import type { SessionTranscriptSyncEnvelope } from '../core/rest/projects-client/sessions';
 import { resetSessionOpenBundles } from '../core/session/open-bundle';
 import { useSessionSync } from './use-session-sync';
 
@@ -22,32 +21,18 @@ afterEach(async () => {
 
 const SCOPE = 'p1/2f6c0a52-7d0e-4b8e-9f51-3c5b8d7e0a11';
 
-function envelope(
-  rootId: string,
-  overrides: Partial<SessionTranscriptSyncEnvelope> = {},
-): SessionTranscriptSyncEnvelope {
-  return {
-    available: true,
-    reason: null,
-    source: 'mirror',
-    complete: true,
-    captured_at: '2026-09-25T00:00:00Z',
-    runtime_session_id: rootId,
-    message_count: 1,
-    messages: [
-      {
-        info: {
-          id: `msg_${rootId}`,
-          sessionID: rootId,
-          role: 'assistant',
-          time: { created: 1, completed: 2 },
-        },
-        parts: [{ id: `prt_${rootId}`, type: 'text', text: 'Saved reply' }],
-      },
-    ],
-    ...overrides,
-  };
-}
+const SESSION = SCOPE.split('/')[1]!;
+const logMissing = () => Response.json({ error: 'No session log for this session', code: 'session_log_missing' }, { status: 404 });
+const golden = JSON.parse(
+  (await import('node:fs')).readFileSync(
+    (await import('node:path')).join(import.meta.dir, '../../../api-contract/src/__tests__/fixtures/session-log/golden21.v2.json'),
+    'utf8',
+  ),
+) as { threads: Array<{ thread_id: string; messages: unknown[] } & Record<string, unknown>> } & Record<string, unknown>;
+const logPage = () => {
+  const { threads, ...session } = structuredClone(golden);
+  return { session, generation: 1, threads: threads.map(({ messages: _m, ...head }) => head), thread_id: threads[0]!.thread_id, messages: threads[0]!.messages, has_more: false };
+};
 
 type Options = NonNullable<Parameters<typeof useSessionSync>[1]>;
 
@@ -85,60 +70,39 @@ async function mount(sessionId: string, options: Options) {
 
 const offline: Options = { kortixSessionScope: SCOPE, networkEnabled: false };
 
-test('a saved copy of this root paints, and the hook says it painted', async () => {
-  const hook = await mount('ses_copy_paint', { ...offline, mirror: envelope('ses_copy_paint') });
-  expect(hook.value().mirrorState).toBe('painted');
-  expect(hook.value().messages).toHaveLength(1);
-});
-
-test('a saved copy captured from another root is refused, and the hook says it is absent', async () => {
-  const hook = await mount('ses_copy_refuse', { ...offline, mirror: envelope('ses_other_root') });
-  expect(hook.value().mirrorState).toBe('absent');
-  expect(hook.value().messages).toHaveLength(0);
-});
-
-test('a server with no saved copy answers absent', async () => {
-  const hook = await mount('ses_copy_none', {
-    ...offline,
-    mirror: envelope('ses_copy_none', {
-      available: false,
-      source: 'none',
-      message_count: 0,
-      messages: [],
-    }),
-  });
-  expect(hook.value().mirrorState).toBe('absent');
-});
-
 test('without a root nothing can be read yet', async () => {
-  const hook = await mount('', { ...offline, mirror: envelope('ses_any') });
+  const hook = await mount('', offline);
   expect(hook.value().mirrorState).toBe('idle');
 });
 
-test('an empty answer is not sticky: the envelope that follows it still paints', async () => {
-  const hook = await mount('ses_copy_late', { ...offline, mirror: null });
+test('`mirror: null` reads nothing here, and the hook says absent', async () => {
+  const requests: string[] = [];
+  globalThis.fetch = mock(async (url: unknown) => {
+    requests.push(String(url));
+    return logMissing();
+  }) as unknown as typeof fetch;
+  const hook = await mount('ses_copy_null', { ...offline, mirror: null });
   expect(hook.value().mirrorState).toBe('absent');
-  await hook.update('ses_copy_late', { ...offline, mirror: envelope('ses_copy_late') });
-  expect(hook.value().mirrorState).toBe('painted');
-  expect(hook.value().messages).toHaveLength(1);
+  expect(requests).toEqual([]);
 });
 
-test('an empty runtime read that landed first does not block the saved copy: it paints, still provisional', async () => {
+test('an empty runtime read that landed first does not block the log read: its page goes in the store', async () => {
   touched.push('ses_copy_empty');
   // An empty runtime read is lost box state, not an empty conversation.
   useSyncStore.getState().hydrate('ses_copy_empty', []);
-  const hook = await mount('ses_copy_empty', { ...offline, mirror: envelope('ses_copy_empty') });
-  expect(hook.value().mirrorState).toBe('painted');
-  expect(hook.value().messages.map((m) => m.info.id)).toEqual(['msg_ses_copy_empty']);
-  expect(hasOnlyCacheSourcedMessages('ses_copy_empty')).toBe(true);
-});
-
-test('a saved copy that arrives after an empty runtime read still paints', async () => {
-  const hook = await mount('ses_copy_late_empty', { ...offline, mirror: null });
-  useSyncStore.getState().hydrate('ses_copy_late_empty', []);
-  await hook.update('ses_copy_late_empty', { ...offline, mirror: envelope('ses_copy_late_empty') });
-  expect(hook.value().mirrorState).toBe('painted');
-  expect(hook.value().messages.map((m) => m.info.id)).toEqual(['msg_ses_copy_late_empty']);
+  const requests: string[] = [];
+  globalThis.fetch = mock(async (url: unknown) => {
+    requests.push(String(url));
+    return Response.json(logPage());
+  }) as unknown as typeof fetch;
+  try {
+    const hook = await mount('ses_copy_empty', offline);
+    expect(requests).toEqual([`http://test.local/v1/workspaces/p1/sessions/${SESSION}/log?limit=40`]);
+    expect(useSyncStore.getState().sessionLogs[SESSION]?.messages[golden.threads[0]!.thread_id]).toHaveLength(golden.threads[0]!.messages.length);
+    expect(hook.value().mirrorState).toBe('loading');
+  } finally {
+    useSyncStore.getState().dropSessionLog(SESSION);
+  }
 });
 
 test('between an empty runtime read and the log answer the hook says loading, not absent', async () => {
@@ -168,11 +132,7 @@ test('between an empty runtime read and the log answer the hook says loading, no
 });
 
 test('a genuinely empty new session (empty runtime read, no saved copy) ends absent', async () => {
-  globalThis.fetch = mock(async () =>
-    Response.json(
-      envelope('ses_copy_new', { available: false, source: 'none', message_count: 0, messages: [] }),
-    ),
-  ) as unknown as typeof fetch;
+  globalThis.fetch = mock(async () => logMissing()) as unknown as typeof fetch;
   touched.push('ses_copy_new');
   useSyncStore.getState().hydrate('ses_copy_new', []);
   const hook = await mount('ses_copy_new', offline);
@@ -180,7 +140,7 @@ test('a genuinely empty new session (empty runtime read, no saved copy) ends abs
   expect(hook.value().messages).toHaveLength(0);
 });
 
-test('a runtime read with messages keeps a later saved copy out', async () => {
+test('a runtime read with messages makes no saved-history read', async () => {
   touched.push('ses_copy_live');
   useSyncStore.getState().hydrate('ses_copy_live', [
     {
@@ -188,9 +148,15 @@ test('a runtime read with messages keeps a later saved copy out', async () => {
       parts: [],
     },
   ]);
-  const hook = await mount('ses_copy_live', { ...offline, mirror: envelope('ses_copy_live') });
+  const requests: string[] = [];
+  globalThis.fetch = mock(async (url: unknown) => {
+    requests.push(String(url));
+    return Response.json(logPage());
+  }) as unknown as typeof fetch;
+  const hook = await mount('ses_copy_live', offline);
   expect(hook.value().messages.map((m) => m.info.id)).toEqual(['msg_live']);
-  expect(hasOnlyCacheSourcedMessages('ses_copy_live')).toBe(false);
+  expect(hook.value().mirrorState).toBe('painted');
+  expect(requests).toEqual([]);
 });
 
 test("a new source waits for its own answer, not the last source's", async () => {

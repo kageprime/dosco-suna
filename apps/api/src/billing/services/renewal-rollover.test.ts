@@ -97,7 +97,7 @@ beforeEach(() => {
 });
 
 describe('monthly renewal on the credits plan', () => {
-  test('grants the subscription amount plus last month’s unused credits', async () => {
+  test('grants the subscription amount with its volume bonus plus last month’s unused credits', async () => {
     subscription = sub(CREDITS_PRICE, 10_000);
     account = { accountId: 'acct-1', tier: 'credits', planMonthlyUsd: '100', planType: 'monthly' };
     expiringNow = 37.5;
@@ -105,8 +105,9 @@ describe('monthly renewal on the credits plan', () => {
     await processStripeWebhook('{}', 'sig');
 
     expect(resets).toHaveLength(1);
-    expect(resets[0].amount).toBe(137.5);
-    expect(resets[0].description).toBe('Monthly renewal: 10000 credits + 3750 rolled over');
+    // $100 billed (+5%) = 10,500 credits.
+    expect(resets[0].amount).toBe(142.5);
+    expect(resets[0].description).toBe('Monthly renewal: 10500 credits + 3750 rolled over');
     expect(resets[0].key).toEqual({ event: 'in_cycle' });
     expect(syncs.at(-1)).toMatchObject({ planMonthlyUsd: '100', lastProcessedInvoiceId: 'in_cycle' });
   });
@@ -114,11 +115,12 @@ describe('monthly renewal on the credits plan', () => {
   test('the carry is capped at last month’s allowance, so it never compounds', async () => {
     subscription = sub(CREDITS_PRICE, 10_000);
     account = { accountId: 'acct-1', tier: 'credits', planMonthlyUsd: '100', planType: 'monthly' };
-    expiringNow = 180; // last month's 100 + a carried 80, none of it spent
+    expiringNow = 180; // last month's 105 + a carried 75, none of it spent
 
     await processStripeWebhook('{}', 'sig');
 
-    expect(resets[0].amount).toBe(200);
+    // 105 granted + a carry capped at last month's 105.
+    expect(resets[0].amount).toBe(210);
   });
 
   test('a cut takes effect at renewal: the new quantity is granted, the carry uses the old amount', async () => {
@@ -138,7 +140,8 @@ describe('monthly renewal on the credits plan', () => {
 
     await processStripeWebhook('{}', 'sig');
 
-    expect(resets[0].amount).toBe(240);
+    // $240 billed earns the $200 step (+10%); the plan stays the billed $240.
+    expect(resets[0].amount).toBe(264);
     expect(syncs.at(-1)).toMatchObject({ planMonthlyUsd: '240' });
   });
 

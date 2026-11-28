@@ -120,8 +120,22 @@ mobile release. Per platform it does each step only when it is missing:
    user). iOS goes to App Store Connect.
 3. **iOS review:** it creates the App Store version (or renames an unsubmitted
    draft), attaches the build, fills an empty "What's New", and submits it for
-   App Review with "release automatically after approval". An approved version
-   held for a manual release is released.
+   App Review. New versions use "release automatically after approval"; existing
+   versions and renamed drafts retain their manual or scheduled release settings.
+   The submission notice reports the release policy. An approved version
+   held for a manual release stays held until a person releases it in App Store Connect.
+   The run fails and identifies this incomplete platform; it never overrides that gate.
+   Apple takes one version at a time. While it still has an older version (in
+   review, or approved and not live yet), it refuses a new one with `409 You
+   cannot create a new version of the App in the current state`. The run then
+   reports that the new version waits and changes nothing. An older version
+   held for a manual release fails the run: release it first.
+
+The scheduled run (05:17 and 17:17 UTC) runs the script on `prod` with
+`--finish-only`. It never builds on EAS, so only deployed code ships. It
+finishes what an earlier run left open: a version that waited for the one
+before it, or a submission that failed. It starts only when no other Mobile
+Store run is queued or running.
 
 Only released code ships. The run builds, submits or sends to review only an
 EAS build made from a clean tree at a commit of the deployed history. It
@@ -135,7 +149,9 @@ code changed after the version's store build: bump the version, or phones get
 neither a store build nor OTA updates with that change. It never resubmits a
 version Apple rejected (`REJECTED`, `METADATA_REJECTED`, `INVALID_BINARY`) or
 one a person pulled from review (`DEVELOPER_REJECTED`): fix it in App Store
-Connect. When Apple refuses the review submission, the run names Apple's reason.
+Connect. Rejected, unknown, or superseded iOS versions fail the run even if
+Android succeeds. Pending Apple review is reported by its exact state, not as
+a completed rollout. When Apple refuses the review submission, the run names Apple's reason.
 Example: Apple added the age-rating question `socialMedia` in 2026 and refused
 1.5.5 until it had an answer (App Store Connect → App Information → Age
 Rating). Questionnaire answers are declarations, so the run never fills them.

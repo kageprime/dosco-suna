@@ -1,6 +1,11 @@
 import { extractGatewayErrorDetails } from '../../internal/session-types';
 import type { SessionLogTurn } from '@kortix/sdk';
 
+/** A successful model change retires only errors that had already finished. */
+export function failurePredatesModelChange(endedAt: string | null | undefined, changedAt: number | undefined): boolean {
+  return changedAt !== undefined && !!endedAt && Date.parse(endedAt) <= changedAt;
+}
+
 type PersistedFailure = {
   message_id?: string | null;
   error?: { message?: string | null } | null;

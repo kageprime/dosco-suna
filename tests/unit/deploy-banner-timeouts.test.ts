@@ -33,7 +33,7 @@ describe('deploy-prod rollout banner', () => {
 
   it('raises the banner only after the same gates as deploy-ecs', () => {
     const on = all['maintenance-banner-on'];
-    for (const gate of ['retag-images', 'verify-image-commits', 'migrate-db', 'terraform-prod-api', 'terraform-prod']) {
+    for (const gate of ['retag-images', 'verify-image-commits', 'migrate-db', 'terraform-prod-api']) {
       expect(on).toMatch(new RegExp(`needs: \\[[^\\]]*\\b${gate}\\b[^\\]]*\\]`));
     }
     expect(on).toContain("needs.migrate-db.result == 'success'");
@@ -68,13 +68,6 @@ describe('deploy workflows bound every job', () => {
 describe('web Terraform root does not gate the API roll', () => {
   const needsOf = (text: string) => /^ {4}needs: \[([^\]]*)\]/m.exec(text)?.[1] ?? '';
 
-  it('prod: deploy-ecs skips terraform-prod, deploy-web-ecs waits for it', () => {
-    const all = jobs(read('deploy-prod.yml'));
-    expect(needsOf(all['deploy-ecs'])).not.toContain('terraform-prod,');
-    expect(needsOf(all['deploy-ecs']).split(', ')).not.toContain('terraform-prod');
-    expect(needsOf(all['deploy-web-ecs']).split(', ')).toContain('terraform-prod');
-  });
-
   it('dev: deploy-api-ecs skips terraform-dev, deploy-web-ecs waits for it', () => {
     const all = jobs(read('deploy-dev.yml'));
     expect(needsOf(all['deploy-api-ecs']).split(', ')).not.toContain('terraform-dev');
@@ -84,20 +77,22 @@ describe('web Terraform root does not gate the API roll', () => {
 
 /**
  * 2026-10-12: staging rolled web only after the API and gateway (7.4 + 3.5 min
- * serial). Staging now rolls them in parallel; prod keeps web after API.
+ * serial). Staging now rolls them in parallel; prod deploys web only after
+ * verify-live-version proves the API serves the release.
  */
 describe('web rollout order', () => {
   const needs = (job: string) => /^ {4}needs: \[(.*)\]$/m.exec(job)?.[1].split(', ') ?? [];
 
   it('staging rolls web in parallel with the API, and verify still waits for the API', () => {
     const staging = jobs(read('deploy-staging.yml'));
-    expect(needs(staging['deploy-web-ecs'])).not.toContain('deploy-ecs');
     expect(needs(staging['deploy-web-vercel'])).not.toContain('deploy-ecs');
     expect(needs(staging.verify)).toContain('deploy-ecs');
     expect(needs(staging['promote-staging-channel'])).toContain('verify');
   });
 
   it('prod keeps web after the API roll', () => {
-    expect(needs(jobs(read('deploy-prod.yml'))['deploy-web-ecs'])).toContain('deploy-ecs');
+    const prod = jobs(read('deploy-prod.yml'));
+    expect(needs(prod['deploy-web-vercel'])).toContain('verify-live-version');
+    expect(needs(prod['verify-live-version'])).toContain('deploy-ecs');
   });
 });

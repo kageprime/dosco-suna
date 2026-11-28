@@ -90,6 +90,31 @@ sensitive or restricted scope starts a new verification.
   The lab issues a Letter of Assessment to Google. Repeat at least every 12
   months after its date: Google emails the developer contacts.
 
+## Reviewer access
+
+Prod has no Google client until Google approves, so a Google reviewer tests on
+staging. Staging needs three things a stranger does not have: a way past
+Vercel's SSO, a Kortix login, and a plan with models.
+
+| What | Value |
+| --- | --- |
+| Vercel SSO | A dedicated "Protection Bypass for Automation" secret on the Vercel project `suna`, note `google-oauth-review`. It is not the CI secret. The link is `https://staging.kortix.com/auth?x-vercel-protection-bypass=<secret>&x-vercel-set-bypass-cookie=true`; the cookie it sets covers the rest of the visit. |
+| Kortix login | `google-oauth-review@kortix.com`, password sign-in ("Use a password" on `/auth`). Synthetic address: it receives no mail. |
+| Workspace | "Google Review", project "Google connectors review", tier `credits` with a $25 balance (set in `kortix.credit_accounts` on staging; a free workspace has no models). |
+| Secrets | `dotenvx get GOOGLE_REVIEW_PASSWORD -f apps/api/.env.staging` and `GOOGLE_REVIEW_VERCEL_BYPASS`. Paste them into the reply to Google by hand; never into a tracked file. |
+
+Steps we give the reviewer: open the link → "Use a password" → sign in →
+open the project → Customize (sidebar) → Connectors → search "Gmail" →
+Install → "Only you" → Connect → Google sign-in and consent → New session → ask the agent,
+for example "Find the newest email in my inbox and summarize it". The same
+for Google Calendar, Drive, Docs and Sheets. Google's own consent screen shows
+"Google hasn't verified this app" to an account outside kortix.ai: Advanced →
+Go to Kortix.
+
+After approval: revoke the bypass secret (Vercel → `suna` → Settings →
+Deployment Protection → Protection Bypass for Automation), delete the staging
+user, and remove both `GOOGLE_REVIEW_*` lines.
+
 ## Timeline Google states
 
 | Step | Google's figure |
@@ -121,6 +146,21 @@ sensitive or restricted scope starts a new verification.
 Newest first. Add a line for every submission, Google email, CASA step and
 recertification.
 
+- 2026-11-25: replied to Google's 2026-11-21 email in the same thread,
+  answering all 7 checklist points, with the reviewer access (bypass link and
+  password pasted by hand; see "Reviewer access"). The 2026-11-23 privacy
+  text is live on kortix.com since v0.16.5. Checked before the reply: the
+  reviewer signs in on staging, has the `credits` tier ($24.84), and Gmail →
+  Connect opens Google's sign-in with the `kortix-connectors` client and the
+  7 Gmail scopes. Next: Google's review result or its CASA instructions.
+- 2026-11-21: Google's "[Action Needed] Your Google APIs Verification
+  Request" email: an automated checklist (least privilege, video, reviewer
+  access, privacy disclosures, Limited Use, AI training, CASA). The review
+  waits until we reply to the email or update the request. 2026-11-23: the
+  privacy section now states that Kortix-managed models keep no data and do
+  not train on it, that we make no aggregated or anonymized data sets, and
+  that data travels over TLS. A reviewer gets a staging test account (see
+  "Reviewer access").
 - 2026-11-20: submitted. Verification Center: "Your app's data access is
   under review." Demo video: unlisted on the Kortix YouTube channel, "Kortix:
   Google OAuth verification demo (project kortix-connectors)", 16:52, recorded

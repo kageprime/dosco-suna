@@ -12,7 +12,7 @@ import { getCommit, getCommitDiff, listCommits } from './commits';
 import { getBranchDiff, mergeBranches, previewMerge } from './merge';
 import { refreshMirror, runGitCapture } from './mirror';
 import { createPartialStoreFixture, type PartialStoreFixture } from './__tests__/partial-store-fixture';
-import { manifestChange } from '../change-request-governance';
+import { classifyMerge } from '../change-request-governance';
 
 const exec = promisify(execFile);
 
@@ -86,15 +86,36 @@ describe('change requests on a partial store', () => {
     expect(await fx.storeHas(setup.bigBlob)).toBe(false);
   });
 
-  test('merge governance reads the manifest at the merge base and the head, nothing else', async () => {
+  test('merge classification reads the manifest, the files the change adds and what the merge combines, nothing else', async () => {
     const setup = await repoWithFeature();
     fx = setup.fx;
     await fx.push({ 'kortix.yaml': 'name: lab\ndefault_agent: helper\n' }, 'pick agent', 'feature');
     await fx.push({ 'notes.md': 'main moved\n' }, 'main edit', 'main');
-    const change = await manifestChange(fx.project, { baseRef: 'main', headRef: 'feature' });
+    const change = await classifyMerge(fx.project, { baseRef: 'main', headRef: 'feature' });
     expect(change.required.length).toBeGreaterThan(0);
+    expect(change.secrets).toEqual({ findings: [], total: 0 });
     expect(await fx.storeHas(await fx.upstreamBlob('kortix.yaml', 'feature'))).toBe(true);
-    expect(await fx.storeHas(await fx.upstreamBlob('notes.md', 'main'))).toBe(false);
+    // Both sides changed notes.md: the would-be merge (and the merge itself) reads it.
+    expect(await fx.storeHas(await fx.upstreamBlob('notes.md', 'main'))).toBe(true);
+    expect(await fx.storeHas(setup.bigBlob)).toBe(false);
+  });
+
+  test('the secret scan reads a merge commit on the branch by its resolution, without the large file', async () => {
+    const setup = await repoWithFeature();
+    fx = setup.fx;
+    await fx.push({ 'notes.md': NOTES.replace('line 2\n', 'line 2 from main\n') }, 'main edit', 'main');
+    const seed = `${fx.root}/seed`;
+    const token = ['ghp', Array.from({ length: 36 }, (_, i) => 'aB3dE5gH7jK9mN2pQ4sT6vW8yZ'[(i * 7) % 26]).join('')].join('_');
+    const run = (...args: string[]) => exec('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.test', ...args], { cwd: seed });
+    await run('checkout', '-q', 'feature');
+    await run('merge', '-q', 'main').catch(() => undefined); // conflicts on notes.md
+    await Bun.write(`${seed}/notes.md`, `${NOTES}TOKEN=${token}\n`);
+    await run('add', 'notes.md');
+    await run('commit', '-q', '--no-edit');
+    await run('push', '-q', 'origin', 'HEAD:refs/heads/feature');
+    const change = await classifyMerge(fx.project, { baseRef: 'main', headRef: 'feature' });
+    expect(change.secrets.unscanned).toBeUndefined();
+    expect(change.secrets.findings.map((f) => `${f.file}:${f.rule}`)).toEqual(['notes.md:github_token']);
     expect(await fx.storeHas(setup.bigBlob)).toBe(false);
   });
 

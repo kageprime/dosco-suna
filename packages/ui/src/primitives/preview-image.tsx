@@ -6,6 +6,7 @@ import * as React from 'react';
 import { Close } from '../icons/close';
 import { VisuallyHidden } from '../lib/base-ui-compat';
 import { cn } from '../lib/utils';
+import { dialogOverlayZ, useDialogDepth } from '../lib/z-stack';
 import { Button } from './button';
 import { DialogClose, DialogPopup, DialogPortal, DialogTrigger, type DialogContentBaseProps } from './dialog';
 
@@ -42,14 +43,20 @@ const PreviewImagePortal = DialogPortal;
 const PreviewImageClose = DialogClose;
 
 const PreviewImageOverlay = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<'div'>>(
-  ({ className, ...props }, ref) => (
-    <DialogPrimitive.Backdrop
-      ref={ref}
-      forceRender
-      className={cn('fixed inset-0 z-50 bg-black/40', className)}
-      {...props}
-    />
-  ),
+  ({ className, style, ...props }, ref) => {
+    // On the dialog stack, like `DialogOverlay`: a fixed z-50 dimmed only what
+    // sat under a dialog this preview opened from, not the dialog itself.
+    const depth = useDialogDepth();
+    return (
+      <DialogPrimitive.Backdrop
+        ref={ref}
+        forceRender
+        className={cn('fixed inset-0 bg-black/40', className)}
+        style={{ zIndex: dialogOverlayZ(depth), ...style }}
+        {...props}
+      />
+    );
+  },
 );
 PreviewImageOverlay.displayName = 'PreviewImageOverlay';
 
@@ -114,7 +121,7 @@ const PreviewImageContent = React.forwardRef<HTMLDivElement, PreviewImageContent
       <DialogPopup
         ref={ref}
         className={cn(
-          'fixed top-[50%] left-[50%] z-[99999] grid h-full w-full -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-4 shadow-lg duration-moderate sm:rounded-lg',
+          'fixed top-[50%] left-[50%] grid h-full w-full -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-4 shadow-md duration-moderate sm:rounded-lg',
           className,
         )}
         {...props}

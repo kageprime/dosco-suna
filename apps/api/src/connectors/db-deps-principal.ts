@@ -24,10 +24,12 @@ import { channelPlatform } from './db-deps-rows';
 import { accountKeyOfWorkspace } from '../workspaces/rows';
 
 // The request authorizers (`resolvePrincipal`, `resolveProjectPrincipal`,
-// `resolveAdmin`, `resolveConnectionsManager`, `resolveSecretBindingAdmin`,
-// `resolveReader`, `resolveSecretReader`) read the Hono request, so they live in
+// `resolveAdmin`, `resolveConnectionsManager`, `resolveAccountHolder`,
+// `sessionVisibleTo`, `resolveSecretBindingAdmin`, `resolveReader`,
+// `resolveSecretReader`) read the Hono request, so they live in
 // `http-principal.ts`. Re-exported here so every importer keeps working.
 export {
+  resolveAccountHolder,
   resolveAdmin,
   resolveConnectionsManager,
   resolvePrincipal,
@@ -35,6 +37,7 @@ export {
   resolveReader,
   resolveSecretBindingAdmin,
   resolveSecretReader,
+  sessionVisibleTo,
 } from './http-principal';
 
 export function resolveTokenBoundSessionId(

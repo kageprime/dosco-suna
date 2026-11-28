@@ -12,6 +12,7 @@ import {
   serviceAccounts,
 } from '@kortix/db';
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { isChannelPlatform } from '@kortix/shared/channel-descriptors';
 import { mapWithConcurrency } from '../../shared/map-with-concurrency';
 import {
   canonicalConnectorAlias,
@@ -257,6 +258,29 @@ export async function loadEmailInstallConnectionId(
         row.status === 'active' && (row.metadata as Record<string, unknown>)?.inbox_id === inboxId,
     )?.connectionId ?? null
   );
+}
+
+/**
+ * Whether `alias` is the channel connector of the platform that creates the
+ * session (`metadata.source`, which only the server sets). A channel session
+ * exists to answer on its channel, so the agent's `connectors:` grant does not
+ * gate that connector: the call gate already allows it (connectors/principal-access.ts).
+ */
+export async function isSessionChannelConnector(projectId: string, alias: string, source: unknown): Promise<boolean> {
+  if (typeof source !== 'string' || !isChannelPlatform(source)) return false;
+  const [row] = await db
+    .select({ config: connectors.config })
+    .from(connectors)
+    .where(
+      and(
+        eq(connectors.projectId, projectId),
+        eq(connectors.slug, canonicalConnectorAlias(alias)),
+        eq(connectors.providerType, 'channel'),
+        eq(connectors.enabled, true),
+      ),
+    )
+    .limit(1);
+  return (row?.config as { platform?: unknown } | null)?.platform === source;
 }
 
 /**

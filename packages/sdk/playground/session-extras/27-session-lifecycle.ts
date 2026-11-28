@@ -48,8 +48,8 @@ run("session-lifecycle", async () => {
     `✓ health() after ready: ${JSON.stringify(healthy).slice(0, 120)}`,
   );
 
-  const transcript = await session.transcript();
-  console.log(`✓ transcript(): ${JSON.stringify(transcript).slice(0, 200)}…`);
+  const log = await session.log({ limit: 5 });
+  console.log(`✓ log({ limit: 5 }): ${JSON.stringify(log).slice(0, 200)}…`);
 
   const audit = await session.audit(10);
   console.log(`✓ audit(10): ${JSON.stringify(audit).slice(0, 200)}`);

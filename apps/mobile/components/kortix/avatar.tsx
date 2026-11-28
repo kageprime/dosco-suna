@@ -39,7 +39,7 @@ interface AvatarProps extends ViewProps {
  * first glyph tile, so a session with no glyph workspace never evaluates it.
  */
 let glyphPaths: Readonly<Record<string, string>> | null = null;
-function glyphPath(name: string): string | undefined {
+export function glyphPath(name: string): string | undefined {
   glyphPaths ??= (require('@/lib/workspace/glyph-paths.generated') as { GLYPH_PATHS: Readonly<Record<string, string>> })
     .GLYPH_PATHS;
   return Object.prototype.hasOwnProperty.call(glyphPaths, name) ? glyphPaths[name] : undefined;

@@ -97,6 +97,8 @@ describe.skipIf(!databaseUrl)('connector compatibility removal — migrated Post
         'git_proxy',
         'http_broker',
         'network',
+        // 20261124162203743: a website login the sandbox browser types in.
+        'browser',
       ]);
 
       const legacyRows = await client.query(

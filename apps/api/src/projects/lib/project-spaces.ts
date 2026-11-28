@@ -540,6 +540,10 @@ export async function updateChannel(
       return next;
     });
     const space = updated ?? row;
+    // The timeline's "Kortix was added by Jay" lines. Best effort; never fails the PATCH.
+    if (patch.agents) {
+      await (await import('./project-space-activity')).recordAgentChanges(spaceId, row.agents ?? [], patch.agents, userId);
+    }
     // A watched channel's feed (`spaces_proactive`): the agents added. Off the request's path.
     if (patch.agents) {
       void import('./space-watch/act')

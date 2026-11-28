@@ -180,7 +180,7 @@ function LayerInspector() {
     <div
       aria-hidden
       data-testid="modal-stack-inspector"
-      className="bg-popover pointer-events-none fixed right-4 bottom-4 w-72 space-y-2 rounded-md border px-4 py-3 shadow-xl"
+      className="bg-popover pointer-events-none fixed right-4 bottom-4 w-72 space-y-2 rounded-md border px-4 py-3 shadow-md"
       style={{ zIndex: INSPECTOR_Z }}
     >
       <div className="flex items-center justify-between gap-3">

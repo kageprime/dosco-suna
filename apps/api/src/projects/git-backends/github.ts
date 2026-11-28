@@ -141,6 +141,7 @@ export const githubBackend: GitHostBackend = {
       owner: auth.owner,
       isPrivate: input.isPrivate,
       autoInit: false,
+      retryTransientCreation: true,
       auth,
     });
     return {

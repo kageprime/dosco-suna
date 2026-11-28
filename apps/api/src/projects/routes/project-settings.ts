@@ -44,6 +44,7 @@ import { isPlatformAdmin } from '../../shared/platform-roles';
 import { deleteManagedProjectRepo, purgeProjectConnectors } from '../lib/project-deletion';
 import { accountRolesForUser } from '../../iam/read-models';
 import { newWorkspaceCallerDenial } from '../new-workspace';
+import { newWorkspaceCallerOf } from '../lib/new-workspace-caller';
 import {
   asWorkspaceId,
   closeWorkspace,
@@ -146,9 +147,10 @@ const patchFeatureFlagHandler = async (c: any) => {
   if (!isPlainObject(body)) {
     return c.json({ error: 'Request body must be a JSON object' }, 400);
   }
-  // `project_channels` merged into `chat` (2026-11): released TUI, mobile and
-  // CLI builds still toggle Channels by the old key, so it writes `chat`.
-  const feature = body.feature === 'project_channels' ? 'chat' : body.feature;
+  // `project_channels` merged into `chat`, and `chat` is withdrawn into `channels`
+  // (2026-11): released TUI, mobile and CLI builds still toggle Channels by the
+  // old keys, so both write `channels`.
+  const feature = body.feature === 'project_channels' || body.feature === 'chat' ? 'channels' : body.feature;
   const enabled = body.enabled;
   // Floor 'read' (membership); project.settings.write is the gate below.
   const loaded = await loadProjectForUser(c, projectId, 'read');
@@ -166,7 +168,7 @@ const patchFeatureFlagHandler = async (c: any) => {
   // Archived projects are read-only: reject BEFORE the write. The old order
   // (update, then 404 on archived) committed the metadata mutation anyway.
   if (loaded.row.status === 'archived') return c.json({ error: 'Not found' }, 404);
-  // An internal-only flag (`workspace_volume`) changes what
+  // An internal-only flag (`catalogHidden`; none today) changes what
   // the platform records, so Kortix decides it: only a platform operator
   // writes it, never a project admin and never an agent session. An operator
   // acting in a customer project through impersonation passes (`userId`
@@ -419,12 +421,7 @@ export function registerProjectSettingsRoutes(): void {
       const record = await getWorkspace(workspaceId);
       const role = record ? (await accountRolesForUser(userId)).get(record.accountId) : undefined;
       if (!record || !role) return c.json({ error: 'Workspace not found', code: 'workspace_not_found' }, 404);
-      const denial = newWorkspaceCallerDenial({
-        userId,
-        email: (c.get('userEmail') as string | undefined) || null,
-        authType: c.get('authType') as string | undefined,
-        scopedCredential: Boolean(c.get('tokenProjectId')) || isProjectSessionPrincipal(c),
-      });
+      const denial = newWorkspaceCallerDenial(newWorkspaceCallerOf(c));
       if (denial) return c.json(denial.body as never, denial.status as 403);
       if (role !== 'owner' && role !== 'admin') return c.json({ error: 'Owner or admin role required' }, 403);
       let target: Awaited<ReturnType<typeof prepareWorkspaceSetup>>;

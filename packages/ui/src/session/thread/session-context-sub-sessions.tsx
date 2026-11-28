@@ -165,7 +165,7 @@ function SubSessionTreeNode({
   const hasChildren = children.length > 0;
 
   return (
-    <div className={cn('flex flex-col', depth > 0 && 'border-border/30 ml-4 border-l pl-3')}>
+    <div className={cn('flex flex-col', depth > 0 && 'border-border ml-4 border-l pl-3')}>
       <button
         ref={rowRef}
         onClick={() => hasChildren && setExpanded(!expanded)}

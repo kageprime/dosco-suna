@@ -28,7 +28,7 @@ function withPanel(node: ReactNode, over: Partial<SessionPanelValue> = {}) {
     files: [],
     context: { files: [], web: [], tools: [] },
     apps: [],
-    outputsDefaultOpen: false,
+    isSessionBusy: false,
     detail: null,
     terminalOpen: false,
     terminalSwap: false,

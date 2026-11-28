@@ -92,6 +92,13 @@ test('no log page, and a runtime that answers empty: the export fails, and no /t
   expect(calls.some((url) => url.includes('/transcript'))).toBe(false);
 });
 
+test('no saved scope, running: the runtime history only, and no log read (the mobile project stats)', async () => {
+  setCurrentRuntime(`${base}/runtime`, 'sbx-1');
+  runtimeRows = [row('live-1', 1), row('live-2', 2)];
+  expect(ids(await loadSessionExportMessages('ses_root'))).toEqual(['live-1', 'live-2']);
+  expect(calls.some((url) => url.includes('/log?') || url.includes('/transcript'))).toBe(false);
+});
+
 test('no saved scope: a runtime that is not ready still throws', async () => {
   await expect(loadSessionExportMessages('ses_root')).rejects.toBeInstanceOf(RuntimeNotReadyError);
 });

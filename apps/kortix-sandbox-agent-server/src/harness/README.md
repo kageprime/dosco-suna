@@ -777,7 +777,12 @@ Under `/kortix/runtime`, in session-log terms (bodies and answers:
 ### The box's log reads (`runtime.log.v1`)
 
 `RUNTIME_LOG_CAPABILITY` says the box's own log reads can stand in for the
-API's copy of the session log:
+API's copy of the session log. Clients read it through the API: `GET
+/v1/workspaces/:p/sessions/:s/log?live=1` (apps/api `projects/session-log-live.ts`)
+relays the box's newest page with `source: 'box'`, and answers the stored log
+(`source: 'store'`) when the box is not running, does not answer within 2 s, or
+answers an older generation. The web, desktop and mobile apps never read it
+themselves.
 
 - `GET /log` answers a whole `SessionLogPage`: the session record without
   threads, the generation, the thread heads and one page of a thread. The seqs
@@ -833,12 +838,13 @@ needs through `HarnessBootContext` (`serve` starts the HTTP server).
 
 `POST /kortix/runtime/sessions/:id/prompt` (`routes/kortix/runtime.ts`
 `parseRuntimePromptBody`) takes `{ message_id?, parts, agent?, model:
-"provider/model"?, variant?, directory?, no_reply?, system? }`
+"provider/model"?, variant?, directory?, no_reply?, system?, author? }`
 and answers `400 { error }` for a malformed one.
 
 | Field | What the turn does with it |
 | --- | --- |
 | `system` | A string of 16,000 characters at most (`MAX_TURN_SYSTEM_CHARS`), trimmed; blank is none. Added to this turn's system prompt only: pi sets it through the hidden `kortix-turn` extension (`before_agent_start`). apps/api sends the thread's memory file list here (`chat`): titles and paths of the Drive Memory folders the thread mounts; the agent reads and writes those files with its file tools. For a My Kortix session it sends the session owner's `kortix_memory` index instead, with Files on and `chat` on or off. A prompt without it runs without it; a daemon that predates the field ignores it. `/steer` drops it ("Steering"). |
+| `author` | `{ name }`: the person who wrote the prompt (KRTX-5121). apps/api sets it for a person's prompt and steer, and its proxy drops a client's value. Only the Kortix verbs read it (`harness/pi/turns.ts`); the OpenCode-shaped `prompt_async` route ignores it. The model reads `[From: "<name>"]` above the message (`harness/pi/prompt-author.ts`), and the root's system prompt says what the line means. The wire part keeps the person's words; the session log keeps the line as `model_text`, so a restore replays it. No line for a `synthetic` prompt or a `/` prompt (pi matches a command, a skill or a template at the start of the text). A malformed value is dropped, never a 400. A prompt without it (a trigger, a channel relay, another session) goes as it is; a daemon that predates the field ignores it. `/steer` keeps it. |
 
 ## Steering
 
@@ -976,6 +982,27 @@ supervisor restarts it.
 **A failed start at boot.** Boot tries the start 3 times (2 s, then 10 s
 apart, `startRuntimeAtBoot`). After the last failure readiness reports
 `runtime_start_failed` with the message, not `pi_not_ready`.
+
+### How agents write (`HOW_YOU_WRITE`)
+
+Every agent's system prompt, root and subagent, carries a `## How you write`
+section (`HOW_YOU_WRITE`, `pi/runtime.ts`), placed after `## Runtime
+capabilities` and before `## Act before you ask`. Only the watcher prompt
+leaves it out. It asks for direct, concise, warm and professional answers:
+the answer first, plain words, specific numbers, formatting only when it
+helps, and no filler openers, closing offers or common AI tics such as em
+dashes. Its last rule gives way: the agent's own instructions, a loaded skill
+or the person set a different voice, length or format. My Kortix keeps its
+"Your voice" section (brand decision D31). A brand-voice skill keeps its
+rules. Claude subscription models get it too, appended to the Claude Code
+preset (`pi/claude/sessions.ts`).
+
+It also forbids writing the result of a step the agent did not run. An A/B
+run on 2026-11-24 (`deepseek-v4.1-flash`, `glm-5.3-flash`, 8 prompts) showed
+why. Without that rule, "lead with the result" made glm invent a check's
+output in 1 to 2 of 9 answers, against 0 without the section. With the rule,
+each arm had 1 such answer in about 77. The section cut answer length by 25
+to 44 %, em dashes from 45 to 0, 64 to 9 and 45 to 9, and bold by about 70 %.
 
 ### kortix.yaml
 

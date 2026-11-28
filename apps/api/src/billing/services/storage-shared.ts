@@ -1,7 +1,7 @@
 import { platformSettings } from '@kortix/db';
 import { eq } from 'drizzle-orm';
 import { db } from '../../shared/db';
-import { platinumRegionControlPlane } from '../../shared/platinum';
+import { platinumHomeOrigin, platinumRegionControlPlane } from '../../shared/platinum';
 import { platinumUsRegion } from '../../shared/platinum-region';
 import { getCreditAccount } from '../repositories/credit-accounts';
 import { resolveAccountBilling } from './billing-cache';
@@ -50,5 +50,7 @@ export async function accountStorageBilled(accountId: string): Promise<boolean> 
 export function storageFeeds(): StorageFeed[] {
     const region = platinumUsRegion();
     const origin = region ? platinumRegionControlPlane(region) : null;
-    return [{ name: 'home' }, ...(region && origin ? [{ name: region, origin }] : [])];
+    // A PLATINUM_API_URL that already is the region's control plane reads it as home.
+    const away = region && origin && origin !== platinumHomeOrigin() ? [{ name: region, origin }] : [];
+    return [{ name: 'home' }, ...away];
 }

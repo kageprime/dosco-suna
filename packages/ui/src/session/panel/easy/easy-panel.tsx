@@ -5,8 +5,8 @@
  * (Outputs / Context / Preview / Plan) over the same tool-call data the
  * Advanced stepper renders one-at-a-time.
  *
- * It is the docked cards column's whole content: flat sections, one hairline
- * under each, no header, no tab strip, no wrapper. The column draws the
+ * It is the docked cards column's whole content: flat sections, an inset
+ * hairline between each, no header, no tab strip, no wrapper. The column draws the
  * vertical rule beside the chat (`session-action-panel-column.tsx`).
  *
  * It owns no state — everything it reads (the derived outputs, the context
@@ -32,6 +32,7 @@ import { useOptionalSessionPanel } from '../session-panel-provider';
 import { useSessionChangeRequestsPanel } from '../../outcomes/session-outcomes-bridge';
 import { ChangeRequestsCard } from './change-requests-card';
 import { AppsCard } from './apps-card';
+import { BackgroundTasksCard } from './background-tasks-card';
 import { ChangesCard } from './changes-card';
 import { ContextCard } from './context-card';
 import { useSessionContextUsage } from './context-meter';
@@ -54,8 +55,7 @@ export function EasyPanel() {
   // read-only inside `legacy-subagent-chat.tsx`, which has no panel at all.
   if (!panel) return null;
 
-  const { files, context, apps, outputsDefaultOpen, sessionId, handleOpenOutput, openDetail } =
-    panel;
+  const { files, context, apps, isSessionBusy, sessionId, handleOpenOutput, openDetail } = panel;
 
   return (
     // A fill-and-scroll column, not a scrolling stack.
@@ -71,11 +71,10 @@ export function EasyPanel() {
     // Preview keep `shrink-0` and stay on screen at their full height, always.
     // `min-h-0` is what lets this shrink at all — a flex container defaults to
     // its content's minimum height and would otherwise refuse.
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col pb-2">
       <OutputsCard
         fill={!changeRequests?.requests.length}
         outputs={files}
-        defaultExpanded={outputsDefaultOpen || files.length > 0}
         onOpenOutput={(o) => handleOpenOutput(o, files)}
       />
       <ChangesCard
@@ -95,6 +94,7 @@ export function EasyPanel() {
         onAddContext={() => useSessionComposerPrefillStore.getState().requestAttach(sessionId)}
       />
       {apps.length > 0 && <AppsCard apps={apps} onOpenApp={(a) => handleOpenOutput(a, apps)} />}
+      <BackgroundTasksCard projectId={panel.projectId} sessionId={panel.projectSessionId} live={isSessionBusy} onOpenDetail={openDetail} />
       {/* Last, under Preview, and conditional like it — the card draws itself
           away when the session has no plan (see `plan-card.tsx`). */}
       {!planInChat && <PlanPanelCard sessionId={sessionId} />}

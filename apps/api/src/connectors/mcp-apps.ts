@@ -79,6 +79,12 @@ export interface McpApp {
   /** `apps/web/public/connector-icons/<slug>.svg` exists. */
   icon: boolean;
   auth: { kind: 'dcr' } | { kind: 'none' } | KortixClientAuth;
+  /**
+   * What a sign-in lets agents do, in plain words, written from `auth.scopes`.
+   * Every app that asks Kortix's client for scopes has one (mcp-apps.test.ts):
+   * My Kortix names it before the person says yes to a sign-in.
+   */
+  access?: string;
 }
 
 const DCR = { kind: 'dcr' } as const;
@@ -141,30 +147,37 @@ export const MCP_APPS: readonly McpApp[] = [
   {
     slug: 'gmail', name: 'Gmail', description: 'Read, search, send and organize email.', domain: 'gmail.com', categories: ['email'], url: googleMcpUrl('gmail'), icon: true,
     auth: { ...GOOGLE, scopes: [...GOOGLE_IDENTITY, googleScope('gmail.modify'), googleScope('gmail.settings.basic'), googleScope('contacts.readonly'), googleScope('contacts.other.readonly')] },
+    access: 'Read, search, send, label and archive mail, and move it to the trash; change basic mail settings such as filters and the vacation reply; read your contacts; see your name and email address.',
   },
   {
     slug: 'google_calendar', name: 'Google Calendar', description: 'Calendars, events and free time.', domain: 'calendar.google.com', categories: ['productivity', 'meetings'], url: googleMcpUrl('calendar'), icon: true,
     auth: { ...GOOGLE, scopes: [...GOOGLE_IDENTITY, googleScope('calendar')] },
+    access: 'See, create, change and delete events on every calendar you can open, and change who calendars are shared with; see your name and email address.',
   },
   {
     slug: 'google_drive', name: 'Google Drive', description: 'Find, read, upload and share files.', domain: 'drive.google.com', categories: ['productivity'], url: googleMcpUrl('drive'), icon: true,
     auth: { ...GOOGLE, scopes: [...GOOGLE_IDENTITY, DRIVE] },
+    access: 'See, create, change, share and delete every file in your Google Drive; see your name and email address.',
   },
   {
     slug: 'google_docs', name: 'Google Docs', description: 'Read, write and edit documents.', domain: 'docs.google.com', categories: ['productivity'], url: googleMcpUrl('docs'), icon: true,
     auth: { ...GOOGLE, scopes: [...GOOGLE_IDENTITY, googleScope('documents'), DRIVE] },
+    access: 'See, create and change all your Google Docs, and see, create, change, share and delete every file in your Google Drive; see your name and email address.',
   },
   {
     slug: 'google_sheets', name: 'Google Sheets', description: 'Read and update spreadsheets.', domain: 'sheets.google.com', categories: ['productivity', 'data'], url: googleMcpUrl('sheets'), icon: true,
     auth: { ...GOOGLE, scopes: [...GOOGLE_IDENTITY, googleScope('spreadsheets'), DRIVE] },
+    access: 'See, create and change all your Google Sheets, and see, create, change, share and delete every file in your Google Drive; see your name and email address.',
   },
   {
     slug: 'github', name: 'GitHub', description: 'Repositories, issues and pull requests.', domain: 'github.com', categories: ['developer-tools'], url: 'https://api.githubcopilot.com/mcp/', icon: true,
     auth: { kind: 'kortix_client', client: 'github', issuer: 'https://github.com/login/oauth', authorizationUrl: 'https://github.com/login/oauth/authorize', tokenUrl: 'https://github.com/login/oauth/access_token', tokenEndpointAuthMethod: 'client_secret_post', scopes: ['repo', 'read:org', 'read:user', 'user:email'] },
+    access: 'Read and change code, issues and pull requests in every repository you can reach, public and private; read your organizations, your profile and your email address.',
   },
   {
     slug: 'slack', name: 'Slack', description: 'Search and post as you in Slack.', domain: 'slack.com', categories: ['messaging'], url: 'https://mcp.slack.com/mcp', icon: true,
     auth: { kind: 'kortix_client', client: 'slack', issuer: 'https://mcp.slack.com', authorizationUrl: 'https://slack.com/oauth/v2_user/authorize', tokenUrl: 'https://slack.com/api/oauth.v2.user.access', tokenEndpointAuthMethod: 'client_secret_post', scopes: ['channels:history', 'channels:read', 'chat:write', 'groups:history', 'groups:read', 'im:history', 'im:read', 'search:read.public', 'users:read'] },
+    access: 'Read messages in the public and private channels and direct messages you are in, post messages as you, search public channels, and see the people in the workspace.',
   },
   {
     slug: 'hubspot', name: 'HubSpot', description: 'Contacts, companies and deals.', domain: 'hubspot.com', categories: ['crm', 'marketing'], url: 'https://mcp.hubspot.com/', icon: true,
@@ -173,6 +186,7 @@ export const MCP_APPS: readonly McpApp[] = [
   {
     slug: 'asana', name: 'Asana', description: 'Tasks, projects and portfolios.', domain: 'asana.com', categories: ['productivity'], url: 'https://mcp.asana.com/v2/mcp', icon: true,
     auth: { kind: 'kortix_client', client: 'asana', issuer: 'https://app.asana.com', authorizationUrl: 'https://app.asana.com/-/oauth_authorize', tokenUrl: 'https://app.asana.com/-/oauth_token', revocationUrl: 'https://app.asana.com/-/oauth_revoke', tokenEndpointAuthMethod: 'client_secret_post', scopes: ['default'] },
+    access: 'Full access to your Asana account: read and change the tasks, projects and portfolios you can reach.',
   },
   {
     slug: 'box', name: 'Box', description: 'Files, folders and Box AI.', domain: 'box.com', categories: ['productivity'], url: 'https://mcp.box.com', icon: true,
@@ -185,6 +199,7 @@ export const MCP_APPS: readonly McpApp[] = [
     // X issue a refresh token, without it the 2 h access token cannot renew.
     slug: 'x', name: 'X', description: 'Read and post on X as you.', domain: 'x.com', categories: ['marketing', 'socialmedia'], url: 'https://api.x.com/mcp', icon: false,
     auth: { kind: 'kortix_client', client: 'x', issuer: 'https://api.x.com', authorizationUrl: 'https://x.com/i/oauth2/authorize', tokenUrl: 'https://api.x.com/2/oauth2/token', revocationUrl: 'https://api.x.com/2/oauth2/revoke', tokenEndpointAuthMethod: 'client_secret_basic', scopes: ['tweet.read', 'tweet.write', 'users.read', 'offline.access'] },
+    access: 'Read posts and accounts, and post as you; the access lasts until you remove it.',
   },
 ];
 
@@ -311,6 +326,7 @@ export function mcpAppCatalogItem(app: McpApp): ConnectorCatalogItem {
     mcpUrl: app.url,
     oauth: true,
     oneClick: true,
+    ...(app.access ? { access: app.access } : {}),
   };
 }
 

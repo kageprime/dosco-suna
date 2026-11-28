@@ -13,7 +13,7 @@ Self-hosted AI agents are agents whose control plane you run: the repo, the shar
 
 A self-hosted Kortix instance is the full platform on your server: one Docker Compose stack that the `kortix` CLI installs, configures and updates. `kortix self-host init` writes four files into `~/.config/kortix/self-host/<instance>/`: `docker-compose.yml`, `.env`, a `Caddyfile` and `updater.sh`. One Compose project, `kortix-<instance>`, holds the web front end and `kortix-api` serving `/v1`. Beside them run a standalone `llm-gateway`, a one-shot `kortix-migrate` job and a daily `kortix-updater`. The Supabase distribution sits behind them, pinned by digest, with Caddy in domain mode or `cloudflared` in tunnel mode. `kortix self-host start` runs `docker compose up` on that project.
 
-None of the agent work happens on that server. Every session runs on a Platinum sandbox. `kortix-api` creates it with your `PLATINUM_API_KEY`, and the sandbox calls back to the instance's public API URL. The box is a control plane and a database, and the compute sits elsewhere. The model is not the part you host either, since the gateway calls providers you already hold keys for. What you host is the system around it.
+None of the agent work happens on that server. Every session runs on a [Platinum](https://www.platinum.dev) sandbox. `kortix-api` creates it with your `PLATINUM_API_KEY`, and the sandbox calls back to the instance's public API URL. The box is a control plane and a database, and the compute sits elsewhere. The model is not the part you host either, since the gateway calls providers you already hold keys for. What you host is the system around it.
 
 Reachability decides the rest of the install.
 

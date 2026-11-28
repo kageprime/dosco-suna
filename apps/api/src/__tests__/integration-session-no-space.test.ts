@@ -31,7 +31,7 @@ async function resolve(project: SeededProject, body: Record<string, unknown>) {
 }
 
 beforeAll(async () => {
-  chatOn = await seedProject('no-space-on', { metadata: { experimental: { chat: true } } });
+  chatOn = await seedProject('no-space-on', { metadata: { experimental: { channels: true } } });
   chatOff = await seedProject('no-space-off', { accountId: chatOn.account_id });
   const base = { accountId: chatOn.account_id, projectId: chatOn.project_id };
   await db.insert(projectSpaces).values({ ...base, spaceId: CHANNEL, kind: 'channel', slug: 'launch', name: 'launch', createdBy: PERSON });

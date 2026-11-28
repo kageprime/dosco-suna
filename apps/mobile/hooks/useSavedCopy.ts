@@ -7,9 +7,9 @@
  *
  * - The session log: its newest page (`GET …/log`). A sub-agent's thread
  *   loads from the heads that page names (`useSessionLogThread`).
- * - No page (a new session, a failed read): the copy this device kept, if any.
+ * - No page (a new session, a failed read): no copy.
  *
- * No project flag is read, and no v1 transcript (`GET …/transcript`).
+ * No project flag is read, and no v1 transcript, from the API or the device.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { readSavedSessionCopy, sessionLogOfV1Rows, type SavedSessionCopy, type SessionLogThread } from '@kortix/sdk';
@@ -63,7 +63,7 @@ export function useSavedCopy(target: SavedCopyTarget | null): {
     // store). A sub-agent: `undefined`, so the SDK reads the log itself.
     mirror: target?.child ? undefined : null,
     savedChild: target?.child ?? false,
-    // The root: no device copy until the read answers that the session has no log page.
+    // The root: the read above owns it (`mirror: null`), so this hook reads nothing for it.
     sessionLog: !target?.child && (!mine || !!mine.log),
   });
 

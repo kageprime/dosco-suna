@@ -2,8 +2,11 @@ import { afterAll, describe, expect, mock, test } from 'bun:test';
 
 import { getSharedQueryClient, registerQueryClient } from '@kortix/ui/internal/lib/query-client-singleton';
 import { safeSetItem } from '@kortix/ui/internal/lib/storage/managed-storage';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
-  type SessionTranscriptSyncEnvelope,
+  type SessionLog,
+  type SessionLogPage,
   createPersistedQueryCache,
   createSavedCopyStore,
   currentSavedCopyStore,
@@ -81,23 +84,24 @@ const listKey = qk.project.sessionsPaged('project-1');
 const messagesKey = qk.project.messages('project-1', 'session-1');
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-function envelope(): SessionTranscriptSyncEnvelope {
+const golden: SessionLog = JSON.parse(
+  readFileSync(join(import.meta.dir, '../../../../packages/api-contract/src/__tests__/fixtures/session-log/golden21.v2.json'), 'utf8'),
+);
+
+/** The newest page of a session log's root thread: what the device keeps for a session. */
+function page(overrides: Partial<SessionLogPage> = {}): SessionLogPage {
+  const { threads, ...record } = structuredClone(golden);
   return {
-    available: true,
-    reason: null,
-    source: 'mirror',
-    complete: true,
-    captured_at: '2026-10-06T00:00:00.000Z',
-    runtime_session_id: 'ses_root',
-    message_count: 1,
-    messages: [
-      {
-        info: { id: 'msg_1', role: 'user', sessionID: 'ses_root', time: { created: 1 } },
-        parts: [{ id: 'prt_1', type: 'text', text: 'hello' }],
-      },
-    ],
-  } as unknown as SessionTranscriptSyncEnvelope;
+    session: record,
+    generation: 1,
+    threads: threads.map(({ messages: _messages, ...head }) => head),
+    thread_id: threads[0]!.thread_id,
+    messages: threads[0]!.messages,
+    has_more: false,
+    ...overrides,
+  };
 }
+const PAGE_MESSAGES = page().messages.length;
 
 /** A session row of the size the API serves: ids, names, metadata, the runtime tree. */
 function sessionRow(n: number) {
@@ -156,7 +160,7 @@ describe('adopt runs before the query client registers (#10344)', () => {
     await createSavedCopyStore({ storage: indexedStorage, userId: user }).write(
       'project-early',
       'session-early',
-      envelope(),
+      page(),
     );
     const previous = new QueryClient();
     previous.setQueryData(gate, { project_id: 'project-early' });
@@ -173,7 +177,7 @@ describe('adopt runs before the query client registers (#10344)', () => {
     expect(currentSavedCopyStore()).not.toBeNull();
     const first = currentSavedCopyStore()!.read('project-early', 'session-early');
     expect(first).not.toBeInstanceOf(Promise);
-    expect((first as SessionTranscriptSyncEnvelope).messages).toHaveLength(1);
+    expect((first as SessionLogPage).messages).toHaveLength(PAGE_MESSAGES);
 
     // The query cache waits for the client, then restores when it registers —
     // not dropped on the early return.
@@ -251,8 +255,8 @@ describe('device caches', () => {
   });
 
   test('saved copies go to IndexedDB, never to localStorage', async () => {
-    await currentSavedCopyStore()!.write('project-1', 'session-1', envelope());
-    expect([...indexed.keys()].some((key) => key.startsWith(`kortix.saved-copy:${USER}:`))).toBe(true);
+    await currentSavedCopyStore()!.write('project-1', 'session-1', page());
+    expect([...indexed.keys()].some((key) => key.startsWith(`kortix.saved-copy.log:${USER}:`))).toBe(true);
     expect([...entries.keys()].filter((key) => key.startsWith('kortix.saved-copy'))).toEqual([]);
   });
 
@@ -322,35 +326,32 @@ describe('the session a page load opens on', () => {
   const opensOn = (pathname: string) => Object.assign(pageWindow, { location: { pathname } });
 
   test('its saved copy is read at sign-in, and the first read answers from memory', async () => {
-    await createSavedCopyStore({ storage: indexedStorage, userId: user }).write('project-1', 'session-1', envelope());
+    await createSavedCopyStore({ storage: indexedStorage, userId: user }).write('project-1', 'session-1', page());
     opensOn('/workspaces/project-1/sessions/session-1');
     adoptDeviceCaches(user);
     await settle();
 
     const first = currentSavedCopyStore()!.read('project-1', 'session-1');
     expect(first).not.toBeInstanceOf(Promise);
-    expect((first as SessionTranscriptSyncEnvelope).messages).toHaveLength(1);
+    expect((first as SessionLogPage).messages).toHaveLength(PAGE_MESSAGES);
     // Answered once: a later read asks IndexedDB, which another tab may have changed.
     expect(currentSavedCopyStore()!.read('project-1', 'session-1')).toBeInstanceOf(Promise);
     await clearDeviceCaches();
   });
 
   test('a write before the first read drops the copy in memory', async () => {
-    await createSavedCopyStore({ storage: indexedStorage, userId: user }).write('project-1', 'session-1', envelope());
+    await createSavedCopyStore({ storage: indexedStorage, userId: user }).write('project-1', 'session-1', page());
     opensOn('/workspaces/project-1/sessions/session-1');
     adoptDeviceCaches(user);
     await settle();
 
-    await currentSavedCopyStore()!.write('project-1', 'session-1', {
-      ...envelope(),
-      captured_at: '2026-10-07T00:00:00.000Z',
-    });
+    await currentSavedCopyStore()!.write('project-1', 'session-1', page({ has_more: true }));
     expect(currentSavedCopyStore()!.read('project-1', 'session-1')).toBeInstanceOf(Promise);
     await clearDeviceCaches();
   });
 
   test('a page that is not a session reads every copy from IndexedDB', async () => {
-    await createSavedCopyStore({ storage: indexedStorage, userId: user }).write('project-1', 'session-1', envelope());
+    await createSavedCopyStore({ storage: indexedStorage, userId: user }).write('project-1', 'session-1', page());
     opensOn('/workspaces/project-1');
     adoptDeviceCaches(user);
     await settle();

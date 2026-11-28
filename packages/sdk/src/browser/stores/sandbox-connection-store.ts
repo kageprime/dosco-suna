@@ -275,62 +275,41 @@ export function resetForServerSwitch(serverUrl?: string) {
 	lastResetServerUrl = serverUrl || null;
 	clearRuntimeReadyVerified();
 
-	if (runtimeReady) {
-		// /start already resolved stage==='ready' (markRuntimeReadyVerified is set
-		// ONLY then — page.tsx), which the backend returns only after it reached the
-		// daemon and the runtime answered: it is PROVEN healthy server-side.
-		// So seed healthy=true (optimistic) — NOT healthy=null. The SSE event stream
-		// (use-runtime-events) AND message sync (use-session-sync) both gate on this
-		// same `healthy` flag, so seeding null left the FE UNSUBSCRIBED until the
-		// ~350ms client health poll flipped it green — by which point the server-side
-		// first turn (claimed from the API and delivered during boot) had accumulated
-		// and bulk-rendered AT ONCE instead of streaming. healthy=true subscribes at
-		// the switch, so part.updated events render token-by-token, and also reclaims
-		// the redundant health RTT. The 350ms poller still runs and self-corrects to
-		// healthy=false (reconnect pill) if the browser genuinely can't reach the box,
-		// so this only narrows to the ready path where health was actually proven.
-		useSandboxConnectionStore.setState({
-			status: "connected",
-			failCount: 0,
-			initialCheckDone: true,
-			wasConnected: true,
-			reconnectAttempts: 0,
-			disconnectedAt: null,
-			harnessVersion: null,
-			openCodeVersion: null,
-			healthy: true,
-			runtimeError: null,
-			// A different runtime: its features are unknown until it answers.
-			runtimeCapabilities: null,
-			manualRetryNonce: 0,
-			lastRuntimeEvidenceAt: null,
-			bootingSinceAt: null,
-			parked: false,
-		});
-		saveWasConnected(true);
-		return;
-	}
-
+	// The fields that differ follow `runtimeReady`:
+	// /start already resolved stage==='ready' (markRuntimeReadyVerified is set
+	// ONLY then — page.tsx), which the backend returns only after it reached the
+	// daemon and the runtime answered: it is PROVEN healthy server-side.
+	// So seed healthy=true (optimistic) — NOT healthy=null. The SSE event stream
+	// (use-runtime-events) AND message sync (use-session-sync) both gate on this
+	// same `healthy` flag, so seeding null left the FE UNSUBSCRIBED until the
+	// ~350ms client health poll flipped it green — by which point the server-side
+	// first turn (claimed from the API and delivered during boot) had accumulated
+	// and bulk-rendered AT ONCE instead of streaming. healthy=true subscribes at
+	// the switch, so part.updated events render token-by-token, and also reclaims
+	// the redundant health RTT. The 350ms poller still runs and self-corrects to
+	// healthy=false (reconnect pill) if the browser genuinely can't reach the box,
+	// so this only narrows to the ready path where health was actually proven.
 	useSandboxConnectionStore.setState({
-		status: "connecting",
+		status: runtimeReady ? "connected" : "connecting",
 		failCount: 0,
-		initialCheckDone: false,
-		wasConnected: false,
+		initialCheckDone: runtimeReady,
+		wasConnected: runtimeReady,
 		reconnectAttempts: 0,
 		disconnectedAt: null,
 		harnessVersion: null,
 		openCodeVersion: null,
-		healthy: null,
+		healthy: runtimeReady ? true : null,
 		runtimeError: null,
+		// A different runtime: its features are unknown until it answers.
 		runtimeCapabilities: null,
 		manualRetryNonce: 0,
 		lastRuntimeEvidenceAt: null,
-		bootingSinceAt: Date.now(),
+		bootingSinceAt: runtimeReady ? null : Date.now(),
 		// A different box. Whatever the previous one was doing says nothing
 		// about this one.
 		parked: false,
 	});
-	saveWasConnected(false);
+	saveWasConnected(runtimeReady);
 }
 
 /**

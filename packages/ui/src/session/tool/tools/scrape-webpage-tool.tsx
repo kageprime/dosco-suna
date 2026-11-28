@@ -151,7 +151,7 @@ export function ScrapeWebpageTool({ call, defaultOpen, forceOpen, locked }: Tool
         // its page content and the next result's row would otherwise run
         // together with nothing marking where one page ends. Same hairline
         // `bash-tool` puts between a command and its output.
-        <ToolResultCard className="[&>*>*+*]:border-border/60 [&>*>*+*]:border-t">
+        <ToolResultCard className="[&>*>*+*]:border-border [&>*>*+*]:border-t">
           {(() => {
             const seen = new Map<string, number>();
             return results.map((result) => {

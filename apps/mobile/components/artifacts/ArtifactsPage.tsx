@@ -9,24 +9,32 @@
  * you · Pinned, then one plain row per artifact: type glyph · title · how long
  * ago it changed. No live thumbnails: one WebView only, in the viewer.
  *
+ * Folders (web's gallery folders): with no search and the All chip, the
+ * folders of the open level list first, then its artifacts (the root lists
+ * only unfiled ones). A folder tap opens it: the header shows its name and a
+ * back chevron, and Android's back goes up one level. A search or a chip lists
+ * across every folder at the root, inside the open folder within it.
+ * Creating and editing folders stays on web.
+ *
  * A tap opens the viewer sheet over this page (`ArtifactViewerSheet`); a long
  * press opens the actions sheet. A project whose platform stores no Drive has
  * no Artifacts: the drawer hides the row, and a direct open says so.
  */
 
 import * as React from 'react';
-import { ScrollView, View } from 'react-native';
+import { BackHandler, Platform, ScrollView, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { Artifact, ArtifactListScope } from '@kortix/sdk';
-import { useArtifacts, useFeatureFlag } from '@kortix/sdk/react';
+import { useArtifactFolders, useArtifacts, useFeatureFlag } from '@kortix/sdk/react';
 
 import { ArtifactActionsSheet, type ArtifactActionsSheetRef } from '@/components/artifacts/ArtifactActionsSheet';
+import { ArtifactFolderGlyph, folderChildren } from '@/components/artifacts/artifact-folders';
 import { PageContent } from '@/components/kortix/page-content';
 import { PageHeader } from '@/components/kortix/page-header';
 import { PageList } from '@/components/kortix/page-list';
 import { SearchListHeader } from '@/components/kortix/search-list-header';
 import { BottomSearchBar, useBottomSearchInset, usesBottomSearch } from '@/components/kortix/bottom-search-bar';
-import { SettingsGroupItem, SettingsRow } from '@/components/kortix/settings-list';
+import { SettingsGroup, SettingsGroupItem, SettingsRow } from '@/components/kortix/settings-list';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { ARTIFACT_SCOPES, artifactsEmptyState } from '@/lib/artifacts/artifacts';
@@ -59,11 +67,41 @@ export function ArtifactsPage({ projectId, onOpenDrawer }: ArtifactsPageProps) {
   // Fails closed while the project row loads: no request before the answer.
   const availability = useFeatureFlag(projectId, 'artifacts');
   const available = availability.enabled;
+  const folders = useArtifactFolders(available ? projectId : null);
+  const allFolders = folders.data ?? [];
+  const [folderId, setFolderId] = React.useState<string | null>(null);
+  const currentFolder = folderId ? allFolders.find((folder) => folder.folder_id === folderId) : undefined;
+  // The open folder was deleted (or moved out of reach): back to the root.
+  React.useEffect(() => {
+    if (folderId && folders.isSuccess && !currentFolder) setFolderId(null);
+  }, [currentFolder, folderId, folders.isSuccess]);
+  // Browsing (no search, the All chip) lists one level; a filter lists across folders.
+  const browsing = !debouncedQuery && scope === 'all';
   const list = useArtifacts(available ? projectId : null, {
     scope,
     ...(debouncedQuery ? { q: debouncedQuery } : {}),
+    ...(folderId ? { folder_id: folderId } : browsing ? { folder_id: 'root' } : {}),
   });
   const rows = list.data ?? [];
+  const childFolders = browsing ? folderChildren(allFolders, folderId) : [];
+
+  const openFolder = React.useCallback((id: string) => {
+    haptics.tap();
+    setFolderId(id);
+  }, []);
+  const goUp = React.useCallback(() => {
+    haptics.tap();
+    setFolderId(currentFolder?.parent_folder_id ?? null);
+  }, [currentFolder]);
+  // Android back inside a folder goes up one level, before the project stack's handler.
+  React.useEffect(() => {
+    if (Platform.OS !== 'android' || !folderId) return undefined;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      goUp();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [folderId, goUp]);
 
   const open = React.useCallback(
     (artifact: Artifact) => {
@@ -84,12 +122,20 @@ export function ArtifactsPage({ projectId, onOpenDrawer }: ArtifactsPageProps) {
         ? t('artifacts.emptyFiltered')
         : empty === 'scope-empty'
           ? t('artifacts.scopeEmpty')
-          : t('artifacts.empty')
+          : folderId
+            ? t('artifacts.emptyFolder')
+            : childFolders.length
+              ? t('artifacts.emptyUnfiled')
+              : t('artifacts.empty')
       : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: background }}>
-      <PageHeader title={t('artifacts.title')} onOpenDrawer={onOpenDrawer} />
+      <PageHeader
+        title={currentFolder?.name ?? t('artifacts.title')}
+        onOpenDrawer={onOpenDrawer}
+        onBack={folderId ? goUp : undefined}
+      />
 
       <PageContent>
         {available ? (
@@ -135,7 +181,24 @@ export function ArtifactsPage({ projectId, onOpenDrawer }: ArtifactsPageProps) {
           onRetry={() => void list.refetch()}
           onRefresh={available ? () => list.refetch() : undefined}
           emptyLabel={emptyLabel}
-          header={<View className="h-1" />}
+          header={
+            childFolders.length ? (
+              <View className="px-4 pt-1 pb-4">
+                <SettingsGroup>
+                  {childFolders.map((folder) => (
+                    <SettingsRow
+                      key={folder.folder_id}
+                      leading={<ArtifactFolderGlyph folder={folder} />}
+                      label={folder.name}
+                      onPress={() => openFolder(folder.folder_id)}
+                    />
+                  ))}
+                </SettingsGroup>
+              </View>
+            ) : (
+              <View className="h-1" />
+            )
+          }
           bottomInset={bottomSearch && available ? bottomInset : undefined}
           data={available ? rows : []}
           keyExtractor={(artifact) => artifact.artifact_id}

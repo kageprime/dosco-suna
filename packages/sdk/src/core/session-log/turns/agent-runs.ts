@@ -26,6 +26,7 @@
  *
  * Framework-free: web and mobile draw the same runs.
  */
+import { parsePeerSend, parseStoppedChild } from '../../multi-agent/tool-data';
 import { getChildSessionId } from '../../turns/parts';
 import { parsePeerMessagePrompt } from '../../turns/peer-message-prompt';
 import { textRendersCard } from '../../turns/segments/card-text';
@@ -34,6 +35,7 @@ import { isNoGroupActivityTool, isQuestionTool, normalizeActivityToolName } from
 import { STARTED_WORK_TOOLS } from '../../turns/segments/started-work';
 import { formatDuration } from '../../turns/state';
 import { parseNoticeBatch, parseSubagentNotice } from '../../turns/subagent-notice';
+import { parseKortixToolResult } from '../../turns/tools/kortix-tool-card';
 import type { SessionLogMessage, ToolCallBlock } from '../types';
 import type { SessionLogTurn } from './turn';
 
@@ -75,19 +77,24 @@ function promptTexts(message: SessionLogMessage): string[] {
   });
 }
 
-/** A reporter: the child session a notice names, else the peer's short session id and handle. */
-type Reporter = { sessionId: string } | { shortId: string; handle: string };
+/**
+ * A reporter: the child session a notice names, else the peer's short session id and handle.
+ * `progress`: a plain message (`send_message`), not a finish. From an agent this session
+ * started it says how the work goes; the agent has reported only when it finishes.
+ */
+type Reporter = ({ sessionId: string } | { shortId: string; handle: string }) & { progress?: boolean };
 
 function reportersOf(message: SessionLogMessage): Reporter[] | null {
   for (const text of promptTexts(message)) {
-    const peer = parsePeerMessagePrompt(text);
-    if (peer) return [{ shortId: peer.fromShortId, handle: peer.from }];
+    // A batch first: its first notice alone would read as the whole prompt.
     const batch = parseNoticeBatch(text);
     if (batch && batch.length > 1) {
       return batch.map((item) =>
         item.kind === 'peer_idle' ? { shortId: item.info.fromShortId, handle: item.info.from } : { sessionId: item.notice.sessionId },
       );
     }
+    const peer = parsePeerMessagePrompt(text);
+    if (peer) return [{ shortId: peer.fromShortId, handle: peer.from, progress: peer.kind === 'message' }];
     const notice = parseSubagentNotice(text);
     if (notice) return [{ sessionId: notice.sessionId }];
   }
@@ -115,6 +122,72 @@ const childrenOf = (turn: SessionLogTurn): Child[] =>
     return [{ id, handles }];
   });
 
+const isCall = (b: SessionLogTurn['blocks'][number], tool: string): b is ToolCallBlock =>
+  b.type === 'tool_call' && normalizeActivityToolName(b.name) === tool;
+
+/** The platform result a call returned (`KortixToolResult.data`), or undefined while it runs or when it is not one. */
+function resultData(b: ToolCallBlock): unknown {
+  const raw = (b.result?.content ?? []).flatMap((c) => ('text' in c && typeof c.text === 'string' ? [c.text] : [])).join('');
+  return parseKortixToolResult(raw, b.name)?.data;
+}
+
+/** A note the turn sent: who it names, and the session the platform delivered it to (null while it runs). */
+interface Note {
+  to: string;
+  sessionId: string | null;
+}
+
+/** The turn sent a note at all, delivered or not. */
+const sendsNote = (turn: SessionLogTurn): boolean => turn.blocks.some((b) => isCall(b, 'send_message'));
+
+/**
+ * The notes that reached someone. Once a call has its result, only a `delivered` result names who
+ * got it (its receiver's session); any other answer hands nobody work. While it still runs, the
+ * name it addresses stands in.
+ */
+const notesOf = (turn: SessionLogTurn): Note[] =>
+  turn.blocks.flatMap((b): Note[] => {
+    if (!isCall(b, 'send_message')) return [];
+    if (b.status === 'pending' || b.status === 'running') {
+      const to = ((b.input ?? {}) as { to?: unknown }).to;
+      // The API reads `@writer` as `writer`.
+      const name = typeof to === 'string' ? to.trim().replace(/^@/, '') : '';
+      return name ? [{ to: name, sessionId: null }] : [];
+    }
+    const data = resultData(b);
+    const receiver = (data as { to?: { session_id?: unknown } } | undefined)?.to?.session_id;
+    if (parsePeerSend(data)?.status !== 'delivered' || typeof receiver !== 'string') return [];
+    return [{ to: '', sessionId: receiver }];
+  });
+
+/** The children a turn stopped (`task_stop`): a stop the parent made sends no finish notice, so the stop is the finish. */
+const stoppedBy = (turn: SessionLogTurn): string[] =>
+  turn.blocks.flatMap((b): string[] => {
+    if (!isCall(b, 'task_stop') || b.status === 'error') return [];
+    const stopped = parseStoppedChild(resultData(b));
+    return stopped ? [stopped.sessionId] : [];
+  });
+
+/**
+ * The agents a turn's notes hand work again: a note to an agent this session started wakes it
+ * (by its task_id or its name), and it reports again when it finishes. A note to another session
+ * hands this session nothing to wait for.
+ */
+const wokenBy = (turn: SessionLogTurn, launched: readonly Child[]): Child[] =>
+  notesOf(turn).flatMap(({ to, sessionId }): Child[] => {
+    // The session the platform delivered to decides: a session of the same name is not the child.
+    if (sessionId) {
+      const child = launched.find((c) => c.id === sessionId);
+      return child ? [{ id: child.id, handles: child.handles }] : [];
+    }
+    // An unnamed child answers to its generated handle, `<agent>-<first 8 of its session id>`.
+    const shortId = /-([0-9a-z]{8})$/i.exec(to)?.[1];
+    const child =
+      launched.find((c) => c.id === to || (to.length >= 8 && c.id.startsWith(to)) || (!!shortId && c.id.startsWith(shortId))) ??
+      lastNamed(launched, to);
+    return child ? [{ id: child.id, handles: child.handles }] : [];
+  });
+
 /** The turn asks the person something, hands over a deliverable, or renders a card before its answer. */
 function needsPerson(turn: SessionLogTurn): boolean {
   return turn.blocks.some((b) => {
@@ -139,6 +212,7 @@ const runsUntracked = (turn: SessionLogTurn): boolean =>
     (b) =>
       b.type === 'tool_call' &&
       STARTED_WORK_TOOLS.has(normalizeActivityToolName(b.name)) &&
+      normalizeActivityToolName(b.name) !== 'send_message' &&
       !getChildSessionId(b) &&
       (b.status === 'pending' || b.status === 'running'),
   );
@@ -168,9 +242,15 @@ export function sessionLogAgentRuns(turns: readonly SessionLogTurn[]): SessionLo
   const anchorOf = new Map<string, string>();
   /** Every agent ever started, so a peer resolves to its session by short id, else by handle. */
   const launched: Child[] = [];
-  /** Child id → the index of the turn that carried its report. */
-  const reportedAt = new Map<string, number>();
-  const launches: Array<{ id: string; children: string[]; untracked: boolean }> = [];
+  /** Child id → the indexes of the turns that carried its finish, in order. */
+  const reportedAt = new Map<string, number[]>();
+  const launches: Array<{ id: string; index: number; children: string[]; untracked: boolean }> = [];
+  /** Turns whose notes went only to sessions this one did not start: nothing to wait for. */
+  const settledNotes = new Set<string>();
+  /** Child id → the index of the last turn that started it or handed it work. */
+  const handedAt = new Map<string, number>();
+  /** The child finished since it was last handed work. */
+  const idle = (id: string) => (reportedAt.get(id)?.at(-1) ?? -1) > (handedAt.get(id) ?? -1);
   let stretchStarted = new Set<string>();
   let stretchReported = new Set<string>();
   let previousEnd: string | null = null;
@@ -186,8 +266,8 @@ export function sessionLogAgentRuns(turns: readonly SessionLogTurn[]): SessionLo
     const anchor = open.turns.at(-1)!;
     const stopped = anchor.status === 'aborted' || anchor.status === 'error';
     const waiting = [...stretchStarted].some((id) => !stretchReported.has(id));
-    // A working anchor is live wherever it is; one still waiting on a report only at the tail.
-    const live = !stopped && (anchor.live || (tail && !anchor.response && waiting));
+    // A working anchor is live wherever it is; one still waiting on an agent only at the tail.
+    const live = !stopped && (anchor.live || (tail && waiting));
     const start = ms(open.startedAt);
     const end = ms(ended(anchor));
     runs.set(anchor.id, {
@@ -213,18 +293,30 @@ export function sessionLogAgentRuns(turns: readonly SessionLogTurn[]): SessionLo
     if (turn.queued) return;
     // A notice arrives as synthetic text, so its turn is `internal`: read the prompt, not the flag.
     const reporters = turn.compaction ? null : reportersOf(turn.user);
-    const children = childrenOf(turn);
-    const ids = children.map((c) => c.id);
+    const woken = wokenBy(turn, launched);
+    const children = [...childrenOf(turn), ...woken];
+    const ids = [...new Set(children.map((c) => c.id))];
+    // A note that woke nobody waits on nothing, unless other work the turn started still runs.
+    if (sendsNote(turn) && woken.length === 0 && childrenOf(turn).length === 0 && !runsUntracked(turn)) settledNotes.add(turn.id);
+    const finishBy = (id: string) => {
+      reportedAt.set(id, [...(reportedAt.get(id) ?? []), index]);
+      if (stretchStarted.has(id)) stretchReported.add(id);
+    };
     if (!reporters) {
+      for (const id of ids) handedAt.set(id, index);
       close(false);
-      stretchStarted = new Set(ids);
+      // A colleague still out when the person asks something else stays out: its next report is not a new run's whole story.
+      const out = [...new Set(launched.map((c) => c.id))].filter((id) => handedAt.has(id) && !idle(id));
+      stretchStarted = new Set([...out, ...ids]);
       stretchReported = new Set();
-      if (ids.length) launches.push({ id: turn.id, children: ids, untracked: runsUntracked(turn) });
+      for (const id of stoppedBy(turn)) finishBy(id);
+      if (ids.length) launches.push({ id: turn.id, index, children: ids, untracked: runsUntracked(turn) });
       launched.push(...children);
       previousEnd = ended(turn);
       return;
     }
     for (const id of ids) stretchStarted.add(id);
+    if (ids.length) launches.push({ id: turn.id, index, children: ids, untracked: runsUntracked(turn) });
     launched.push(...children);
     const keys = reporters.map((r) => {
       // The latest agent of that name wins: a name is reused once its agent ended.
@@ -233,11 +325,21 @@ export function sessionLogAgentRuns(turns: readonly SessionLogTurn[]): SessionLo
           ? r.sessionId
           : (launched.find((c) => c.id.startsWith(r.shortId)) ?? lastNamed(launched, r.handle))?.id;
       if (!id) return `peer:${'handle' in r ? r.handle : ''}`;
-      reportedAt.set(id, index);
+      // A started agent's message is progress; it has reported when it finishes.
+      if (r.progress && launched.some((c) => c.id === id)) return id;
+      reportedAt.set(id, [...(reportedAt.get(id) ?? []), index]);
       if (stretchStarted.has(id)) stretchReported.add(id);
       return id;
     });
-    if (needsPerson(turn)) {
+    for (const id of stoppedBy(turn)) finishBy(id);
+    // A note that wakes a colleague that had finished hands it new work: its row folded away with
+    // that finish, so this turn draws on its own and the note stays in view while it works. A relay
+    // to a colleague still working stays in the run: its row is still in view.
+    const rewoken = woken.some((child) => idle(child.id));
+    // A colleague handed work again is out again, even when its finish came in this same turn.
+    for (const child of woken) stretchReported.delete(child.id);
+    for (const id of ids) handedAt.set(id, index);
+    if (needsPerson(turn) || rewoken) {
       close(false);
       previousEnd = ended(turn);
       return;
@@ -252,10 +354,11 @@ export function sessionLogAgentRuns(turns: readonly SessionLogTurn[]): SessionLo
   });
   close(true);
 
-  const settledLaunches = new Set<string>();
+  const settledLaunches = new Set<string>(settledNotes);
   for (const launch of launches) {
     if (launch.untracked) continue;
-    const at = launch.children.map((id) => reportedAt.get(id));
+    // A finish counts only after this launch: a colleague continued here is working again.
+    const at = launch.children.map((id) => reportedAt.get(id)?.find((i) => i > launch.index));
     if (at.some((i) => i === undefined)) continue;
     const last = turns[Math.max(...(at as number[]))]!;
     const run = runs.get(anchorOf.get(last.id) ?? last.id);

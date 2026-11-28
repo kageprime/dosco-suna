@@ -6,18 +6,19 @@
  * Real: the session rows, the parent link check, the settled check (the
  * child's inbox and its own background children, `readSessionsWorking`) and
  * the `continue_session` insert with its idempotency key. Stubbed: the box
- * (`buildSessionTranscriptDigest` answers a fixed transcript) and the drain
+ * (`readSessionLogPage` answers a fixed log page) and the drain
  * kick (a no-op: delivery is the lifecycle engine's own contract).
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { sql } from 'drizzle-orm';
-import * as realTranscript from '../projects/lib/session-transcript';
+import * as realLogRead from '../projects/session-log-read';
 import * as realDrain from '../projects/session-lifecycle/drain';
+import { logPageOf, type LogTurnMessage } from './helpers/log-page';
 
-let transcript: Array<Record<string, unknown>> = [];
-mock.module('../projects/lib/session-transcript', () => ({
-  ...realTranscript,
-  buildSessionTranscriptDigest: async () => ({ available: true, reason: null, source: 'live', complete: true, messages: transcript }),
+let transcript: LogTurnMessage[] = [];
+mock.module('../projects/session-log-read', () => ({
+  ...realLogRead,
+  readSessionLogPage: async () => logPageOf(transcript),
 }));
 mock.module('../projects/session-lifecycle/drain', () => ({
   ...realDrain,
@@ -34,7 +35,7 @@ const PROJECT_ID = crypto.randomUUID();
 const AUTHOR = crypto.randomUUID();
 const PARENT = crypto.randomUUID();
 const CHILD = crypto.randomUUID();
-const msg = (role: string, text: string, error: unknown = null) => ({ id: null, parent_id: null, role, created: null, completed: null, text, tools: [], files: [], reasoning_omitted: false, error });
+const msg = (role: LogTurnMessage['role'], text: string, error: LogTurnMessage['error'] = null): LogTurnMessage => ({ role, text, error });
 
 async function insertSession(sessionId: string, opts: { parent?: string; metadata?: Record<string, unknown>; status?: string } = {}) {
   await db.execute(sql`
@@ -105,7 +106,7 @@ describe('a background subagent turn end', () => {
       '</session-report>',
       '</kortix_system>',
       '',
-      `Continue your task with this result. To send this subagent a follow-up, call \`agent\` with task_id ${CHILD}. To read its whole transcript: \`kortix sessions log ${CHILD}\`.`,
+      `The person has not seen this report: relay what matters. Say what finished and what still runs, its findings as specific facts, anything it corrects, and where its evidence is. To send this subagent a follow-up, call \`agent\` with task_id ${CHILD}. To read its whole transcript: \`kortix sessions log ${CHILD}\`.`,
     ].join('\n'));
 
     // A later turn of the same child (a follow-up) is a new event. While the

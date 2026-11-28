@@ -4,7 +4,9 @@ import { useTranslations } from '@/i18n/use-translations';
 import { useState } from 'react';
 
 import {
+  analyzeCostExport,
   fetchCostExportCsv,
+  isCostExportCapped,
   type CostExportResult,
   type ProjectCostExportOptions,
   type SessionCostExportOptions,
@@ -90,78 +92,11 @@ function pad2(value: number): string {
   return String(value).padStart(2, '0');
 }
 
-/**
- * How many data rows a CSV body holds — records, not physical lines, and not
- * counting the header.
- *
- * `encodeField` (`apps/api/src/shared/cost-csv.ts`) quotes any value holding
- * CR, LF, a comma or a quote, and both `project_name` and `owner` are free
- * text the account's own users control. So a project named with an embedded
- * newline puts a real line break inside a quoted field, and splitting the
- * body on newlines counts that one row twice.
- *
- * Blank records are skipped, so a trailing newline never becomes a row.
- *
- * One shape is NOT handled: a body with an unterminated quote. Everything
- * after the opening quote is read as one field, so
- * `header\r\ns0,"never closed\r\ns1,…\r\ns2,…` counts 1 record, not 3.
- * `toCsv` always balances its quotes, so this is unreachable from either
- * export route; and the error direction is an undercount, which can only
- * suppress the row-cap warning, never raise a false one.
- */
-export function countCsvDataRows(body: string): number {
-  let records = 0;
-  let inQuotes = false;
-  let recordHasContent = false;
+export { countCsvDataRows } from '@kortix/sdk';
 
-  for (let index = 0; index < body.length; index += 1) {
-    const char = body[index];
-
-    if (inQuotes) {
-      // `""` is the escape for a literal quote — consume both and stay inside
-      // the field, otherwise the rest of the record is read as unquoted.
-      if (char === '"' && body[index + 1] === '"') index += 1;
-      else if (char === '"') inQuotes = false;
-      recordHasContent = true;
-      continue;
-    }
-
-    if (char === '"') {
-      inQuotes = true;
-      recordHasContent = true;
-      continue;
-    }
-
-    if (char === '\r' || char === '\n') {
-      if (char === '\r' && body[index + 1] === '\n') index += 1;
-      if (recordHasContent) records += 1;
-      recordHasContent = false;
-      continue;
-    }
-
-    recordHasContent = true;
-  }
-
-  if (recordHasContent) records += 1;
-  return Math.max(0, records - 1);
-}
-
-/**
- * The truncation warning for an export, or `null` when it was complete.
- *
- * `rowCap` is the CAP VALUE the route reports on every response
- * (`x-kortix-row-cap` = `CSV_ROW_CAP`), not a truncation flag: a 3-row export
- * and a capped one carry the identical header. Truncation is only knowable by
- * comparing the rows actually present against that cap, which is why this
- * takes both.
- *
- * `>=` rather than `===` because the route queries at `limit: CSV_ROW_CAP` and
- * so cannot return more — but if that ever changes, over-reporting must warn
- * rather than fall silent.
- */
+/** The truncation warning for an export, or `null` when it was complete. */
 export function buildRowCapWarning(rowCount: number, rowCap: number | null): string | null {
-  if (rowCap === null || rowCap <= 0) return null;
-  if (rowCount < rowCap) return null;
+  if (rowCap === null || !isCostExportCapped(rowCount, rowCap)) return null;
   return `Export capped at ${rowCap.toLocaleString('en-US')} rows. Narrow the date range for a complete export.`;
 }
 
@@ -171,11 +106,9 @@ export interface ResolvedCostExport {
   warning: string | null;
 }
 
-/** Reads the fetched CSV once to decide whether it was truncated, and hands
- *  back the same `Blob` for the download. */
 export async function resolveCostExport(result: CostExportResult): Promise<ResolvedCostExport> {
-  const rowCount = countCsvDataRows(await result.blob.text());
-  return { blob: result.blob, warning: buildRowCapWarning(rowCount, result.rowCap) };
+  const { blob, rowCount, rowCap } = await analyzeCostExport(result);
+  return { blob, warning: buildRowCapWarning(rowCount, rowCap) };
 }
 
 /** Saves a blob to the user's machine. Mirrors `downloadFile` in

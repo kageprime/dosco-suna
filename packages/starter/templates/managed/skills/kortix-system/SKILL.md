@@ -80,10 +80,12 @@ change request (CR) is the only way to the default branch. Do every step:
   (`workspace.gitops.ref.any`): the push skips review.
 - "Committed on my branch" is not persisted. Never ask the user to copy files
   out of the sandbox.
-- A merge that changes `agents` or `default_agent` also needs
-  `workspace.agent.write`; `triggers` needs `workspace.trigger.create|update|delete`.
-  `503 CR_GOVERNANCE_UNVERIFIED`: nothing merged, retry after `Retry-After`.
-  For people: https://dosco.live/docs/developers#change-requests
+- A merge also needs the write permission of each `kortix.yaml` section it changes: `agents`
+  `workspace.agent.write`, `connectors` and `policy_sets` `workspace.connector.write`, `triggers`
+  `workspace.trigger.*`, `apps`, `skills`, `sandbox`, `project` theirs. `503 CR_GOVERNANCE_UNVERIFIED`: retry.
+- Never commit a key or token: a merge that adds one gets `409 CR_SECRET_DETECTED` (file:line). Store it (`<credentials>`), rewrite the branch, force-push.
+  For people: https://kortix.com/docs/developers#change-requests
+
 </change-requests>
 <cli>
 ## The `kortix` CLI in the sandbox
@@ -126,6 +128,7 @@ state. Use `git` and the file tools for files and commits.
    - `sandbox`: the named env var holds the real value. Never print, echo or
      write it to a file.
    - `network`: the env var holds a handle. Use it as the credential: Dosco
+
      puts in the value outside the sandbox, only on the listed `hosts`, over
      HTTPS. `[REDACTED]` in a response means it worked. Experimental.
    - `https_broker`: run the entry's `command` (`kortix secrets call …`).

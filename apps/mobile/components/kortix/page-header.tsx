@@ -47,7 +47,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { PlusIcon } from '@/lib/icons';
+import { MenuIcon } from '@/components/icons/menu-icon';
+import { CaretLeftIcon, PlusIcon } from '@/lib/icons';
 import { HEADER_BUTTON_SIZE, HEADER_ICON_SIZE } from '@/components/kortix/header-button';
 import { BackButton } from '@/components/kortix/back-button';
 import { MenuButton } from '@/components/kortix/menu-button';
@@ -122,10 +123,14 @@ export function PageHeader({
         className="flex-row items-center px-4 pb-3"
         style={{ paddingTop: Math.max(insets.top, 10) + 6, minHeight: 56 }}>
         <View className={`${fillTitle ? '' : 'flex-1 '}flex-row items-center gap-2`}>
-          {onOpenDrawer ? <MenuButton onPress={onOpenDrawer} /> : null}
-          {onBack ? (
-            <BackButton onPress={onBack} />
-          ) : null}
+          {onOpenDrawer && onBack ? (
+            <NavButtonGroup onOpenDrawer={onOpenDrawer} onBack={onBack} />
+          ) : (
+            <>
+              {onOpenDrawer ? <MenuButton onPress={onOpenDrawer} /> : null}
+              {onBack ? <BackButton onPress={onBack} /> : null}
+            </>
+          )}
         </View>
 
         <View className={fillTitle ? 'flex-1 flex-row items-center px-2' : 'flex-1 items-center px-1'}>{titleNode}</View>
@@ -156,4 +161,38 @@ export function PageHeader({
       </View>
     </View>
   );
+}
+
+/**
+ * The hamburger and Back together (a folder or sub-page inside a drawer page):
+ * one button group, as the right column's actions are (Jay, 2026-11-24). On
+ * iOS 26+ one shared Liquid Glass capsule; elsewhere one secondary pill. The
+ * buttons are plain ghost buttons inside it, not `MenuButton`/`BackButton`:
+ * those draw their own glass, which would split the capsule in two.
+ */
+function NavButtonGroup({ onOpenDrawer, onBack }: { onOpenDrawer: () => void; onBack: () => void }) {
+  const buttons = (
+    <>
+      <Button
+        variant="ghost"
+        size={HEADER_BUTTON_SIZE}
+        className="rounded-full"
+        onPress={onOpenDrawer}
+        accessibilityLabel="Open menu"
+        hitSlop={{ top: 10, bottom: 10, left: 10 }}>
+        <Icon as={MenuIcon} size={HEADER_ICON_SIZE} className="text-foreground" />
+      </Button>
+      <Button
+        variant="ghost"
+        size={HEADER_BUTTON_SIZE}
+        className="rounded-full"
+        onPress={onBack}
+        accessibilityLabel="Go back"
+        hitSlop={{ top: 10, bottom: 10, right: 10 }}>
+        <Icon as={CaretLeftIcon} size={HEADER_ICON_SIZE} className="text-foreground" />
+      </Button>
+    </>
+  );
+  if (LIQUID_GLASS_AVAILABLE) return <GlassButtons shared>{buttons}</GlassButtons>;
+  return <View className="bg-secondary flex-row items-center rounded-full">{buttons}</View>;
 }

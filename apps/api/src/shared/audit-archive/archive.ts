@@ -304,48 +304,7 @@ interface OpenPart {
   chk: bigint;
 }
 
-/**
- * Export `week` to S3, verify it, and mark it archived. Continues from the progress an earlier,
- * interrupted run recorded. Returns null when `deadline` (deps.clock) passes first: the run stops
- * between pages, the unfinished part is dropped, and everything recorded stays for the next run.
- */
-export async function exportWeek(deps: ArchiveDeps, week: string): Promise<WeekExport>;
-export async function exportWeek(deps: ArchiveDeps, week: string, deadline: number): Promise<WeekExport | null>;
-export async function exportWeek(deps: ArchiveDeps, week: string, deadline = Number.POSITIVE_INFINITY): Promise<WeekExport | null> {
-  const { db, store, mode } = deps;
-  const batch = deps.batchRows ?? 5_000;
-  const partRows = deps.partRows ?? ARCHIVE_PART_ROWS;
-  const clock = deps.clock ?? Date.now;
-  const keepUntil = retainUntil(week);
-  const partition = await partitionAttached(db, week);
-  const legacy = await legacyExists(db);
-
-  await db.execute(sql`
-    INSERT INTO kortix.audit_archive_chunks (week_start, status, retain_until)
-    VALUES (${week}::date, 'exporting', ${keepUntil.toISOString()}::timestamptz)
-    ON CONFLICT (week_start) DO UPDATE SET status = 'exporting', retain_until = EXCLUDED.retain_until, updated_at = now()`);
-
-  const pace = rateCap(deps, Date.now());
-  const legacyShare = legacy ? await weekTally(deps, week, pace) : { rows: 0n, sum: 0n, accounts: new Set<string | null>(), saved: false };
-  const withLegacy = legacyShare.rows > 0n;
-
-  // One account at a time: its rows are one index range, already in (occurred_at, event_id) order.
-  // The partition's accounts come from an index-only scan of (account_id, occurred_at).
-  const accountSet = new Set(legacyShare.accounts);
-  if (partition) {
-    const listed = rows<{ account_id: string | null }>(
-      await longRead(db, (tx) => tx.execute(sql`SELECT DISTINCT s.account_id::text AS account_id FROM (${partitionRows(week, sql`true`)}) s`)),
-    );
-    for (const r of listed) accountSet.add(r.account_id);
-  }
-  const accounts = [...accountSet].sort(accountOrder);
-  const progress = progressByAccount(await recordedParts(db, week));
-  const finished = [...progress.values()].filter((p) => p.done).length;
-  deps.log?.(progress.size ? 'archive: resuming week' : 'archive: exporting week', {
-    week, accounts: accounts.length, accountsDone: finished, tally: legacy ? (legacyShare.saved ? 'saved' : 'read') : 'none',
-  });
-
-  const flush = async (open: OpenPart, done: boolean) => {
+async function commitPart({ db, store, mode }: ArchiveDeps, week: string, keepUntil: Date, open: OpenPart, done: boolean) {
     const encoded = await open.encoder.finish();
     const key = archiveObjectKey(open.account, week, open.part);
     await store.putLocked({ key, body: encoded.bytes, contentType: 'application/gzip', retainUntil: keepUntil, mode });
@@ -360,7 +319,13 @@ export async function exportWeek(deps: ArchiveDeps, week: string, deadline = Num
       VALUES (${key}, ${week}::date, ${open.account}::uuid, ${open.part}, ${encoded.rows}, ${encoded.bytes.length}, ${encoded.sha256},
               ${open.chk.toString()}::numeric, ${open.first}, ${open.last}, ${open.lastId}::uuid, ${done})
       ON CONFLICT (object_key) DO UPDATE SET account_done = kortix.audit_archive_parts.account_done OR EXCLUDED.account_done`);
-  };
+}
+
+async function exportAccounts(deps: ArchiveDeps, week: string, keepUntil: Date, accounts: (string | null)[], progress: ReturnType<typeof progressByAccount>, partition: boolean, withLegacy: boolean, pace: ReturnType<typeof rateCap>, deadline: number): Promise<true | null> {
+  const { db } = deps;
+  const batch = deps.batchRows ?? 5_000;
+  const partRows = deps.partRows ?? ARCHIVE_PART_ROWS;
+  const clock = deps.clock ?? Date.now;
 
   for (const account of accounts) {
     const resume = progress.get(account);
@@ -397,7 +362,7 @@ export async function exportWeek(deps: ArchiveDeps, week: string, deadline = Num
       for (const row of page) {
         // A full part closes when the account's next row arrives, so an account's last part is never empty.
         if (open && open.encoder.rows >= partRows) {
-          await flush(open, false);
+          await commitPart(deps, week, keepUntil, open, false);
           nextPart = open.part + 1;
           open = null;
         }
@@ -413,12 +378,55 @@ export async function exportWeek(deps: ArchiveDeps, week: string, deadline = Num
       await pace(page.length);
       if (page.length < batch) break;
     }
-    if (open) await flush(open, true);
+    if (open) await commitPart(deps, week, keepUntil, open, true);
     else if (resume) {
       // The run before stopped right after this account's last full part: nothing is left of it.
       await db.execute(sql`UPDATE kortix.audit_archive_parts SET account_done = true WHERE object_key = ${resume.last.key}`);
     }
   }
+
+  return true;
+}
+
+/**
+ * Export `week` to S3, verify it, and mark it archived. Continues from the progress an earlier,
+ * interrupted run recorded. Returns null when `deadline` (deps.clock) passes first: the run stops
+ * between pages, the unfinished part is dropped, and everything recorded stays for the next run.
+ */
+export async function exportWeek(deps: ArchiveDeps, week: string): Promise<WeekExport>;
+export async function exportWeek(deps: ArchiveDeps, week: string, deadline: number): Promise<WeekExport | null>;
+export async function exportWeek(deps: ArchiveDeps, week: string, deadline = Number.POSITIVE_INFINITY): Promise<WeekExport | null> {
+  const { db, store, mode } = deps;
+  const keepUntil = retainUntil(week);
+  const partition = await partitionAttached(db, week);
+  const legacy = await legacyExists(db);
+
+  await db.execute(sql`
+    INSERT INTO kortix.audit_archive_chunks (week_start, status, retain_until)
+    VALUES (${week}::date, 'exporting', ${keepUntil.toISOString()}::timestamptz)
+    ON CONFLICT (week_start) DO UPDATE SET status = 'exporting', retain_until = EXCLUDED.retain_until, updated_at = now()`);
+
+  const pace = rateCap(deps, Date.now());
+  const legacyShare = legacy ? await weekTally(deps, week, pace) : { rows: 0n, sum: 0n, accounts: new Set<string | null>(), saved: false };
+  const withLegacy = legacyShare.rows > 0n;
+
+  // One account at a time: its rows are one index range, already in (occurred_at, event_id) order.
+  // The partition's accounts come from an index-only scan of (account_id, occurred_at).
+  const accountSet = new Set(legacyShare.accounts);
+  if (partition) {
+    const listed = rows<{ account_id: string | null }>(
+      await longRead(db, (tx) => tx.execute(sql`SELECT DISTINCT s.account_id::text AS account_id FROM (${partitionRows(week, sql`true`)}) s`)),
+    );
+    for (const r of listed) accountSet.add(r.account_id);
+  }
+  const accounts = [...accountSet].sort(accountOrder);
+  const progress = progressByAccount(await recordedParts(db, week));
+  const finished = [...progress.values()].filter((p) => p.done).length;
+  deps.log?.(progress.size ? 'archive: resuming week' : 'archive: exporting week', {
+    week, accounts: accounts.length, accountsDone: finished, tally: legacy ? (legacyShare.saved ? 'saved' : 'read') : 'none',
+  });
+
+  if (await exportAccounts(deps, week, keepUntil, accounts, progress, partition, withLegacy, pace, deadline) === null) return null;
 
   const parts = await recordedParts(db, week);
   const totalRows = parts.reduce((n, p) => n + p.rows, 0);

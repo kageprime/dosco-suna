@@ -495,7 +495,7 @@ export function ConnectorTools({
                 </DropdownMenu>
               </div>
               <DisclosureContent variant="outline" contentClassName="border-border border-t">
-                <ul className="divide-border/60 divide-y px-4">
+                <ul className="divide-border divide-y px-4">
                   {group.actions.map((action) => {
                     const locked = isLockedByProject(action.path, effective);
                     const row = toolRowText(action, appNames);

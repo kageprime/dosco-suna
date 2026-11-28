@@ -27,6 +27,7 @@ import {
   type SessionWithheldSecrets,
 } from '../projects/lib/session-secret-reach';
 import { isValidSecretName, projectSecretsDeletedSince, writeSharedProjectSecret } from '../projects/secrets';
+import { browserLoginSavedPrompt, saveBrowserLoginsFromLink } from '../projects/surface';
 import { writeWorkspaceProviderKey } from '../secrets/llm-credential-move';
 import { clearSecretAudience, setSecretAudience } from '../projects/lib/secret-audience';
 import { resolveUserIdentities } from '../projects/lib/user-identity';
@@ -62,12 +63,18 @@ const SecretLinkErrors = errors(400, 404, 409, 410);
 const ConnectorLinkErrors = errors(400, 404, 409, 410, 501, 502);
 
 const SecretLinkSchema = z.object({
-  scope: z.enum(['runtime', 'connector']),
+  scope: z.enum(['runtime', 'connector', 'browser']),
   kind: z.literal('secret'),
   project_name: z.string(),
   requester: z.object({ label: z.string().nullable() }).nullable(),
   fields: z.array(
-    z.object({ name: z.string(), label: z.string().nullable(), description: z.string().nullable() }),
+    z.object({
+      name: z.string(),
+      label: z.string().nullable(),
+      description: z.string().nullable(),
+      /** `browser` scope: the hosts this website login may be typed on. */
+      sites: z.array(z.string()).optional(),
+    }),
   ),
   expires_at: z.string(),
 });
@@ -235,6 +242,7 @@ setupLinksPublicApp.openapi(createRoute({
   }
 
   const requester = await linkRequester(resolved.projectId, resolved.payload.uid);
+  const isLogin = resolved.payload.scope === 'browser';
   return c.json({
     kind: 'secret' as const,
     scope: resolved.payload.scope,
@@ -244,6 +252,7 @@ setupLinksPublicApp.openapi(createRoute({
       name: f.name,
       label: f.label ?? null,
       description: f.description ?? null,
+      ...(isLogin ? { sites: f.sites ?? [] } : {}),
     })),
     expires_at: new Date(resolved.payload.exp).toISOString(),
   });
@@ -258,7 +267,10 @@ setupLinksPublicApp.openapi(createRoute({
   request: {
     params: TokenParams,
     body: { content: { 'application/json': { schema: lenientBody({
-      values: z.record(z.string(), z.string()).openapi({ description: 'Values keyed by secret name.' }),
+      values: z.record(z.string(), z.string()).optional().openapi({ description: 'Values keyed by secret name.' }),
+      logins: z.record(z.string(), z.object({ username: z.string(), password: z.string() })).optional().openapi({
+        description: 'For a `browser` link: the website login keyed by its name.',
+      }),
       only_requester: z.boolean().optional().openapi({ description: 'Keep the values to the member who asked.' }),
     }) } } },
   },
@@ -315,6 +327,27 @@ setupLinksPublicApp.openapi(createRoute({
     // Single use per key, without a table: a key written after the link was
     // minted is spent. The shared (non-personal) row's updated_at is the marker.
     const mintedAt = new Date(payload.iat ?? payload.exp - 7 * 24 * 60 * 60_000);
+
+    // A website login: `{ username, password }` per name, stored for the
+    // sandbox browser only (projects/lib/browser-logins.ts).
+    if (payload.scope === 'browser') {
+      const logins = body?.logins && typeof body.logins === 'object' ? (body.logins as Record<string, unknown>) : {};
+      const outcome = await saveBrowserLoginsFromLink({
+        projectId: resolved.projectId,
+        fields: payload.fields,
+        logins,
+        requesterId: requester?.id ?? null,
+        accountId,
+        createdBy: payload.uid,
+        mintedAt,
+      });
+      if (!outcome.ok) return c.json({ error: outcome.error }, outcome.status);
+      if (outcome.saved.length === 0) {
+        if (outcome.spent > 0) return c.json({ error: 'This link was already used — ask the agent for a fresh one' }, 409);
+        return c.json({ error: 'Enter a username and a password' }, 400);
+      }
+      return { saved: outcome.saved, providerKeys: [] as Array<{ name: string; value: string }>, logins: true };
+    }
     let spent = 0;
     const saved: string[] = [];
     const providerKeys: Array<{ name: string; value: string }> = [];
@@ -325,6 +358,15 @@ setupLinksPublicApp.openapi(createRoute({
       if (!allowed.has(name) || !isValidSecretName(name)) continue;
       const value = typeof rawValue === 'string' ? rawValue : '';
       if (!value) continue;
+      const [login] = await db.select({ consumer: projectSecrets.consumer }).from(projectSecrets)
+        .where(and(
+          eq(projectSecrets.projectId, resolved.projectId),
+          eq(projectSecrets.identifier, name),
+          isNull(projectSecrets.ownerUserId),
+        )).limit(1);
+      if (login?.consumer === 'browser') {
+        return c.json({ error: `${name} is a website login. Ask the agent for a login link instead.` }, 409);
+      }
       const [written] = await db.select({ id: projectSecrets.secretId }).from(projectSecrets)
         .where(and(
           eq(projectSecrets.projectId, resolved.projectId),
@@ -383,10 +425,17 @@ setupLinksPublicApp.openapi(createRoute({
       return c.json({ error: 'No values provided for the requested keys' }, 400);
     }
 
-    return { saved, providerKeys };
+    return { saved, providerKeys, logins: false };
   });
   if (result instanceof Response) return result as never;
-  const { saved, providerKeys } = result;
+  const { saved, providerKeys, logins } = result;
+  if (logins) {
+    // A login never enters an env, so there is nothing to propagate.
+    const sid = resolved.payload.sid ?? null;
+    const reach = sid ? await sessionWithheldSecrets(sid, saved) : null;
+    if (sid) void notifyRequestingSession(sid, resolved.projectId, resolved.payload.uid, saved, reach, 'login');
+    return c.json({ ok: true as const, saved, ...(reach ? { agent: reach.agent, withheld: reach.withheld } : {}) });
+  }
   if (providerKeys.length) {
     const accountId = await projectAccount(resolved.projectId);
     for (const key of providerKeys) {
@@ -394,7 +443,9 @@ setupLinksPublicApp.openapi(createRoute({
         ? await writeWorkspaceProviderKey({ accountId, projectId: resolved.projectId, userId: payload.uid!, ...key })
         : null;
       // A name no reader reads keeps the old write.
-      if (!moved) await writeSharedProjectSecret({ projectId: resolved.projectId, ...key, scope: payload.scope, createdBy: payload.uid });
+      // Provider keys come only from runtime or connector links.
+      const scope = payload.scope === 'connector' ? 'connector' : 'runtime';
+      if (!moved) await writeSharedProjectSecret({ projectId: resolved.projectId, ...key, scope, createdBy: payload.uid });
     }
   }
 
@@ -823,6 +874,7 @@ async function notifyRequestingSession(
   actorUserId: string | null,
   saved: string[],
   reach: SessionWithheldSecrets | null,
+  kind: 'secret' | 'login' = 'secret',
 ): Promise<void> {
   try {
     const [session] = await db
@@ -849,7 +901,7 @@ async function notifyRequestingSession(
       accountId: session.accountId,
       sessionId,
       actorUserId,
-      text: secretSubmittedPrompt(saved, reach),
+      text: kind === 'login' ? browserLoginSavedPrompt(saved, reach) : secretSubmittedPrompt(saved, reach),
       idempotencyKey,
     });
     drainSessionLifecycleQueue({ idempotencyKey, burst: false }).catch(() => {});

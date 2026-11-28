@@ -4,9 +4,11 @@ import { resolveClaudeCredentials } from '../../claude-subscription/accounts';
 import { getProjectGatewayResolution, type getProjectModelAccess } from '../../repositories/project-model-access';
 import {
   resolveDefaultCodexAccountSecret,
+  resolveDefaultProviderAccountSecret,
   resolveProjectSharedProviderSecrets,
   resolveSessionProviderSecrets,
 } from '../../secrets/account-resource';
+import { modelSpent } from '../../secrets/account-routing';
 import { modelAccessAllows, modelAccessProvider } from '../model-access';
 import { toWireModel } from './effective';
 import {
@@ -111,6 +113,21 @@ function chatGptAccountsResting(subject: string, retryAfterSeconds: number | und
   return new GatewayResolutionError('provider_pool_rate_limited',
     `${subject} reached their usage limit. The first resets in ${wait}.`,
     'Choose another model, or connect another ChatGPT account.', undefined, retryAfterSeconds);
+}
+
+/** No Antigravity account can serve: name when one frees up. */
+function antigravityAccountsResting(subject: string, retryAfterSeconds: number | undefined) {
+  const suggestion = 'Choose another model, or connect another Google Antigravity account.';
+  if (retryAfterSeconds === undefined || retryAfterSeconds <= 60) {
+    return new GatewayResolutionError('provider_pool_rate_limited', `${subject} are cooling down.`,
+      suggestion, retryAfterSeconds, retryAfterSeconds);
+  }
+  const hours = retryAfterSeconds / 3600;
+  const wait = hours >= 48 ? `${Math.round(hours / 24)} days`
+    : hours >= 2 ? `${Math.round(hours)} hours`
+      : `${Math.ceil(retryAfterSeconds / 60)} minutes`;
+  return new GatewayResolutionError('provider_pool_rate_limited',
+    `${subject} reached their quota limit. The first resets in ${wait}.`, suggestion, undefined, retryAfterSeconds);
 }
 
 
@@ -514,6 +531,74 @@ function noManagedModelsError(model: string, tierIsPaid: boolean): GatewayResolu
  * final "no candidates at all" response to surface instead of the one-size-
  * fits-all "No upstream configured for model X".
  */
+/**
+ * A dynamic Antigravity model is discovered through the first usable account's
+ * Cloud Code project; the catalog caches the answer for every later caller.
+ */
+async function ensureAntigravityModelKnown(access: string, project: string, model: string): Promise<void> {
+  const bareModel = model.replace(/^antigravity\//, '');
+  const bareStem = bareModel.replace(/-(low|medium|high|extra|max|tiered)$/, '');
+  const knownStatic =
+    ANTIGRAVITY_MODELS.some(
+      (entry) => entry.id === bareModel || entry.resolved === bareModel || entry.id === bareStem || entry.resolved === bareStem,
+    )
+    || bareModel in ANTIGRAVITY_LEGACY_ALIASES
+    || bareStem in ANTIGRAVITY_LEGACY_ALIASES;
+  if (knownStatic) return;
+  const { fetchAvailableAntigravityModels, lookupAntigravityDynamicModel } = await import(
+    '../credentials/antigravity-cloudcode'
+  );
+  if (!lookupAntigravityDynamicModel(bareModel) && !lookupAntigravityDynamicModel(bareStem)) {
+    await fetchAvailableAntigravityModels(access, project);
+  }
+}
+
+/** One descriptor per usable account, each with the `poolSecretId` a 429 needs. */
+async function antigravityAccountCandidates(
+  context: Context,
+  secrets: Array<{ secretId: string; value: string | null; label: string; updatedAt: Date; usage?: unknown }>,
+): Promise<UpstreamDescriptor[]> {
+  const { principal, effectiveModel } = context;
+  const { resolveAntigravityAccountCredential } = await import('../credentials/antigravity');
+  const { antigravityModelWindowId } = await import('../credentials/antigravity-cloudcode');
+  const windowId = antigravityModelWindowId(effectiveModel);
+  // Google quotas are per model: an account spent on this model goes last, but
+  // stays available for models whose window still has room.
+  const ordered = [...secrets].sort((a, b) =>
+    Number(modelSpent(a.usage, windowId)) - Number(modelSpent(b.usage, windowId)));
+  const candidates: UpstreamDescriptor[] = [];
+  const failed: string[] = [];
+  for (const secret of ordered) {
+    try {
+      const credential = await resolveAntigravityAccountCredential({
+        projectId: principal.projectId!, accountId: principal.accountId,
+        sessionId: principal.sessionId ?? null, userId: principal.userId,
+        secretId: secret.secretId, value: secret.value, updatedAt: secret.updatedAt,
+        probe: context.options?.probe,
+      });
+      // Cloud Code cannot build a request without the companion project.
+      if (!credential?.project) { failed.push(secret.label); continue; }
+      candidates.push({
+        ...antigravityDescriptor(credential, effectiveModel),
+        credentialRef: secret.secretId,
+        poolSecretId: secret.secretId,
+      });
+    } catch {
+      failed.push(secret.label);
+    }
+  }
+  if (candidates.length) {
+    await ensureAntigravityModelKnown(candidates[0]!.apiKey, candidates[0]!.project!, effectiveModel);
+    return candidates;
+  }
+  if (failed.length) {
+    throw new GatewayResolutionError('provider_reauth_required',
+      `Your Google Antigravity ${failed.length === 1 ? 'account needs' : 'accounts need'} reconnection.`,
+      'Reconnect the Google Antigravity account in project settings, then retry.');
+  }
+  return [];
+}
+
 async function resolveAntigravityCandidates(context: Context): Promise<UpstreamDescriptor[]> {
   const { principal, effectiveModel, personalUserId } = context;
   if (!principal.projectId) {
@@ -524,51 +609,56 @@ async function resolveAntigravityCandidates(context: Context): Promise<UpstreamD
     );
   }
 
-  const { resolveAntigravityCredential } = await import('../credentials/antigravity');
-  const credential = await resolveAntigravityCredential(
-    principal.projectId,
-    personalUserId || principal.userId,
-    principal.accountId,
-    principal.sessionId,
-  );
-
-  if (!credential) {
-    throw new GatewayResolutionError(
-      'provider_not_connected',
-      'Connect Google Antigravity to use this model.',
-      'Connect your Google Antigravity account or paste your credentials in project settings, then retry.',
-    );
+  const name = 'ANTIGRAVITY_AUTH_JSON';
+  const pool = await selectedPool(context, 'antigravity', name);
+  if (pool?.configured) {
+    if (!pool.secrets.length) {
+      throw pool.coolingDown
+        ? antigravityAccountsResting('All selected Google Antigravity accounts', pool.retryAfterSeconds)
+        : new GatewayResolutionError('provider_not_connected',
+          'No usable Google Antigravity connection is selected for this session.',
+          'Select a granted Google Antigravity connection in session settings.');
+    }
+    return antigravityAccountCandidates(context, pool.secrets);
   }
 
-  // Cloud Code cannot build a request without the companion project. A sign-in
-  // that cannot produce one (an expired token with a foreign refresh token, or
-  // a failed discovery) is a credential the person must replace, never a
-  // generic "could not be built" 400 at the model.
-  if (!credential.project) {
-    throw new GatewayResolutionError(
-      'provider_reauth_required',
-      'Your Google Antigravity sign-in has no Cloud Code project.',
-      'Paste a fresh Google Antigravity OAuth JSON in project settings, then retry.',
+  // No pool: the caller's own newest account, then accounts shared with the project.
+  if (personalUserId && !principal.keyId) {
+    const personal = await resolveDefaultProviderAccountSecret(
+      principal.accountId, principal.projectId, personalUserId, { providerId: 'antigravity', name },
     );
-  }
-
-  const bareModel = effectiveModel.replace(/^antigravity\//, '');
-  const bareStem = bareModel.replace(/-(low|medium|high|extra|max|tiered)$/, '');
-  const knownStatic =
-    ANTIGRAVITY_MODELS.some(
-      (m) => m.id === bareModel || m.resolved === bareModel || m.id === bareStem || m.resolved === bareStem,
-    )
-    || bareModel in ANTIGRAVITY_LEGACY_ALIASES
-    || bareStem in ANTIGRAVITY_LEGACY_ALIASES;
-  if (!knownStatic) {
-    const { fetchAvailableAntigravityModels, lookupAntigravityDynamicModel } = await import(
-      '../credentials/antigravity-cloudcode'
-    );
-    if (!lookupAntigravityDynamicModel(bareModel) && !lookupAntigravityDynamicModel(bareStem)) {
-      await fetchAvailableAntigravityModels(credential.access, credential.project);
+    if (personal?.value && !personal.restingSeconds && !personal.needsReauth) {
+      return antigravityAccountCandidates(context, [personal]);
     }
   }
 
+  const shared = await resolveProjectSharedProviderSecrets({
+    accountId: principal.accountId, projectId: principal.projectId,
+    userId: principal.userId, grantUserId: principal.keyId ? null : personalUserId,
+    providerId: 'antigravity', name, sessionId: principal.sessionId, probe: context.options?.probe,
+  });
+  if (shared.secrets.length) return antigravityAccountCandidates(context, shared.secrets);
+  if (shared.coolingDown) {
+    throw antigravityAccountsResting('All Google Antigravity connections shared with this project', shared.retryAfterSeconds);
+  }
+
+  // Last resort: a pasted project credential. It has no account row, so it
+  // cannot be rested; it is tried only when no named account exists.
+  const { resolveAntigravityCredential } = await import('../credentials/antigravity');
+  const credential = await resolveAntigravityCredential(
+    principal.projectId, personalUserId || principal.userId, principal.accountId, principal.sessionId,
+  );
+  if (!credential) {
+    throw new GatewayResolutionError('provider_not_connected',
+      'Connect Google Antigravity to use this model.',
+      'Connect your Google Antigravity account or paste your credentials in project settings, then retry.');
+  }
+  if (!credential.project) {
+    throw new GatewayResolutionError('provider_reauth_required',
+      'Your Google Antigravity sign-in has no Cloud Code project.',
+      'Paste a fresh Google Antigravity OAuth JSON in project settings, then retry.');
+  }
+  await ensureAntigravityModelKnown(credential.access, credential.project, effectiveModel);
   return [antigravityDescriptor(credential, effectiveModel)];
 }
 

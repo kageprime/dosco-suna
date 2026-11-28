@@ -326,6 +326,26 @@ one worker or one process without the `web` role running. With no such
 process, no scheduled job runs. The `kortix self-host` install runs one
 container and does not support this split.
 
+**Stateless sandboxes.** Each new session keeps `/workspace` on its own
+Platinum volume (`kws-<session_id>`). A sandbox stopped for an hour
+(`KORTIX_SANDBOX_IDLE_DELETE_MINUTES`, default 60) is deleted, and the next
+open starts a new sandbox on the same files and conversation. Programs that
+ran in the old sandbox are not running, and the agent is told so. My Kortix
+sessions get no volume.
+
+Every session therefore holds one volume of your Platinum organization until
+its content is purged. A Platinum free-tier organization holds 3 volumes, and
+a session whose volume cannot be created does not start. Use a paid Platinum
+plan (no volume-count limit), or turn stateless sandboxes off:
+
+```sh
+kortix self-host env set KORTIX_WORKSPACE_VOLUMES=off
+```
+
+With `off`, new sessions keep their files on the sandbox disk and their
+sandboxes are never deleted for idleness. Sessions that already have a volume
+keep it.
+
 ## 5. Run a specific version or your own build
 
 ```sh

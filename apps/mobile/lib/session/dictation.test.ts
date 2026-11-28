@@ -2,53 +2,11 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   DICTATION_BAR_COUNT,
-  EMPTY_TRANSCRIPT,
   dictationDraft,
-  dictationErrorMessage,
-  dictationLocale,
-  levelFromVolume,
+  dictationFailure,
+  levelFromMetering,
   pushLevel,
-  reduceTranscript,
-  transcriptText,
 } from './dictation';
-
-describe('reduceTranscript', () => {
-  test('a partial result replaces the previous partial', () => {
-    let t = reduceTranscript(EMPTY_TRANSCRIPT, { isFinal: false, transcript: 'hel' });
-    t = reduceTranscript(t, { isFinal: false, transcript: 'hello wor' });
-    expect(transcriptText(t)).toBe('hello wor');
-  });
-
-  test('Android segments: each final is kept and the next partial starts fresh', () => {
-    let t = reduceTranscript(EMPTY_TRANSCRIPT, { isFinal: false, transcript: 'open the' });
-    t = reduceTranscript(t, { isFinal: true, transcript: 'open the file' });
-    t = reduceTranscript(t, { isFinal: false, transcript: 'and fix' });
-    expect(transcriptText(t)).toBe('open the file and fix');
-    t = reduceTranscript(t, { isFinal: true, transcript: 'and fix the bug' });
-    expect(transcriptText(t)).toBe('open the file and fix the bug');
-  });
-
-  test('iOS 18 segments arrive with a leading space; words are joined by one space', () => {
-    let t = reduceTranscript(EMPTY_TRANSCRIPT, { isFinal: true, transcript: 'First part.' });
-    t = reduceTranscript(t, { isFinal: false, transcript: ' Second' });
-    t = reduceTranscript(t, { isFinal: true, transcript: ' Second part.' });
-    expect(transcriptText(t)).toBe('First part. Second part.');
-  });
-
-  test('an empty final (iOS end marker) commits the pending partial instead of dropping it', () => {
-    let t = reduceTranscript(EMPTY_TRANSCRIPT, { isFinal: false, transcript: 'keep me' });
-    t = reduceTranscript(t, { isFinal: true, transcript: '' });
-    expect(transcriptText(t)).toBe('keep me');
-    expect(t.interim).toBe('');
-  });
-
-  test('iOS < 18 cumulative partials end in one cumulative final', () => {
-    let t = reduceTranscript(EMPTY_TRANSCRIPT, { isFinal: false, transcript: 'one' });
-    t = reduceTranscript(t, { isFinal: false, transcript: 'one two' });
-    t = reduceTranscript(t, { isFinal: true, transcript: 'One two.' });
-    expect(transcriptText(t)).toBe('One two.');
-  });
-});
 
 describe('dictationDraft', () => {
   test('an empty draft takes the transcript as is', () => {
@@ -70,24 +28,27 @@ describe('dictationDraft', () => {
   });
 });
 
-describe('levelFromVolume', () => {
-  test('silence (<= 0) is 0', () => {
-    expect(levelFromVolume(-2)).toBe(0);
-    expect(levelFromVolume(0)).toBe(0);
+describe('levelFromMetering', () => {
+  test('silence and room noise are 0', () => {
+    expect(levelFromMetering(-160)).toBe(0);
+    expect(levelFromMetering(-60)).toBe(0);
   });
 
-  test('10 and above is full', () => {
-    expect(levelFromVolume(10)).toBe(1);
-    expect(levelFromVolume(14)).toBe(1);
+  test('a loud voice is full height', () => {
+    expect(levelFromMetering(-10)).toBe(1);
+    expect(levelFromMetering(0)).toBe(1);
   });
 
-  test('quiet speech still moves the bars visibly', () => {
-    expect(levelFromVolume(2)).toBeGreaterThan(0.4);
-    expect(levelFromVolume(5)).toBeLessThan(1);
+  test('normal speech moves the bars visibly, quieter is lower', () => {
+    expect(levelFromMetering(-30)).toBeGreaterThan(0.5);
+    expect(levelFromMetering(-45)).toBeGreaterThan(0);
+    expect(levelFromMetering(-45)).toBeLessThan(levelFromMetering(-30));
   });
 
-  test('NaN is 0', () => {
-    expect(levelFromVolume(Number.NaN)).toBe(0);
+  test('a missing or invalid reading is 0', () => {
+    expect(levelFromMetering(undefined)).toBe(0);
+    expect(levelFromMetering(null)).toBe(0);
+    expect(levelFromMetering(Number.NaN)).toBe(0);
   });
 });
 
@@ -101,49 +62,41 @@ describe('pushLevel', () => {
   });
 });
 
-describe('dictationLocale', () => {
-  test('normalises an underscore locale', () => {
-    expect(dictationLocale('en_GB')).toBe('en-GB');
+describe('dictationFailure', () => {
+  test('a cancelled upload is silent', () => {
+    expect(dictationFailure({ name: 'AbortError' })).toBeNull();
   });
 
-  test('drops unicode extensions', () => {
-    expect(dictationLocale('de-DE-u-co-phonebk')).toBe('de-DE');
+  test('an empty wallet says so, offers Billing and no Retry', () => {
+    const f = dictationFailure({ status: 402, code: 'insufficient_credits' });
+    expect(f?.message).toBe('Out of credits. Top up to keep dictating.');
+    expect(f?.billing).toBe(true);
+    expect(f?.retry).toBe(false);
   });
 
-  test('keeps a language-only tag', () => {
-    expect(dictationLocale('fr')).toBe('fr');
+  test('a spending limit is not a top-up', () => {
+    const f = dictationFailure({ status: 402, code: 'budget_exceeded' });
+    expect(f?.billing).toBeUndefined();
+    expect(f?.retry).toBe(false);
   });
 
-  test('falls back to en-US for missing or undetermined', () => {
-    expect(dictationLocale(undefined)).toBe('en-US');
-    expect(dictationLocale('und')).toBe('en-US');
-    expect(dictationLocale('')).toBe('en-US');
-  });
-});
-
-describe('dictationErrorMessage', () => {
-  test('user-initiated or empty outcomes are silent', () => {
-    expect(dictationErrorMessage('aborted')).toBeNull();
-    expect(dictationErrorMessage('no-speech')).toBeNull();
-    expect(dictationErrorMessage('speech-timeout')).toBeNull();
+  test('busy and rate-limited clips can be retried', () => {
+    expect(dictationFailure({ status: 429, code: 'rate_limit_exceeded' })).toEqual({
+      message: 'Dictation is busy. Try again in a moment.',
+      retry: true,
+    });
+    expect(dictationFailure({ status: 503, code: 'dictation_busy' })?.retry).toBe(true);
   });
 
-  test('a denied permission says where to fix it', () => {
-    expect(dictationErrorMessage('not-allowed')).toContain('Settings');
+  test('a server without dictation and a rejected clip are not retried', () => {
+    expect(dictationFailure({ status: 503, code: 'dictation_unavailable' })?.retry).toBe(false);
+    expect(dictationFailure({ status: 415, code: 'unsupported_audio' })?.retry).toBe(false);
+    expect(dictationFailure({ status: 413, code: 'audio_too_large' })?.retry).toBe(false);
   });
 
-  test('every other code gets a message', () => {
-    for (const code of [
-      'network',
-      'audio-capture',
-      'busy',
-      'service-not-allowed',
-      'language-not-supported',
-      'unknown',
-      'client',
-      'interrupted',
-    ]) {
-      expect(dictationErrorMessage(code)).toBeString();
-    }
+  test('a network failure or server error keeps the clip for Retry', () => {
+    expect(dictationFailure(new TypeError('Network request failed'))?.retry).toBe(true);
+    expect(dictationFailure({ status: 503, code: 'dictation_failed' })?.retry).toBe(true);
+    expect(dictationFailure({ status: 500 })?.retry).toBe(true);
   });
 });

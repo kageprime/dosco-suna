@@ -6,7 +6,8 @@
 #
 # Far simpler than apps/api — no sandbox-agent/CLI stages, no migrations. Just
 # the Bun+Hono server plus its workspace packages (@kortix/llm-gateway →
-# @kortix/shared + @kortix/llm-catalog) and hono + langfuse.
+# @kortix/shared + @kortix/llm-catalog, plus the shared IAM catalog in
+# @kortix/sdk) and hono + langfuse.
 #
 # LOAD-BEARING: every @kortix/* package that appears anywhere in the gateway's
 # transitive workspace dependency graph MUST be COPYed below. The synthetic
@@ -25,7 +26,7 @@
 ARG BUN_VERSION=1.4.4
 
 # ---- Deps Stage ----
-# A MINIMAL synthetic workspace (only the gateway + its two packages) so we don't
+# A MINIMAL synthetic workspace (only the gateway + its packages) so we don't
 # drag in the real root package.json's deps (@kortix/agent-tunnel, …). Same trick
 # the API Dockerfile uses for the CLI. bun resolves the @kortix/* workspaces to
 # source + pulls hono + langfuse.
@@ -36,6 +37,7 @@ WORKDIR /app
 COPY apps/llm-gateway ./apps/llm-gateway
 COPY packages/llm-gateway ./packages/llm-gateway
 COPY packages/shared ./packages/shared
+COPY packages/sdk ./packages/sdk
 COPY packages/llm-catalog ./packages/llm-catalog
 
 RUN printf '{"name":"kortix-gateway-build","private":true,"workspaces":["apps/llm-gateway","packages/*"]}\n' > package.json \

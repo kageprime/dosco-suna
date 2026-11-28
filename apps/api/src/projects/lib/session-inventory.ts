@@ -5,6 +5,7 @@ import {
   agentSessionStanding,
   isSessionTargetVisibleToCaller,
   isProjectSessionVisibleTo,
+  isTriggerRunSession,
   type SecretGrant,
   type ShareSubject,
 } from '../../connectors/share';
@@ -121,6 +122,16 @@ export function selectSessionRowsForViewer(input: {
   sharedGroupIds?: ReadonlySet<string>;
   /** The group of each child row's parent (`parent_session_id` or `spawned_by_session`) the page does not hold. */
   parentGroupIds?: ReadonlyMap<string, string | null>;
+  /**
+   * A My Kortix token whose person has manager standing (`my-kortix-person.ts`):
+   * it lists the trigger runs its person lists, when no person owns them.
+   * Twin of `SessionListViewer.myKortixTriggerRuns`.
+   */
+  myKortixTriggerRuns?: boolean;
+  /** The `created_by` values of the rows that are service accounts of the account. */
+  machineOwnerIds?: ReadonlySet<string>;
+  /** Other members' DM spaces (`foreignDmSpaceIds`): never listed through `myKortixTriggerRuns`. */
+  myKortixForeignDms?: ReadonlySet<string>;
 }): { authorized: boolean; items: SessionInventoryItem[] } {
   if (input.scope === 'project' && !input.canManageProject) {
     return { authorized: false, items: [] };
@@ -157,10 +168,17 @@ export function selectSessionRowsForViewer(input: {
       (!row.spaceId || !input.readerExcludedSpaceIds?.has(row.spaceId)) &&
       isSessionTargetVisibleToCaller({ origin: row.origin, sessionId: row.sessionId, callerSessionId: input.callerSessionId, boundCredentialSessionId: input.boundCredentialSessionId }) &&
       triggerReaderStanding({ metadata: row.metadata, spaceKind: null, tombstoned: deletedAt !== null }, input.readerPrincipal ?? { kind: 'none' });
+    const myKortixRun = input.myKortixTriggerRuns === true &&
+      input.boundCredentialSessionId !== null &&
+      spaceVisibleFor(input.hiddenSpaceIds, row.spaceId) &&
+      isSessionTargetVisibleToCaller({ origin: row.origin, sessionId: row.sessionId, callerSessionId: input.callerSessionId, boundCredentialSessionId: input.boundCredentialSessionId }) &&
+      isTriggerRunSession(row) &&
+      (row.createdBy === null || input.machineOwnerIds?.has(row.createdBy) === true) &&
+      (!row.spaceId || input.myKortixForeignDms?.has(row.spaceId) === false);
     const access = input.agentPrincipal
       ? spaceVisibleFor(input.hiddenSpaceIds, row.spaceId) &&
         (reader || agentSessionStanding(input.boundCredentialSessionId, row, canAccess).visible)
-      : reader || canAccess || sharedThroughGroup(row, input);
+      : reader || canAccess || myKortixRun || sharedThroughGroup(row, input);
     return { row, canAccess: access, runtimeStatus, deletedAt, deletedBy };
   });
 
@@ -177,16 +195,6 @@ export function selectSessionRowsForViewer(input: {
         if (!until || until.getTime() <= now) return false;
         return input.canManageProject || item.row.createdBy === input.subject.userId;
       }),
-    };
-  }
-
-  if (input.scope === 'project') {
-    // A list row is a disclosure. Keep manager-only lifecycle coverage for
-    // sessions the manager can open, including soft-deleted rows, but never
-    // return an inaccessible session as a redacted breadcrumb.
-    return {
-      authorized: true,
-      items: items.filter((item) => item.canAccess),
     };
   }
 

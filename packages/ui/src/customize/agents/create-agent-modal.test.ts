@@ -5,6 +5,28 @@ import { agentDisplayName } from '@kortix/shared';
 
 import { createAgentPrompt, createAgentTitle } from './create-agent-modal';
 
+describe('My Kortix agent creation defaults', () => {
+  for (const start of ['describe', 'blank', 'duplicate'] as const) {
+    test(`${start} declares a hidden subagent even when copying a primary`, () => {
+      const prompt = createAgentPrompt({
+        start,
+        name: 'helper-copy',
+        description: '  Summarize synthetic reports.  ',
+        from: { name: 'primary-worker', path: 'agents/primary-worker.md' },
+      });
+      expect(prompt).toContain('`mode: subagent`');
+      expect(prompt).toContain('`hidden: true`');
+      expect(prompt).toContain('until I promote it');
+      expect(prompt).toContain('Then open a change request');
+      if (start === 'duplicate') {
+        expect(prompt).toContain('copy of the "primary-worker" agent');
+        expect(prompt).toContain('`agents/primary-worker.md`');
+        expect(prompt).toContain('description "Summarize synthetic reports."');
+      }
+    });
+  }
+});
+
 // Settings audit 2026-11-14, finding 08: the typed name is kept as `title`.
 describe('a new agent keeps the name a person typed', () => {
   const typed = 'GitHub PR Reviewer';

@@ -364,6 +364,35 @@ export async function listWorkspaceSpaceMembers(projectId: string, spaceId: stri
 export const listProjectSpaceMembers = listWorkspaceSpaceMembers;
 
 /**
+ * One line of a channel's activity, drawn in its timeline between messages.
+ * Same fields as the API's `SpaceActivity`.
+ * - `member_joined`: a person joined.
+ * - `member_added`: `actor` added a person.
+ * - `agent_added` / `agent_removed`: `actor` changed the channel's agents.
+ */
+export interface WorkspaceSpaceActivity {
+  /** Stable across reads. */
+  id: string;
+  kind: 'member_joined' | 'member_added' | 'agent_added' | 'agent_removed';
+  /** A person (`id` = user id, `name` = display name) or an agent (`id` = `name` = its name in kortix.yaml). */
+  subject: { kind: 'person' | 'agent'; id: string; name: string };
+  /** Who did it; null for a join and when it is not known. */
+  actor: { user_id: string; name: string } | null;
+  /** ISO time. */
+  at: string;
+}
+
+/** A channel's activity, newest first (at most 200 lines). A background read. */
+export async function listWorkspaceSpaceActivity(projectId: string, spaceId: string): Promise<WorkspaceSpaceActivity[]> {
+  const body = unwrap(
+    await backendApi.get<{ activity: WorkspaceSpaceActivity[] }>(`/workspaces/${projectId}/spaces/${spaceId}/activity`, {
+      showErrors: false,
+    }),
+  );
+  return body.activity;
+}
+
+/**
  * Add people to a channel in one request; resolves to the list after the add.
  * Someone already in it is skipped. An id outside the project rejects with
  * 400 `not_project_member` (`data.user_ids` names them; nobody is added). A

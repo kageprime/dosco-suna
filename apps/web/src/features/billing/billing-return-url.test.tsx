@@ -1,4 +1,5 @@
 import { BillingAccountProvider } from '@kortix/ui/internal/stores/billing-account-context';
+import { ACCOUNT_PANEL_PARAM, hubParamsFromUrl } from '@kortix/ui/internal/stores/account-panel-store';
 import { QueryClient } from '@tanstack/react-query';
 import { afterEach, expect, mock, test } from 'bun:test';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -17,7 +18,7 @@ mock.module('@kortix/sdk', () => ({
     syncedAccounts.push(accountId);
   },
 }));
-const { useBillingReturnUrl, BILLING_RETURNS } = await import('./billing-return');
+const { useBillingReturnUrl, BILLING_RETURNS, portalReturnUrl, settlePortalReturn } = await import('./billing-return');
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
 afterEach(() => {
   if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
@@ -84,3 +85,32 @@ test.each(['team_signup', 'credit_purchase', 'enterprise_contract'] as const)(
     queryClient.clear();
   },
 );
+
+// KRTX-1510: the portal's one plan change (a switch to Free) lands on its
+// return, not when Stripe's webhook arrives.
+test('the portal returns to the Plan page itself, with a marker naming the managed account', () => {
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { location: { origin: 'http://localhost:13000' } },
+  });
+  const url = new URL(
+    portalReturnUrl('http://localhost:13000/workspaces/synthetic-project/admin/plan', 'synthetic-workspace'),
+  );
+  expect(url.pathname).toBe('/workspaces/synthetic-project/admin/plan');
+  // AccountHubRouter routes any URL carrying a hub key to the hub's section:
+  // `accountId` alone sent this return from Plan to /admin (G9 review item).
+  expect(url.searchParams.has(ACCOUNT_PANEL_PARAM)).toBe(false);
+  expect(hubParamsFromUrl(url.searchParams).toString()).toBe('');
+  expect(url.searchParams.get('billing_portal')).toBe('synthetic-workspace');
+  expect(new URL(portalReturnUrl('/settings/billing', undefined)).searchParams.get('billing_portal')).toBe('');
+});
+
+test('the portal return re-syncs the managed account and re-reads its state', async () => {
+  const queryClient = new QueryClient();
+  const accountKey = ['account-state', 'state', { accountId: 'synthetic-workspace' }];
+  queryClient.setQueryData(accountKey, { synthetic: true });
+  await settlePortalReturn(queryClient, 'synthetic-workspace');
+  expect(syncedAccounts.at(-1)).toBe('synthetic-workspace');
+  expect(queryClient.getQueryState(accountKey)?.isInvalidated).toBe(true);
+  queryClient.clear();
+});

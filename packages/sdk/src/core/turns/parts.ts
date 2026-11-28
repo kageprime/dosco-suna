@@ -7,7 +7,7 @@
  * single-file version. No React / DOM / framework imports allowed.
  */
 
-import { isReadAction, kortixPlatformTool } from './tools/kortix-tool-card';
+import { isReadAction, kortixPlatformTool, parseKortixToolResult } from './tools/kortix-tool-card';
 import { unwrapError } from './errors';
 import { isToolCallBlock, toolPartOf } from '../session-log/tool-call';
 import type { ToolCallBlock } from '../session-log/types';
@@ -167,23 +167,54 @@ const HIDDEN_TOOLS = new Set(['todoread', 'context_info']);
 /** A tool part as a filter reads it: its name, and its input when it has one. */
 type FilterablePart = Pick<ToolPartLike, 'tool'> & { state?: { input?: unknown } };
 
+/** A tool call's result text: the session-log block's content, or a v1 part's output. */
+function resultText(part: FilterablePart | ToolCallBlock): string | undefined {
+  if (isToolCallBlock(part)) {
+    if (part.status !== 'complete') return undefined;
+    return (part.result?.content ?? []).map((item) => (item.type === 'text' ? item.text : '')).join('');
+  }
+  const output = (part.state as { output?: unknown } | undefined)?.output;
+  return typeof output === 'string' ? output : undefined;
+}
+
 /**
- * Reading the agent roster (`kortix_agents` list or get) is the agent checking
- * who it can call before it acts. The person never asked for it, and the turn
- * says what the agent decided, so the step stays out of the transcript. A
- * change to an agent (create, update, delete) still shows.
+ * Reading another session that has not answered yet (`kortix_sessions` read,
+ * no answer) is the agent checking in. It tells the person nothing, and the
+ * turn says what the agent does next, so the step stays out of the transcript.
+ * A read that found an answer still shows.
+ */
+function isUnansweredSessionRead(part: FilterablePart | ToolCallBlock, name: string, input: unknown): boolean {
+  if (kortixPlatformTool(name) !== 'kortix_sessions') return false;
+  const action = typeof input === 'object' && input !== null ? (input as { action?: unknown }).action : undefined;
+  const text = resultText(part);
+  // A read still running has no answer yet: it stays out until one comes back,
+  // so the row never shows and then vanishes. A read that failed shows.
+  const status = isToolCallBlock(part) ? part.status : (part.state as { status?: unknown } | undefined)?.status;
+  if (action === 'read' && (status === 'pending' || status === 'running')) return true;
+  const result = parseKortixToolResult(text, name);
+  if (!result?.ok || result.action !== 'read') return false;
+  const answer = (result.data as { answer?: unknown } | undefined)?.answer;
+  return typeof answer !== 'string' || !answer.trim();
+}
+
+/**
+ * Reading the agent roster (`kortix_agents` list or get) or the models an agent
+ * can run (`models`) is the agent checking what it can call before it acts. The
+ * person never asked for it, and the turn says what the agent decided, so the
+ * step stays out of the transcript. A change to an agent (create, update,
+ * delete) still shows.
  */
 function isAgentRosterRead(name: string, input: unknown): boolean {
   if (kortixPlatformTool(name) !== 'kortix_agents') return false;
   const action = typeof input === 'object' && input !== null ? (input as { action?: unknown }).action : undefined;
-  return isReadAction(action);
+  return action === 'models' || isReadAction(action);
 }
 
 export function shouldShowToolPart(part: FilterablePart | ToolCallBlock): boolean {
   const name = isToolCallBlock(part) ? part.name : part.tool;
   if (HIDDEN_TOOLS.has(name)) return false;
   const input = isToolCallBlock(part) ? part.input : part.state?.input;
-  return !isAgentRosterRead(name, input);
+  return !isAgentRosterRead(name, input) && !isUnansweredSessionRead(part, name, input);
 }
 
 // ============================================================================

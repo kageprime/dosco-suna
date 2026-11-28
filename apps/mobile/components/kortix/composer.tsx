@@ -19,9 +19,10 @@
  * 40pt read oversized): `icon-md` icon buttons with 18pt glyphs. Text is 16pt Roobert Regular
  * (design.md §3 Inputs).
  *
- * Dictation: a ghost mic button before Send. While listening the
- * control row crossfades into Cancel · waveform · Done, and the recogniser
- * writes the words into the text field live (`useDictation`).
+ * Dictation: a ghost mic button before Send, shown when the server serves
+ * dictation for `projectId`. While recording the control row crossfades into
+ * Cancel · waveform · Done; Done uploads the clip and Kortix's transcription
+ * lands after what was typed (`useDictation`).
  */
 import * as React from 'react';
 import {
@@ -122,6 +123,8 @@ const MAX_INPUT_HEIGHT = 160;
 
 interface ComposerProps {
   value: string;
+  /** The workspace dictation is billed to. Without it the composer has no mic. */
+  projectId?: string;
   onChangeText: (t: string) => void;
   onSubmit: () => void;
   placeholder?: string;
@@ -171,6 +174,7 @@ interface ComposerProps {
 
 export function Composer({
   value,
+  projectId,
   onChangeText,
   onSubmit,
   placeholder = 'Ask anything',
@@ -201,7 +205,7 @@ export function Composer({
   const isDark = colorScheme === 'dark';
   const colors = THEME[isDark ? 'dark' : 'light'];
   const canSend = !disabled && (allowEmptySend || value.trim().length > 0 || attachments.length > 0 || pastes.length > 0);
-  const dictation = useDictation({ value, onChangeText });
+  const dictation = useDictation({ value, onChangeText, projectId });
   const showMic = dictation.available;
   // A send or a lock ends dictation, keeping the words.
   const { active: dictating, finish: finishDictation } = dictation;
@@ -255,7 +259,7 @@ export function Composer({
           placeholder={placeholder}
           placeholderTextColor={colors.mutedForeground}
           multiline
-          // Words stream in while listening; typing would fight them.
+          // The words land when Done finishes; typing meanwhile would be overwritten.
           editable={!disabled && !dictation.active}
           autoFocus={autoFocus}
           accessibilityLabel={placeholder}

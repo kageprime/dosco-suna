@@ -199,7 +199,7 @@ export function TriggersTool({ call, defaultOpen, forceOpen }: ToolProps) {
             with is the instruction that produced it, and it is a paragraph,
             so it folds. */}
         {action === 'create' && typeof input.prompt === 'string' && (
-          <div className="border-border/30 mt-2 border-t pt-2">
+          <div className="border-border mt-2 border-t pt-2">
             <FoldedSection label={tI18nComplete.raw('text5c39123805ff')}>
               <OutputBlock
                 text={input.prompt.slice(0, 400) + (input.prompt.length > 400 ? '...' : '')}

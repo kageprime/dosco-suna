@@ -103,7 +103,7 @@ export function ReviewPanel({
       )}
     >
       {/* Header + filters are ONE block with ONE rule beneath it. */}
-      <div className="border-border/60 shrink-0 border-b">
+      <div className="border-border shrink-0 border-b">
         <div className="flex h-11 items-center gap-1 pr-2 pl-3">
           <h2 className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">{title}</h2>
           {actions}

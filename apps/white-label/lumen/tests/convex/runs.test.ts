@@ -18,7 +18,7 @@ const fake = vi.hoisted(() => {
     onSend: (_s: Session, _text: string) => {},
     turn: (_s: Session): { turns: unknown[]; last_ended?: { ended_at: string; end_reason: string; error?: { name: string; message: string } } } =>
       ({ turns: [{}] }),
-    /** The live transcript tail. Null = not available (Lumen never reads the turn as stalled). */
+    /** The session log's newest messages (`GET …/log?limit=3`). Null = no stored log yet, a 404 (Lumen never reads the turn as stalled). */
     transcript: (_s: Session): unknown[] | null => null,
   };
   const aborted: string[] = [];
@@ -40,9 +40,11 @@ vi.mock('@kortix/sdk', () => ({
     return { session_id: s.id };
   },
   getSessionTurn: async (_pid: string, sid: string) => fake.script.turn(fake.sessions.find((s) => s.id === sid)!),
-  getSessionTranscript: async (_pid: string, sid: string) => {
+  getSessionLogPage: async (_pid: string, sid: string, query: { limit?: number }) => {
+    expect(query).toEqual({ limit: 3 });
     const messages = fake.script.transcript(fake.sessions.find((s) => s.id === sid)!);
-    return messages ? { available: true, message_count: messages.length, messages } : { available: false, message_count: 0, messages: [] };
+    // `getSessionLogPage` answers null on a 404: the session has no stored log yet.
+    return messages ? { session: {}, generation: 1, threads: [], thread_id: 'thr_root', messages, has_more: false } : null;
   },
   makeDriveFolder: async (_d: string, path: string) => ({ path }),
   uploadDriveFile: async (_d: string, path: string, body: Uint8Array) => {
@@ -162,6 +164,16 @@ async function startReview(t: T, matterId: Id<'matters'>, docs: Id<'documents'>[
   return t.mutation(internal.runs.startReviewAsOwner, { matterId });
 }
 
+/** A streaming assistant message of the session log with `calls` finished tool calls. */
+const logMessage = (calls: number) => ({
+  message_id: 'msg_1',
+  status: 'streaming',
+  blocks: [
+    { id: 'blk_text', type: 'text', text: 'Reading the documents.' },
+    ...Array.from({ length: calls }, (_, i) => ({ id: `blk_${i}`, type: 'tool_call', status: 'complete' })),
+  ],
+});
+
 const idleNow = () => ({ turns: [], last_ended: { ended_at: new Date(Date.now()).toISOString(), end_reason: 'completed' } });
 
 async function finish(t: T) {
@@ -241,6 +253,89 @@ describe('run engine: fan-out, validation, repair, nudge, relaunch, limits', () 
     expect(fake.sessions).toHaveLength(1);
   });
 
+  test.each(['missing cell', 'outside batch'])('a schema-valid row with %s stays rejected until a corrected version is accepted', async (defect) => {
+    const { t, matterId, docs } = await world(2);
+    fake.script.onStart = (s) => {
+      writeAll(s);
+      const input = inputOf(s);
+      const row = goodRow(docs[0], input.columns, 1);
+      if (defect === 'missing cell') delete row.cells[input.columns[0].key];
+      else row.doc_id = 'outside-batch';
+      fake.write(`${dirOf(s)}/out/rows/${docs[0]}.json`, row);
+    };
+    // Leave the rejected version unchanged for one more poll, then repair it.
+    fake.script.onSend = (s) => { if (s.sends.length === 2) writeAll(s); };
+    const { runId, reviewId } = await startReview(t, matterId, docs);
+    await finish(t);
+    expect(fake.sessions[0].sends).toHaveLength(2);
+    const batch = await t.run((ctx) => ctx.db.query('runBatches').withIndex('by_run', (q) => q.eq('runId', runId)).first());
+    expect(batch).toMatchObject({ status: 'succeeded', attempts: { repair: 2 } });
+    const files = await t.run((ctx) => ctx.db.query('runFiles').collect());
+    expect(files.find((f) => f.path === `out/rows/${docs[0]}.json`)).toMatchObject({ status: 'accepted' });
+    expect(files.find((f) => f.path === `out/rows/${docs[0]}.json`)?.errors).toBeUndefined();
+    const cells = await t.run((ctx) => ctx.db.query('reviewCells').withIndex('by_review', (q) => q.eq('reviewId', reviewId)).collect());
+    expect(cells).toHaveLength(16);
+    expect(cells.every((c) => c.state === 'filled' && c.value === `answer ${c.columnKey}`)).toBe(true);
+  });
+
+  test('semantic rejection preserves human cells and progress, then accepts a corrected row', async () => {
+    const { t, matterId, docs } = await world(2);
+    const { runId, reviewId } = await startReview(t, matterId, docs);
+    const batch = await t.run(async (ctx) => {
+      const b = await ctx.db.query('runBatches').withIndex('by_run', (q) => q.eq('runId', runId)).first();
+      if (!b) throw new Error('Missing batch');
+      await ctx.db.patch(b._id, { documentIds: [docs[0]], lastProgressAt: 123 });
+      const cells = await ctx.db.query('reviewCells').withIndex('by_review', (q) => q.eq('reviewId', reviewId)).collect();
+      for (const cell of cells.filter((c) => c.documentId === docs[0])) {
+        if (cell.columnKey === 'parties') await ctx.db.patch(cell._id, { value: 'Human verified', reviewStatus: 'verified', state: 'filled' });
+        if (cell.columnKey === 'term') await ctx.db.patch(cell._id, { value: 'Original', editedValue: 'Human edit', state: 'filled' });
+      }
+      return b;
+    });
+    const review = await t.run((ctx) => ctx.db.get(reviewId));
+    if (!review) throw new Error('Missing review');
+    const path = `out/rows/${docs[0]}.json`;
+    const ingest = (version: string, value: unknown) => t.mutation(internal.runs.ingestResult, { batchId: batch._id, path, version, value });
+    expect(await ingest('1', goodRow(docs[1], review.columns, 2))).toEqual([`doc_id ${docs[1]} is not a document of this batch`]);
+    const invalid = goodRow(docs[0], review.columns, 1);
+    delete invalid.cells.term;
+    expect(await ingest('2', invalid)).toEqual([`row ${docs[0]}: no cell for column term`]);
+    const rejected = await t.run((ctx) => ctx.db.query('runFiles').withIndex('by_batch_path', (q) => q.eq('batchId', batch._id).eq('path', path)).unique());
+    expect(rejected).toMatchObject({ status: 'rejected', version: '2' });
+    expect((await t.run((ctx) => ctx.db.get(batch._id)))?.lastProgressAt).toBe(123);
+    let cells = await t.run((ctx) => ctx.db.query('reviewCells').withIndex('by_review', (q) => q.eq('reviewId', reviewId)).collect());
+    expect(cells.find((c) => c.documentId === docs[0] && c.columnKey === 'parties')).toMatchObject({ value: 'Human verified', reviewStatus: 'verified' });
+    expect(cells.some((c) => c.aiValue !== undefined)).toBe(false);
+    expect(await ingest('3', goodRow(docs[0], review.columns, 1))).toEqual([]);
+    cells = await t.run((ctx) => ctx.db.query('reviewCells').withIndex('by_review', (q) => q.eq('reviewId', reviewId)).collect());
+    expect(cells.find((c) => c.documentId === docs[0] && c.columnKey === 'parties')).toMatchObject({ value: 'Human verified', aiValue: 'answer parties', reviewStatus: 'verified' });
+    expect(cells.find((c) => c.documentId === docs[0] && c.columnKey === 'term')).toMatchObject({ value: 'Original', editedValue: 'Human edit', aiValue: 'answer term' });
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers(), 500);
+  });
+
+  test('an unchanged semantically invalid row and done.json fail after repair retries without partially filling cells', async () => {
+    const { t, matterId, docs } = await world(1);
+    fake.script.onStart = (s) => {
+      writeAll(s);
+      const input = inputOf(s);
+      const row = goodRow(docs[0], input.columns, 1);
+      delete row.cells[input.columns[input.columns.length - 1].key];
+      fake.write(`${dirOf(s)}/out/rows/${docs[0]}.json`, row);
+    };
+    const { runId, reviewId } = await startReview(t, matterId, docs);
+    await finish(t);
+    const run = await t.run((ctx) => ctx.db.get(runId));
+    expect(run).toMatchObject({ status: 'failed' });
+    const batch = await t.run((ctx) => ctx.db.query('runBatches').withIndex('by_run', (q) => q.eq('runId', runId)).first());
+    expect(batch).toMatchObject({ status: 'failed', attempts: { repair: 2 } });
+    expect(fake.sessions[0].sends).toHaveLength(2);
+    if (!batch) throw new Error('Missing batch');
+    const file = await t.run((ctx) => ctx.db.query('runFiles').withIndex('by_batch_path', (q) => q.eq('batchId', batch._id).eq('path', `out/rows/${docs[0]}.json`)).unique());
+    expect(file).toMatchObject({ status: 'rejected', errors: [expect.stringContaining('no cell for column')] });
+    const cells = await t.run((ctx) => ctx.db.query('reviewCells').withIndex('by_review', (q) => q.eq('reviewId', reviewId)).collect());
+    expect(cells.some((c) => c.value !== undefined)).toBe(false);
+  });
+
   test('an idle session with results missing is nudged, then finishes', async () => {
     const { t, matterId, docs } = await world(1);
     fake.script.turn = idleNow;
@@ -255,7 +350,7 @@ describe('run engine: fan-out, validation, repair, nudge, relaunch, limits', () 
   test('an open turn whose transcript stops changing for 5 min is aborted and prompted again, then finishes', async () => {
     const { t, matterId, docs } = await world(1);
     // The agent made a few tool calls, then its next message never moved.
-    fake.script.transcript = () => [{ role: 'assistant', created: 't0', completed: null, text: '', tools: [{ tool: 'bash', status: 'completed' }] }];
+    fake.script.transcript = () => [logMessage(1)];
     fake.script.onSend = (s) => {
       if (!s.sends.at(-1)!.includes('stopped responding')) return;
       fake.script.turn = idleNow;
@@ -277,13 +372,25 @@ describe('run engine: fan-out, validation, repair, nudge, relaunch, limits', () 
     const { t, matterId, docs } = await world(1);
     let tick = 0;
     // Moves for the first 3 minutes (one new tool call per poll), then freezes for good.
-    fake.script.transcript = () => [{ role: 'assistant', created: 't0', completed: null, text: '', tools: Array.from({ length: Math.min(++tick, 30) }, () => ({ tool: 'bash', status: 'completed' })) }];
+    fake.script.transcript = () => [logMessage(Math.min(++tick, 30))];
     const { runId } = await startReview(t, matterId, docs);
     await finish(t);
     const batch = await t.run((ctx) => ctx.db.query('runBatches').withIndex('by_run', (q) => q.eq('runId', runId)).first());
     expect(batch).toMatchObject({ status: 'failed', error: 'The agent stopped responding twice', attempts: { relaunch: 1 } });
     const events = await t.run((ctx) => ctx.db.query('runEvents').withIndex('by_run', (q) => q.eq('runId', runId)).collect());
     expect(events.some((e) => e.detail === 'Batch 1: the agent is still working')).toBe(true);
+  });
+
+  test('an open turn whose session has no stored log (404) is never read as stalled: no relaunch, only the no-progress limit', async () => {
+    const { t, matterId, docs } = await world(1);
+    const { runId } = await startReview(t, matterId, docs);
+    await finish(t);
+    const batch = await t.run((ctx) => ctx.db.query('runBatches').withIndex('by_run', (q) => q.eq('runId', runId)).first());
+    expect(batch).toMatchObject({ status: 'failed', error: 'No progress for 20 minutes', attempts: { relaunch: 0 } });
+    // The stall path aborts and prompts "stopped responding"; `stop()` at the failure aborts once.
+    expect(fake.sessions[0].sends.some((text) => text.includes('stopped responding'))).toBe(false);
+    const events = await t.run((ctx) => ctx.db.query('runEvents').withIndex('by_run', (q) => q.eq('runId', runId)).collect());
+    expect(events.some((e) => e.type === 'relaunch')).toBe(false);
   });
 
   test('a failed session is replaced once by a new session', async () => {

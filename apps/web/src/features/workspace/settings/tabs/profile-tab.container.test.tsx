@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, jest, mock, test } from 'bun:test';
 import { createElement, type ReactNode } from 'react';
+import { configureKortix, type PersonDeletionPlan } from '@kortix/sdk';
 import type { ReactTestInstance } from 'react-test-renderer';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { notifyManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, create } from 'react-test-renderer';
 import * as realModal from '@kortix/ui/modal';
+import { ConfirmDialog } from '@kortix/ui/confirm-dialog';
 
 /**
  * The Delete-account dialog's own state contract (KRTX-1403): the
@@ -60,11 +62,15 @@ let deletionStatusAnswer: {
   refetch: () => {},
 };
 
+const requestDeletionAction = mock(async (_reason?: string) => ({}));
+const immediateDeletionAction = mock(async () => ({}));
+const cancelDeletionAction = mock(async () => ({}));
+
 mock.module('@/hooks/account/use-account-deletion', () => ({
   useAccountDeletionStatus: () => deletionStatusAnswer,
-  useRequestAccountDeletion: () => ({ mutateAsync: async () => ({}), isPending: false }),
-  useDeleteAccountImmediately: () => ({ mutateAsync: async () => ({}), isPending: false }),
-  useCancelAccountDeletion: () => ({ mutateAsync: async () => ({}), isPending: false }),
+  useRequestAccountDeletion: () => ({ mutateAsync: requestDeletionAction, isPending: false }),
+  useDeleteAccountImmediately: () => ({ mutateAsync: immediateDeletionAction, isPending: false }),
+  useCancelAccountDeletion: () => ({ mutateAsync: cancelDeletionAction, isPending: false }),
 }));
 // The real exports, so a new one (ModalClose, ModalContentInner, …) never breaks the mock;
 // only the portal-based parts are replaced.
@@ -98,7 +104,11 @@ mock.module('@kortix/ui/radio-group', uiRadioGroupMock);
 const translate = (key: string) => key.split('.').pop() || key;
 mock.module('@/i18n/use-translations', () => ({
   useLocale: () => 'en',
-  useTranslations: () => Object.assign((key: string) => translate(key), { raw: translate }),
+  useTranslations: () => Object.assign(
+    (key: string, values?: Record<string, string | number>) =>
+      key.endsWith('members') ? `${values?.count} members` : translate(key),
+    { raw: translate },
+  ),
 }));
 
 const { ProfileTab } = await import('./profile-tab');
@@ -300,24 +310,18 @@ describe('ProfileTab — deletion date before consent', () => {
           n.children[0] === 'deleteAccount',
       )[0];
       await act(async () => trigger.props.onClick());
-      const { ProfileTabView } = await import('./profile-tab');
-      const view = root.findByType(ProfileTabView);
-      const { renderToStaticMarkup } = await import('react-dom/server');
-      const out = renderToStaticMarkup(<ProfileTabView {...view.props} />);
-      expect(out).toContain('February 8, 2026');
+      const text = () => JSON.stringify(renderer.toJSON());
+      expect(text()).toContain('February 8, 2026');
       expect(confirmInput(root).props.value).toBe('');
-      const immediate = renderToStaticMarkup(
-        <ProfileTabView {...view.props} deletionType="immediate" />,
-      );
-      expect(immediate).not.toContain('February 8, 2026');
-      await act(async () => view.props.onCloseDeleteDialog());
+      const choice = root.findAll((n) => n.props.onValueChange)[0];
+      await act(async () => choice.props.onValueChange('immediate'));
+      expect(text()).not.toContain('February 8, 2026');
+      const modal = root.findAll((n) => n.props.onOpenChange)[0];
+      await act(async () => modal.props.onOpenChange(false));
       jest.setSystemTime(new Date('2026-02-01T12:00:00Z'));
       await act(async () => trigger.props.onClick());
-      const reopened = renderToStaticMarkup(
-        <ProfileTabView {...root.findByType(ProfileTabView).props} />,
-      );
-      expect(reopened).toContain('February 15, 2026');
-      expect(reopened).not.toContain('February 8, 2026');
+      expect(text()).toContain('February 15, 2026');
+      expect(text()).not.toContain('February 8, 2026');
     } finally {
       await act(async () => renderer.unmount());
       client.clear();
@@ -334,12 +338,9 @@ test('avatar upload requires revalidation so deletion cannot leave an hour-long 
   URL.revokeObjectURL = () => {};
   uploadAvatar.mockClear();
   try {
-    const { ProfileTabView } = await import('./profile-tab');
     const file = new File(['synthetic-image'], 'avatar.png', { type: 'image/png' });
     await act(async () => {
-      renderer.root
-        .findByType(ProfileTabView)
-        .props.onAvatarFileChange({ target: { files: [file], value: '' } });
+      renderer.root.findByProps({ type: 'file' }).props.onChange({ target: { files: [file], value: '' } });
     });
     expect(uploadAvatar).toHaveBeenCalledTimes(1);
     expect(uploadAvatar.mock.calls[0]?.[1]).toBe(file);
@@ -420,5 +421,151 @@ describe('ProfileTab — one delete dialog whatever the account state', () => {
     expect(dialog.selected).toBe('grace-period');
     expect(dialog.grace?.disabled).toBeFalsy();
     expect(dialog.grace?.description).toBe('gracePeriodDescription');
+  });
+});
+
+
+describe('ProfileTab — deletion action outcomes', () => {
+  for (const mode of ['grace-period', 'immediate'] as const) {
+    for (const rejected of [false, true]) {
+      test(`${mode}: ${rejected ? 'rejection keeps' : 'success closes'} the dialog`, async () => {
+        const action = mode === 'immediate' ? immediateDeletionAction : requestDeletionAction;
+        action.mockClear();
+        if (rejected) action.mockImplementationOnce(async () => { throw new Error('synthetic rejection'); });
+        const { renderer, client } = await mountTab();
+        try {
+          const root = renderer.root;
+          const trigger = root.findAll((n) => n.props.onClick && n.props.children === 'deleteAccount')[0];
+          await act(async () => trigger.props.onClick());
+          const choice = root.findAll((n) => n.props.onValueChange)[0];
+          await act(async () => choice.props.onValueChange(mode));
+          const confirm = () => root.findAll((n) => n.props.variant === 'destructive' && n.props.onClick)[0];
+          expect(confirm().props.disabled).toBe(true);
+          await act(async () => confirmInput(root).props.onChange({ target: { value: 'Delete' } }));
+          expect(confirm().props.disabled).toBe(true);
+          await act(async () => confirmInput(root).props.onChange({ target: { value: 'delete' } }));
+          expect(confirm().props.disabled).toBe(false);
+          await act(async () => confirm().props.onClick());
+          expect(action).toHaveBeenCalledTimes(1);
+          if (mode === 'grace-period') expect(requestDeletionAction.mock.calls[0]).toEqual(['User requested deletion']);
+          expect(root.findAll((n) => n.props.id === 'profile-delete-confirm').length > 0).toBe(rejected);
+          if (rejected) {
+            const close = root.findAll((n) => n.props.onOpenChange)[0];
+            await act(async () => close.props.onOpenChange(false));
+            await act(async () => trigger.props.onClick());
+            expect(confirmInput(root).props.value).toBe('');
+            expect(root.findAll((n) => n.props.onValueChange)[0].props.value).toBe('grace-period');
+          }
+        } finally {
+          await act(async () => renderer.unmount());
+          client.clear();
+        }
+      });
+    }
+  }
+});
+
+
+describe('ProfileTab — scheduled deletion cancellation', () => {
+  for (const rejected of [false, true]) {
+    test(`${rejected ? 'rejected' : 'successful'} cancellation preserves the dialog contract`, async () => {
+      const previous = deletionStatusAnswer;
+      deletionStatusAnswer = { ...previous, data: { supported: true, has_pending_deletion: true, deletion_scheduled_for: '2027-01-10T00:00:00Z' } };
+      cancelDeletionAction.mockClear();
+      if (rejected) cancelDeletionAction.mockImplementationOnce(async () => { throw new Error('synthetic cancellation rejection'); });
+      const { renderer, client } = await mountTab();
+      try {
+        const root = renderer.root;
+        const trigger = root.findAll((n) => n.props.onClick && n.props.children === 'keepMyAccount')[0];
+        await act(async () => trigger.props.onClick());
+        expect(root.findByType(ConfirmDialog).props.open).toBe(true);
+        await act(async () => root.findByType(ConfirmDialog).props.onConfirm());
+        expect(cancelDeletionAction).toHaveBeenCalledTimes(1);
+        expect(root.findByType(ConfirmDialog).props.open).toBe(rejected);
+      } finally {
+        deletionStatusAnswer = previous;
+        await act(async () => renderer.unmount());
+        client.clear();
+      }
+    });
+  }
+});
+
+describe('ProfileTab — live deletion-plan responses', () => {
+  let mounted: Awaited<ReturnType<typeof mountTab>> | undefined;
+  let requests: string[] = [];
+
+  afterEach(async () => {
+    if (mounted) await act(async () => mounted?.renderer.unmount());
+    mounted?.client.clear();
+    mounted = undefined;
+    requests = [];
+    notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+    configureKortix({ backendUrl: '', getToken: async () => null, fetch: globalThis.fetch });
+  });
+
+  async function openWithPlan(answer: () => Response) {
+    notifyManager.setScheduler(queueMicrotask);
+    configureKortix({
+      backendUrl: 'https://api.example.test',
+      getToken: async () => 'synthetic-token',
+      fetch: Object.assign(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/account/deletion-plan')) {
+          requests.push(`${init?.method ?? 'GET'} ${String(input)}`);
+          return answer();
+        }
+        return Response.json([]);
+      }, { preconnect: globalThis.fetch.preconnect }),
+    });
+    mounted = await mountTab();
+    const root = mounted.renderer.root;
+    expect(requests).toHaveLength(0);
+    const trigger = root.findAll((n) => n.props.onClick && n.props.children === 'deleteAccount')[0];
+    await act(async () => trigger.props.onClick());
+    expect(requests).toContain('GET https://api.example.test/account/deletion-plan');
+    return root;
+  }
+
+  const text = (root: ReactTestInstance) => root.findAllByType('li')
+    .map((node) => node.children.filter((child) => typeof child === 'string').join(''));
+  const confirm = (root: ReactTestInstance) => root.findAll(
+    (node) => node.props.variant === 'destructive' && node.props.onClick,
+  )[0];
+
+  test('maps served deleted/left names and blocker member counts, disabling confirmation', async () => {
+    const plan: PersonDeletionPlan = {
+      delete_workspaces: ['synthetic-delete'],
+      leave_workspaces: ['synthetic-leave'],
+      workspace_names: { 'synthetic-delete': 'Deleted workshop', 'synthetic-leave': 'Left workshop' },
+      blockers: [{ workspace_id: 'synthetic-blocker', name: 'Shared workshop', member_count: 7 }],
+    };
+    const root = await openWithPlan(() => Response.json(plan));
+    expect(text(root)).toContain('Deleted workshop');
+    expect(text(root)).toContain('Left workshop');
+    expect(text(root).some((line) => line.includes('Shared workshop') && line.includes('7'))).toBe(true);
+    await act(async () => confirmInput(root).props.onChange({ target: { value: 'delete' } }));
+    expect(confirm(root).props.disabled).toBe(true);
+  });
+
+  test('an older plan without served names falls back to workspace ids and permits confirmation', async () => {
+    const plan: PersonDeletionPlan = {
+      delete_workspaces: ['synthetic-delete-id'], leave_workspaces: ['synthetic-leave-id'], blockers: [],
+    };
+    const root = await openWithPlan(() => Response.json(plan));
+    expect(text(root)).toContain('synthetic-delete-id');
+    expect(text(root)).toContain('synthetic-leave-id');
+    await act(async () => confirmInput(root).props.onChange({ target: { value: 'delete' } }));
+    expect(confirm(root).props.disabled).toBe(false);
+  });
+
+  test('a rejected plan keeps generic consequences and the confirmation-word gate', async () => {
+    const root = await openWithPlan(() => Response.json({ message: 'synthetic unavailable' }, { status: 503 }));
+    expect(root.findAll((node) => node.props['data-testid'] === 'deletion-plan')).toHaveLength(0);
+    expect(text(root)).toContain('agentsDeleted');
+    expect(text(root)).toContain('threadsDeleted');
+    expect(text(root)).toContain('billingRecordsKept');
+    expect(confirm(root).props.disabled).toBe(true);
+    await act(async () => confirmInput(root).props.onChange({ target: { value: 'delete' } }));
+    expect(confirm(root).props.disabled).toBe(false);
   });
 });

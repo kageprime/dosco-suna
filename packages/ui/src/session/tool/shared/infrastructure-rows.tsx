@@ -23,14 +23,11 @@ import { type TriggerTitle } from '../../../internal/session-types';
  * A row inverts it: the detail opens as a list of one-line summaries, and the
  * reader expands the one they came for.
  *
- * The row is the `bg-popover rounded-md border` surface the design system uses
- * for every panel row, and its disclosure affordance is the same MARK the Easy
- * cards use — a `CaretRightIcon` that points down once the thing is open. Only
- * the mark is shared: `PanelCard` sits on `bg-pane` at a tighter radius and
- * animates its chevron through `motion` with a press scale, while this row is a
- * denser, plainer thing that rotates its chevron in CSS. Same vocabulary, not
- * the same component. No rail, no connector, no per-row header: the gap between
- * rows is the whole rhythm.
+ * Each call is its own card (`bg-popover rounded-md border`), and the list
+ * spaces the cards apart (`ToolParts`, `gap-2`). The caret points down once a
+ * card is open, and the body opens under one hairline inside the card. The
+ * verb ("Ran command") is meta ink; the value it acted on (the command, the
+ * path, the query) is the bright text.
  *
  * Interaction is gated on having a body — a childless call has nothing to
  * disclose, so it gets no chevron, no `role="button"`, and no cursor change
@@ -74,48 +71,52 @@ function PanelToolRow({
   const row = (
     <div
       className={cn(
-        'flex min-h-11 w-full items-center gap-2.5 px-3 py-2.5 text-left',
-        hasBody && 'transition-colors',
-        hasBody && !locked && 'hover:bg-muted-foreground/[0.04] cursor-pointer',
+        // `items-start` + one-line slots (`h-[1lh]`): every glyph sits on the
+        // first line, so a two-line row (an agent and its task) keeps its
+        // icon, state and caret beside the name, not between the lines.
+        'flex min-h-10 w-full items-start gap-2.5 px-3 py-2.5 text-left text-sm',
+        hasBody && 'transition-colors duration-(--duration-fast)',
+        hasBody && !locked && 'hover:bg-hover cursor-pointer',
       )}
     >
       {leading && (
-        <span className="text-muted-foreground flex size-4 shrink-0 items-center justify-center [&>svg]:size-4">
+        <span className="text-muted-foreground flex h-[1lh] w-4 shrink-0 items-center justify-center [&>svg]:size-4">
           {leading}
         </span>
       )}
       {isTriggerTitle(trigger) ? (
         <PanelRowTitle trigger={trigger} running={running} onSubtitleClick={onSubtitleClick} />
       ) : (
-        // `truncate` here CLIPS rather than ellipsises — a node trigger's
-        // content is flex children (a label + chip row), and
-        // `text-overflow` only applies to inline text. Clipping is the intent:
-        // the row is one line, and an over-long node has to stop at the badge
-        // rather than push the chevron off the card.
-        <div className="[&>span:first-child>svg]:text-muted-foreground text-foreground min-w-0 flex-1 truncate text-sm font-medium [&>span:first-child>svg]:size-4">
+        // `overflow-hidden` CLIPS an over-long node at the badge rather than
+        // pushing the chevron off the card; the row is one line.
+        // A row, not a block: a node trigger is flex children (a lead word, an
+        // agent chip, a subtitle), and a block stacked them one per line.
+        <div className="[&>span:first-child>svg]:text-muted-foreground text-foreground flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-sm font-medium whitespace-nowrap [&>span:first-child>svg]:size-4">
           {trigger}
         </div>
       )}
       {badge && (
-        <span className="text-muted-foreground shrink-0 font-mono text-xs whitespace-nowrap tabular-nums">
+        <span className="text-muted-foreground flex h-[1lh] shrink-0 items-center font-mono text-xs whitespace-nowrap tabular-nums">
           {badge}
         </span>
       )}
       {/* After the badge, before the chevron: the badge counts what the row
           holds, the chevron opens it, and the action leaves for somewhere else
           — so the two that concern THIS row stay adjacent to it. */}
-      {action && <span className="flex shrink-0 items-center">{action}</span>}
+      {action && <span className="flex h-[1lh] shrink-0 items-center">{action}</span>}
       {hasBody && (
-        <CaretRightIcon
-          aria-hidden
-          // CSS, not `motion` — the rotation is a 150ms state change on one
-          // property, and every row on the pane would otherwise carry a
-          // motion component. `motion-reduce` snaps it instead.
-          className={cn(
-            'text-muted-foreground size-4 shrink-0 transition-transform motion-reduce:transition-none',
-            open && 'rotate-90',
-          )}
-        />
+        <span className="flex h-[1lh] shrink-0 items-center">
+          <CaretRightIcon
+            aria-hidden
+            // CSS, not `motion` — the rotation is a 150ms state change on one
+            // property, and every row on the pane would otherwise carry a
+            // motion component. `motion-reduce` snaps it instead.
+            className={cn(
+              'text-muted-foreground size-4 shrink-0 transition-transform motion-reduce:transition-none',
+              open && 'rotate-90',
+            )}
+          />
+        </span>
       )}
     </div>
   );

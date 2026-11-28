@@ -55,6 +55,17 @@ mock.module('../oauth/access-token', () => ({
         scopes: ['profile'],
       };
     }
+    if (t === 'kortix_oat_app_viewer') {
+      return {
+        isValid: true,
+        tokenId: 'oat-3',
+        userId: 'user-1',
+        accountId: 'acct-1',
+        clientId: 'client-app',
+        appId: 'app-1',
+        scopes: ['profile', 'email', 'kortix'],
+      };
+    }
     if (t === 'kortix_oat_inactive_client') {
       return { isValid: false, error: 'OAuth client is inactive' };
     }
@@ -112,6 +123,8 @@ mock.module('../iam/sso-sync', () => ({ ...realSsoSync, syncSsoMembership: async
 
 const { combinedAuth, supabaseAuth } = await import('../middleware/auth');
 const { oauthApp } = await import('../oauth');
+const { newWorkspaceCallerDenial } = await import('../projects/new-workspace');
+const { newWorkspaceCallerOf } = await import('../projects/lib/new-workspace-caller');
 
 function appWith(middleware: typeof combinedAuth) {
   const app = new Hono();
@@ -128,6 +141,8 @@ function appWith(middleware: typeof combinedAuth) {
   app.get('/v1/projects', probe);
   app.get('/v1/accounts/me', probe);
   app.get('/v1/oauth/userinfo', probe);
+  // The person check `POST /v1/workspaces` runs, on the principal the middleware set.
+  app.post('/v1/workspaces', (c: any) => c.json({ denial: newWorkspaceCallerDenial(newWorkspaceCallerOf(c))?.body ?? null }));
   app.onError((err, c) => {
     if (err instanceof HTTPException) return c.json({ error: err.message }, err.status);
     return c.json({ error: (err as Error).message }, 500);
@@ -156,7 +171,15 @@ describe('OAuth access tokens on the auth middlewares', () => {
     });
   });
 
-  test('never falls through to the generic Dosco-key validator', async () => {
+  test('an unbound consent token is a person; an App viewer token with the `kortix` scope is not', async () => {
+    const create = async (token: string) =>
+      (await appWith(combinedAuth).request('/v1/workspaces', { method: 'POST', headers: { Authorization: `Bearer ${token}` } })).json();
+    expect(await create('kortix_oat_full')).toEqual({ denial: null });
+    expect(await create('kortix_oat_app_viewer')).toMatchObject({ denial: { code: 'new_workspace_requires_person' } });
+  });
+
+  test('never falls through to the generic Kortix-key validator', async () => {
+
     await appWith(combinedAuth).request('/v1/projects', {
       headers: { Authorization: 'Bearer kortix_oat_full' },
     });

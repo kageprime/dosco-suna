@@ -105,3 +105,57 @@ test('a control socket that authenticates in time stays open', async () => {
   expect(c.online).toBe(true);
   c.stop();
 });
+
+
+test('only the commanded tab is highlighted, including outside the group, and disconnect clears it', async () => {
+  const messages = new Map<number, boolean>();
+  const tabs = [
+    { id: 10, windowId: 1, groupId: 7, url: 'https://a.test', title: 'A', active: true, index: 0, pinned: false, highlighted: false, incognito: false, selected: false, discarded: false, autoDiscardable: true, frozen: false, lastAccessed: 0 },
+    { id: 20, windowId: 1, groupId: -1, url: 'https://b.test', title: 'B', active: false, index: 1, pinned: false, highlighted: false, incognito: false, selected: false, discarded: false, autoDiscardable: true, frozen: false, lastAccessed: 0 },
+  ];
+  const oldTabs = chrome.tabs;
+  const oldDebugger = chrome.debugger;
+  Object.assign(chrome, {
+    tabs: { ...oldTabs, query: async () => tabs, get: async (id: number) => tabs.find((t) => t.id === id),
+      sendMessage: async (id: number, m: { kortix: string; on: boolean }) => { if (m.kortix === 'overlay') messages.set(id, m.on); } },
+    debugger: { attach: noop, detach: noop, sendCommand: noop,
+      getTargets: async () => tabs.map((t) => ({ id: `T${t.id}`, tabId: t.id, type: 'page', url: t.url, title: t.title })) },
+  });
+  try {
+    const hub = new Hub(() => {});
+    await hub.onAttach(frame);
+    const a = hub.all.get('a1');
+    if (!a) throw new Error('attachment missing');
+    a.groupId = 7;
+    a.touched.add(10);
+    const out: { result?: { sessionId?: string } }[] = [];
+    // The bridge invokes this exact Shim instance. Capture its real replies without a socket.
+    const originalSend = FakeWs.prototype.send;
+    FakeWs.prototype.send = function (raw) { originalSend.call(this, raw); const f = JSON.parse(raw); if (f.m) out.push(f.m); };
+    FakeWs.all.at(-1)?.open();
+    const call = async (method: string, params: Record<string, unknown>, sessionId?: string) => {
+      await a.shim.handle('overlay-test', { id: out.length + 1, method, params, sessionId });
+      await Promise.resolve();
+      return out.at(-1)?.result?.sessionId;
+    };
+    try {
+      const first = await call('Target.attachToTarget', { targetId: 'T10' });
+      const second = await call('Target.attachToTarget', { targetId: 'T20' });
+      await a.refreshOverlays();
+      expect([...messages.values()].every((on) => !on)).toBe(true);
+      await call('Runtime.evaluate', { expression: 'document.title' }, first);
+      expect(messages.get(10)).toBe(true);
+      expect(messages.get(20) ?? false).toBe(false);
+      await call('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 0, y: 0 }, second);
+      expect(messages.get(10)).toBe(false);
+      expect(messages.get(20)).toBe(true);
+      // A load event on the old grouped tab must not resurrect its overlay.
+      hub.onTabUpdated(10, { status: 'complete' }, tabs[0]);
+      expect(messages.get(10)).toBe(false);
+      a.shim.closeAll();
+      expect(messages.get(20)).toBe(false);
+      await a.end('stopped');
+      expect([...messages.values()].every((on) => !on)).toBe(true);
+    } finally { FakeWs.prototype.send = originalSend; await a.end('stopped'); }
+  } finally { Object.assign(chrome, { tabs: oldTabs, debugger: oldDebugger }); }
+});

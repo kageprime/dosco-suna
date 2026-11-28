@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { LEAVE_AT_PERCENT, headroom, routeAccounts } from './account-routing';
+import { LEAVE_AT_PERCENT, headroom, modelSpent, routeAccounts } from './account-routing';
 
 const NOW = Date.parse('2026-11-04T16:00:00Z');
 const later = (hours: number) => new Date(NOW + hours * 3_600_000).toISOString();
@@ -58,6 +58,22 @@ describe('headroom reads plan windows only', () => {
   test('a full Claude model weekly window still exhausts the account for routing, as before', () => {
     const base = usage(30, 40);
     expect(headroom({ ...base, windows: [...base.windows, { id: '7d_opus', window_minutes: null, used_percent: 100, resets_at: later(10) }] }, NOW).exhausted).toBe(true);
+  });
+});
+
+describe('modelSpent: one Antigravity model can be spent while the account serves others', () => {
+  test('only a full, unreset window for the requested model blocks the account', () => {
+    const u = { ...usage(30, 40), windows: [
+      { id: 'five_hour', window_minutes: 300, used_percent: 30, resets_at: later(2) },
+      { id: 'weekly', window_minutes: 10080, used_percent: 40, resets_at: later(100) },
+      { id: 'model_gemini_3_8_flash', window_minutes: null, used_percent: 100, resets_at: later(48) },
+    ] };
+    expect(modelSpent(u, 'model_gemini_3_8_flash', NOW)).toBe(true);
+    expect(modelSpent(u, 'model_gemini_4_neon', NOW)).toBe(false);
+    expect(modelSpent(u, 'model_gemini_3_8_flash', NOW + 49 * 3_600_000)).toBe(false);
+    expect(modelSpent({ ...u, windows: [u.windows[2]!].map((w) => ({ ...w, used_percent: 99 })) },
+      'model_gemini_3_8_flash', NOW)).toBe(false);
+    expect(modelSpent(null, 'model_gemini_3_8_flash', NOW)).toBe(false);
   });
 });
 

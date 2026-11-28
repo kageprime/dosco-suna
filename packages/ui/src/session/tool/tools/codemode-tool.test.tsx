@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { defaultUiMessages as en } from '../../../i18n';
-import { CodemodeTool, scriptCalls, scriptResult } from './codemode-tool';
+import { CodemodeTool, scriptCalls, scriptCards, scriptResult } from './codemode-tool';
 
 /** The text of rendered markup: tags removed until none remain (one pass can leave a tag behind). */
 function textOf(html: string): string {
@@ -152,5 +152,29 @@ describe('CodemodeTool', () => {
     // The script card lists the call; it draws no image frame.
     expect(html).not.toContain('aria-busy');
     expect(html).not.toContain('<img');
+  });
+});
+
+describe('scriptCards', () => {
+  const card = (title: string, rows: { title: string; detail?: string }[] = []) =>
+    JSON.stringify({ ok: true, tool: 'task_stop', action: 'stop', card: { title, status: 'done', rows }, data: {} });
+  test('a script that returns Kortix tool results reads as their cards, rows included', () => {
+    expect(scriptCards(JSON.stringify([card('faq-writer had already ended'), card('2 sessions', [{ title: 'pricing-scout', detail: 'Working' }])]))).toEqual([
+      { title: 'faq-writer had already ended', rows: [] },
+      { title: '2 sessions', rows: ['pricing-scout · Working'] },
+    ]);
+  });
+  test('a card with a link or a change keeps the original output', () => {
+    const signIn = JSON.stringify({ ok: true, tool: 'kortix_connectors', action: 'connect', card: { title: 'Sign in to Linear', links: [{ label: 'Sign in', href: 'https://example.test/oauth' }] }, data: {} });
+    expect(scriptCards(JSON.stringify([signIn]))).toBeNull();
+    const listed = JSON.stringify({ ok: true, tool: 'kortix_sessions', action: 'list', card: { title: '2 sessions', rows: [{ title: 'pricing-scout', href: '/sessions/s1' }] }, data: {} });
+    expect(scriptCards(JSON.stringify([listed]))).toBeNull();
+    // More rows than a card holds: nothing may be cut, so the original output stays.
+    const long = JSON.stringify({ ok: true, tool: 'kortix_sessions', action: 'list', card: { title: '60 sessions', rows: Array.from({ length: 60 }, (_, i) => ({ title: `s${i}` })) }, data: {} });
+    expect(scriptCards(JSON.stringify([long]))).toBeNull();
+  });
+  test('any other output stays as it was', () => {
+    expect(scriptCards('hello')).toBeNull();
+    expect(scriptCards('[1, 2]')).toBeNull();
   });
 });

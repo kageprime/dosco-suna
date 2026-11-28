@@ -265,3 +265,25 @@ test('resend challenges the same factor with the new-code message; verify succee
     renderer.unmount();
   });
 });
+
+test('removing an existing factor unenrolls it and returns to the phone step', async () => {
+  reset();
+  existingFactors = [{ id: 'factor-9', factor_type: 'phone', status: 'verified', phone: '+15550001111' }];
+  const renderer = await render();
+  expect(textOf(renderer)).toContain('Enter Verification Code');
+  // The refetch after the unenroll returns no factor, so the mount effect does
+  // not pull the page back to the OTP step.
+  existingFactors = [];
+  await act(async () => {
+    byTestId(renderer, 'otp-remove').props.onClick();
+  });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+  expect(calls.unenroll).toEqual(['factor-9']);
+  expect(textOf(renderer)).toContain('Verify Your Phone Number');
+  expect(textOf(renderer)).toContain('Phone number removed');
+  await act(async () => {
+    renderer.unmount();
+  });
+});

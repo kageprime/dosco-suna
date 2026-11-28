@@ -72,6 +72,7 @@ const catalog = {
     "reconnectTitle": "Reconnect {label}",
     "reconnectDescription": "Sign in with ChatGPT again. The account keeps its name, access, and session selections.",
     "needsReconnection": "Needs reconnection",
+    "refusedByAnthropic": "Refused by Anthropic",
     "creationDescription": "The value stays encrypted. Choose who can use this connection before saving it.",
     "whoCanUse": "Who can use this connection?",
     "everyoneInProject": "Everyone in this workspace",
@@ -101,6 +102,7 @@ const catalog = {
     "coolingDown": "Cooling down",
     "keyVerified": "Verified: {provider} accepted this key",
     "keyInvalid": "{provider} refused this key: {message}",
+    "loginForbidden": "Anthropic refused this account: {message} Dosco skips it for 15 minutes after each refusal.",
     "keyUnchecked": "Not verified: {message}",
     "checkKey": "Check again",
     "savedVerified": "Key saved and verified",
@@ -810,10 +812,6 @@ const catalog = {
       "permission": "You need the workspace's settings permission to change a feature flag.",
       "updateFailed": "Failed to update {key}",
       "flags": {
-        "secrets_egress": {
-          "name": "Network-Enforced Secrets",
-          "description": "Control which tools and destinations can receive workspace secrets."
-        },
         "reminders": {
           "name": "Loops",
           "description": "Let agents and people schedule check-ins on a session, once or on repeat. Each fire re-prompts that session. Adds loops to the Triggers list, the session loop chip, and `kortix loop`."
@@ -838,7 +836,7 @@ const catalog = {
           "name": "Email channel",
           "description": "Give the agent an email inbox on Resend: inbound mail starts and continues sessions, and the agent reads, replies and sends from the inbox. Bring your own Resend API key and domain."
         },
-        "chat": {
+        "channels": {
           "name": "Channels",
           "description": "Spaces with Dosco, the way Slack works: every message is a thread, Dosco's newest reply shows under it, Dosco can start threads, and you share spaces with people. Replaces the session list in the sidebar."
         },
@@ -863,7 +861,7 @@ const catalog = {
           "description": "Drives the whole team can use: an admin makes a Drive and adds agents to it. Every session of those agents mounts it, and everyone who may use one of them can open it. Off, every person has only My files."
         },
         "chat_input": {
-          "name": "Spaces-ChatInput",
+          "name": "Channels-ChatInput",
           "description": "One control under the composer for who answers and how: pick the agent, and every other setting stays on Auto, inherited from that agent. Open a row to override the model, thinking effort, secrets, provider keys or sandbox for this session, and reset it to Auto in one click."
         },
         "chat_front": {
@@ -871,8 +869,8 @@ const catalog = {
           "description": "With Spaces on, the agent you chat with in a thread is a router: it does quick work itself (an answer, a short text, a look at the thread files) and hands longer work to the Space's agents. It writes back like a person, in short messages. An agent saves its full result as a file in the thread, and the router links that file instead of retyping it. Show work under a message opens the work behind it. Needs Xera on in kortix.yaml."
         },
         "spaces_proactive": {
-          "name": "Spaces-Proactive",
-          "description": "With Spaces on, a space can watch itself: turn on Proactive in its details, and an agent reads what happens there (finished threads, questions left open, people who join) and writes in the chat only when it matters: a result worth sharing, a decision you need to make, or something overdue. It can also start a thread that does the work. Optional daily brief at 9:00."
+          "name": "Channels-Proactive",
+          "description": "With Slack-style Channels on, a channel can watch itself: turn on Proactive in its details, and an agent reads what happens there (finished threads, questions left open, people who join) and writes in the chat only when it matters: a result worth sharing, a decision you need to make, or something overdue. It can also start a thread that does the work. Optional daily brief at 9:00."
         },
         "program_agents": {
           "name": "Program agents",
@@ -889,16 +887,28 @@ const catalog = {
         "calendar": {
           "name": "Calendar",
           "description": "A shared calendar for people and agents: dated items with the people on them and comments, beside the scheduled triggers and Loops. Mention someone with @ to notify them. Agents use `kortix calendar`."
+        },
+        "review_swipe": {
+          "name": "Review cards",
+          "description": "The Review page's Needs you opens as a swipe deck: one item per card. Swipe right to approve or merge, left to send it back to the agent with what should change."
+        },
+        "platinum_cache": {
+          "name": "Workspace cache",
+          "description": "New sessions start with /workspace restored from this workspace's saved cache on Platinum: a prepared checkout with its node_modules and pnpm store, in about a second instead of minutes of setup. A workspace admin saves a prepared session as the cache. Off, every session starts with an empty /workspace."
+        },
+        "sidebar_rail": {
+          "name": "Sidebar rail",
+          "description": "On desktop, a fixed icon rail sits beside the sidebar: Home, Search and More at the top, Help, Customize and the panel toggle at the bottom. More lists every other page, and a pin on a row puts that page on the rail. With the panel collapsed, hovering Home, Spaces or Customize shows the panel on that list."
         }
       },
       "channelsSwitch": {
-        "onTitle": "Turn on Spaces for {project}?",
-        "onBody": "Everyone in this workspace gets Spaces instead of the session list. All existing sessions move into #general. You can turn it off any time; nothing is deleted.",
-        "drive": "Turn on Drive too, so spaces get Files.",
+        "onTitle": "Turn on Slack-style Channels for {project}?",
+        "onBody": "Everyone in this workspace gets Slack-style Channels instead of the session list. All existing sessions move into #general. You can turn it off any time; nothing is deleted.",
+        "drive": "Turn on Drive too, so channels get Files.",
         "turnOn": "Turn on",
         "cancel": "Cancel",
-        "offTitle": "Turn off Spaces?",
-        "offBody": "Spaces, memory, files and links stay saved. The session list comes back for everyone.",
+        "offTitle": "Turn off Slack-style Channels?",
+        "offBody": "Channels, memory, files and links stay saved. The session list comes back for everyone.",
         "turnOff": "Turn off"
       },
       "wip": "Work in progress",
@@ -1145,7 +1155,7 @@ const catalog = {
     "openInNewTab": "Open in new tab",
     "delete": "Delete",
     "deleting": "Deleting",
-    "allThreadsLoaded": "All threads loaded",
+    "allThreadsLoaded": "All sessions loaded",
     "myWorkforce": "My Workforce",
     "addTeam": "Add Team",
     "selectAll": "Select all",
@@ -1159,6 +1169,13 @@ const catalog = {
     "pin": "Pin sidebar",
     "resize": "Resize sidebar",
     "resizeHelp": "Drag to resize — double-click to reset",
+    "iconRail": {
+      "navigation": "Workspace navigation",
+      "home": "Home",
+      "more": "More",
+      "pinTab": "Show tab",
+      "unpinTab": "Hide tab"
+    },
     "customize": "Customize",
     "sessions": "Sessions",
     "sessionViewOptions": "Session view options",
@@ -1413,16 +1430,18 @@ const catalog = {
     "searchArtifacts": "Search artifacts",
     "appsNoMatches": "No matches",
     "spaces": {
-      "channels": "Spaces",
-      "addChannel": "New space",
-      "loadError": "Could not load spaces.",
+      "channels": "Channels",
+      "chat": "Chat",
+      "addChannel": "New channel",
+      "loadError": "Could not load channels.",
       "newAgent": "New agent",
       "review": "Review",
       "personal": "Your space",
       "personalNamed": "{name}'s space",
       "private": "Private",
       "noMessages": "No messages yet",
-      "more": "More"
+      "more": "More",
+      "title": "Channels"
     },
     "calendar": "Calendar",
     "running": "Running",
@@ -1432,7 +1451,15 @@ const catalog = {
     "runningFailed": "Couldn't read what is running.",
     "runningRetry": "Try again",
     "runningIn": "in {title}",
-    "runningFirst": "Showing the first {count}."
+    "runningFirst": "Showing the first {count}.",
+    "agents": {
+      "title": "Agents",
+      "paused": "Paused",
+      "off": "Off",
+      "noMessages": "No messages yet",
+      "newAgent": "New agent",
+      "newAgentPrompt": "I want a new agent. Ask me what it should own and how we'll know it's done. Then propose it, and when I say yes, add it to kortix.yaml as an agent with every workspace app (connectors: all)."
+    }
   },
   "sessionPage": {
     "backToProject": "Back to workspace",
@@ -1640,8 +1667,6 @@ const catalog = {
     "turn": {
       "autoRetried": "Dosco automatically retried the model {count, plural, one {once} other {# times}} before this failure.",
       "typing": "{name} is typing…",
-      "showWork": "Show work",
-      "hideWork": "Hide work",
       "starting": "Starting…",
       "workingFor": "Working · {time}",
       "agentWorking": "is working",
@@ -1660,7 +1685,35 @@ const catalog = {
     "panel": {
       "outputNew": "New",
       "outputUpdated": "Updated",
+      "backgroundTasks": "Background tasks",
+      "finished": "Finished",
+      "finishedCount": "{count} finished",
+      "running": "Running",
       "resizePane": "Resize pane"
+    },
+    "changeRequest": {
+      "merge": "Merge",
+      "merging": "Merging…",
+      "moreActions": "More actions",
+      "close": "Close change request",
+      "openInReview": "Open in Review",
+      "resolveConflict": "Resolve conflict",
+      "open": "Open",
+      "merged": "Merged",
+      "closed": "Closed",
+      "conflicts": "{count, plural, one {# conflict} other {# conflicts}}",
+      "mergedToast": "Change request #{number} merged",
+      "closedToast": "Change request #{number} closed",
+      "mergeFailed": "Could not merge the change request.",
+      "closeFailed": "Could not close the change request.",
+      "files": "{count, plural, one {# file} other {# files}}",
+      "into": "into {branch}",
+      "number": "Change request #{number}",
+      "openedAgo": "Opened {time}",
+      "mergeInto": "Merge into {branch}",
+      "readyToMerge": "ready to merge",
+      "mergedInto": "Merged into {branch}",
+      "closedNote": "Closed without merging"
     }
   },
   "agents": {
@@ -1769,7 +1822,8 @@ const catalog = {
     "hintSettings": "Press {modifier}, to open settings",
     "hintCompact": "Ask to compact the session when it gets long",
     "myKortixRoutes": "Routes each task to the right agent",
-    "chatInputReset": "Reset"
+    "chatInputReset": "Reset",
+    "queuedDisconnected": "This session lost its connection to Dosco. Start a new session to continue."
   },
   "auth": {
     "haveReferralCode": "Have a referral code?",
@@ -1858,8 +1912,9 @@ const catalog = {
     },
     "unified": {
       "welcome": "Welcome to {name}",
+      "sessionEnded": "You were signed out. Sign in again to continue.",
       "email": "Email",
-      "emailPlaceholder": "Your email address",
+      "emailPlaceholder": "Enter your email address…",
       "password": "Password",
       "showPassword": "Show password",
       "hidePassword": "Hide password",
@@ -1925,7 +1980,7 @@ const catalog = {
         "title": "Reset your password",
         "description": "We'll email you a reset link.",
         "email": "Email",
-        "emailPlaceholder": "Your email address",
+        "emailPlaceholder": "Enter your email address…",
         "sending": "Sending link…",
         "submit": "Send reset link"
       },
@@ -1965,6 +2020,13 @@ const catalog = {
       "errorTitle": "Couldn't sign in",
       "errorBody": "Sign in to Dosco in a browser tab, then reopen this panel.",
       "signIn": "Sign in"
+    },
+    "story": {
+      "label": "About Dosco",
+      "outcome": "Hand it an outcome. AI agents run it 24/7.",
+      "repo": "Your agents, skills, and memory in one repo you own.",
+      "approve": "Agents do the work. You approve what ships.",
+      "worksWith": "Works with the tools your team already uses"
     }
   },
   "tools": {
@@ -2200,7 +2262,18 @@ const catalog = {
         "completed": "Done",
         "failed": "Didn’t finish",
         "stopped": "Stopped"
-      }
+      },
+      "card": {
+        "session": "Session",
+        "copyId": "Copy session ID",
+        "openNewTab": "Open in new tab",
+        "model": "Model",
+        "runsAs": "Runs as",
+        "inline": "Ran inside this session, so it has no session of its own to open."
+      },
+      "notStarted": "Didn’t start",
+      "notStartedSentence": "Dosco couldn’t start this colleague. Nothing ran.",
+      "policyBlocked": "Blocked by this workspace’s policy. Ask a workspace admin to allow it."
     }
   },
   "agentScope": {
@@ -2501,6 +2574,7 @@ const catalog = {
       "legendAssistant": "Replies",
       "legendTool": "Tool results",
       "legendOther": "Other",
+      "skillsUsedLabel": "Skills used",
       "subAgentsLabel": "Sub-agents",
       "subAgentsNote": "Helpers that ran inside this session. Their cost is part of this session's cost.",
       "combinedMessages": "Combined messages",
@@ -2811,6 +2885,7 @@ const catalog = {
       "noModelAddProviderKey": "Add provider key",
       "noModelUpgradePlan": "Upgrade plan",
       "text03217276a5f1": "Balance {value0} credits",
+      "text041fb4e77d8e": "Website login",
       "text0b6a47661327": "Unknown owner",
       "text1a9030082a20": "Create skill",
       "text38e64d6a8162": "Commits a SKILL.md to the workspace's default branch. No model or chat needed.",
@@ -2931,6 +3006,7 @@ const catalog = {
       "text0af465ef42c0": "On failure",
       "text0b1bdec38bf0": "Default template",
       "text0b348466332c": "Nothing changed yet",
+      "text93d50ea93ca0": "Typed by the session browser on its sites only. It never enters the environment.",
       "textf83916135509": "used",
       "texta251c18205f1": "Cached",
       "text64cd989efc14": "Free space",
@@ -5571,7 +5647,6 @@ const catalog = {
       "texte595f45dc6c9": "Europe",
       "texte5974d3936df": "Copy the Bot User OAuth Token and Signing Secret from the installed Slack app.",
       "texte5985e84210e": "Any resource",
-      "texte5a718af362a": "The first two",
       "texte5c253036018": "The name of a saved secret holding the key both sides sign with. Add the secret under Secrets first — the key itself is never stored here.",
       "texte5dbdffb8816": "Save rules",
       "texte5ee1e7e84aa": "Session expired",
@@ -6233,7 +6308,6 @@ const catalog = {
       "textced57bebd466": "Turns this workspace’s schedules and webhooks back on.",
       "agentsListSubagentsTitle": "Subagents",
       "agentsListSubagentsHint": "Other agents call these during a session. Nobody starts a chat with them.",
-      "agentsListAlsoSubagent": "Also a subagent",
       "servedModelTurnRow": "{requested} failed ({reason}) — switched to {served}.",
       "servedModelTurnRowRepeated": "{requested} failed ({reason}) on {count, number} requests — switched to {served}.",
       "servedModelReason": "{reason, select, provider_pool_rate_limited {limit reached} rate_limit_exceeded {rate limited} model_busy {busy} provider_reauth_required {needs reconnection} authentication_error {sign-in rejected} provider_not_connected {not connected} model_unavailable {unavailable} context_length_exceeded {context too long} upstream_timeout {timed out} upstream_inactivity_timeout {timed out} upstream_incomplete_stream {stream cut off} upstream_stream_error {stream cut off} other {error}}",
@@ -6469,6 +6543,16 @@ const catalog = {
       "grant": "{names} {count, plural, one {is} other {are}} not in the {agent} agent's secrets. Open Customize → Agents → {agent} → Secrets and enable {count, plural, one {it} other {them}}.",
       "allowlist": "{names} {count, plural, one {is} other {are}} outside this session's secrets. Start a new session to use {count, plural, one {it} other {them}}."
     },
+    "secretIntakeLogin": {
+      "delivery": "A website login for {sites}. The browser in this session types it on these sites only. The agent sees only its name.",
+      "username": "Username or email",
+      "password": "Password",
+      "missing": "Enter a username and a password.",
+      "savedTitle": "Login saved",
+      "savedDescription": "The agent can sign in now. It sees only the login's name.",
+      "modalTitle": "Add a website login",
+      "modalDescription": "Check the site before you type the password."
+    },
     "sessionEmbed": {
       "sectionTitle": "Embed",
       "sectionDescription": "For same-site pages only. Viewers must already be signed in with access to this session; signing in inside a cross-site iframe is not supported.",
@@ -6511,6 +6595,37 @@ const catalog = {
     "reviewPane": {
       "emptyTitle": "Select an item",
       "emptyDescription": "Its details open here. Press J and K to move through the list."
+    },
+    "reviewDeck": {
+      "label": "Review cards",
+      "remaining": "{count, plural, one {# card left} other {# cards left}}",
+      "merge": "Merge",
+      "close": "Close",
+      "approve": "Approve",
+      "deny": "Deny",
+      "dismiss": "Dismiss",
+      "yes": "Yes",
+      "no": "No",
+      "skip": "Skip",
+      "open": "Open",
+      "undo": "Undo",
+      "staged": "{verdict}: {title}",
+      "needsChoice": "Open it to choose an answer",
+      "noVerdict": "You cannot decide this one. Open it for details.",
+      "emptyTitle": "You are all caught up",
+      "emptyDescription": "Nothing needs you right now.",
+      "highRisk": "High risk",
+      "files": "{count, plural, one {# file} other {# files}}",
+      "conflicts": "{count, plural, one {# conflict} other {# conflicts}}",
+      "items": "{count, plural, one {# item} other {# items}}",
+      "showCards": "Show as cards",
+      "showList": "Show as list",
+      "sendBack": "Send back",
+      "whatShouldChange": "What should change?",
+      "sendToAgent": "Send to agent",
+      "cancel": "Cancel",
+      "reviews": "Reviews",
+      "questions": "Questions"
     }
   },
   "commandPalette": {
@@ -6528,7 +6643,7 @@ const catalog = {
     "copyFailed": "Could not copy to the clipboard",
     "threads": "Threads",
     "recentThreads": "Recent threads",
-    "searchChannels": "Search spaces, threads, commands..."
+    "searchChannels": "Search channels, threads, commands..."
   },
   "customProvider": {
     "intro": "Endpoints the catalogue does not carry.",
@@ -6745,9 +6860,9 @@ const catalog = {
     "perDay": "Per day",
     "noLimit": "No limit",
     "postTo": "Post to",
-    "postToHint": "Each run starts a new thread there. With no space, runs go to #{channel}.",
-    "postToNone": "No space",
-    "postToUnavailable": "Unavailable space",
+    "postToHint": "Each run starts a new thread there. With no channel, runs go to #{channel}.",
+    "postToNone": "No channel",
+    "postToUnavailable": "Unavailable channel",
     "postToPrivate": "Private: triggers can't post here",
     "appLabel": "App",
     "appPlaceholder": "Choose an App",
@@ -6848,14 +6963,14 @@ const catalog = {
     "loadErrorBody": "Check your connection and try again."
   },
   "sessionOversight": {
-    "label": "Admins can open every session and space",
-    "description": "Workspace owners and admins can open any session and space in this workspace, including private ones. Every session opened this way is in the audit log.",
-    "ownerOnlyDescription": "Workspace owners and admins can open any session and space in this workspace, including private ones. Only a workspace owner can change this.",
+    "label": "Admins can open every session and channel",
+    "description": "Workspace owners and admins can open any session and channel in this workspace, including private ones. Every session opened this way is in the audit log.",
+    "ownerOnlyDescription": "Workspace owners and admins can open any session and channel in this workspace, including private ones. Only a workspace owner can change this.",
     "enableTitle": "Let admins open every session?",
-    "enableDescription": "Workspace owners and admins will be able to open every session and space in this workspace, including the ones members kept private. Members see a notice in the share dialog. Each session opened this way is recorded in the audit log.",
+    "enableDescription": "Workspace owners and admins will be able to open every session and channel in this workspace, including the ones members kept private. Members see a notice in the share dialog. Each session opened this way is recorded in the audit log.",
     "enableConfirm": "Turn on",
     "disableTitle": "Stop admins opening every session?",
-    "disableDescription": "Private sessions and spaces go back to their owners and the people they are shared with. Admins keep access only to what is shared with them.",
+    "disableDescription": "Private sessions and channels go back to their owners and the people they are shared with. Admins keep access only to what is shared with them.",
     "disableConfirm": "Turn off",
     "enabledToast": "Admins can now open every session",
     "disabledToast": "Private sessions are owner-only again",
@@ -8232,7 +8347,7 @@ const catalog = {
       "off": "Off",
       "on": "On",
       "projectWide": "Workspace-wide",
-      "spaceValue": "Space: {space}",
+      "spaceValue": "Channel: {space}",
       "startPrimary": "People start it",
       "startSubagent": "Agents call it",
       "startBoth": "People and agents can start it",
@@ -8262,8 +8377,8 @@ const catalog = {
       "accessKindConnectors": "Connectors",
       "accessKindSecrets": "Secrets",
       "accessKindActions": "Permissions",
-      "newSpace": "New space…",
-      "newSpacePlaceholder": "space-name",
+      "newSpace": "New channel…",
+      "newSpacePlaceholder": "channel-name",
       "managersOnly": "Managers only",
       "projectModelsLink": "Workspace models, providers and routing are in <link>Workspace admin</link>.",
       "reviewLead": "What your agents need from you: decisions, approvals and finished work.",
@@ -8309,7 +8424,7 @@ const catalog = {
       "showInPickersHelp": "People pick it when they start a session.",
       "whoStarts": "Who can start it",
       "modeDefault": "Workspace default",
-      "space": "Space",
+      "space": "Channel",
       "model": "Model",
       "tools": "Tools",
       "workspace": "Workspace",
@@ -8425,7 +8540,7 @@ const catalog = {
       "requiredConnectorsHelp": "Listed in kortix.yaml (connectors_required). Not enforced: sessions start without them.",
       "models": "Models",
       "tabCapabilities": "Capabilities",
-      "spaceHelp": "The space this agent works in: a slug like engineering or sales. Empty: Workspace-wide.",
+      "spaceHelp": "The channel this agent works in: a slug like engineering or sales. Empty: Workspace-wide.",
       "spacePlaceholder": "e.g. engineering"
     },
     "myKortix": {
@@ -8451,8 +8566,8 @@ const catalog = {
           "help": "Starts a goal coordinator session that owns the objective until a verifier confirms it, with a daily check-in."
         },
         "spaces": {
-          "label": "Build spaces",
-          "help": "Adds and arranges a space's blocks in kortix.yaml through a change request."
+          "label": "Build channels",
+          "help": "Adds and arranges a channel's blocks in kortix.yaml through a change request."
         }
       },
       "access": {
@@ -8523,6 +8638,32 @@ const catalog = {
     }
   },
   "artifacts": {
+    "folderIcon": "Choose folder icon",
+    "docCreateFailed": "Could not create the doc. Try again.",
+    "newFolder": "New folder",
+    "editFolder": "Edit folder",
+    "folderName": "Folder name",
+    "folderCreateIn": "In",
+    "folderSaved": "Folder saved",
+    "folderCreated": "Folder created",
+    "folderSaveFailed": "Could not save the folder. Try again.",
+    "saveFolder": "Save folder",
+    "createFolder": "Create folder",
+    "folderActions": "Actions for {name}",
+    "deleteFolder": "Delete folder",
+    "deleteFolderTitle": "Delete “{name}”?",
+    "deleteFolderHint": "Its subfolders and artifacts move up one level. Their files and links stay available.",
+    "folderDeleted": "Folder deleted",
+    "folderDeleteFailed": "Could not delete the folder. Try again.",
+    "folderNavigation": "Artifact folders",
+    "folderPathMore": "Show folder path",
+    "folderUnavailable": "Folder unavailable",
+    "folderLoadFailed": "Could not load folders",
+    "moveToFolder": "Move to folder",
+    "movedToFolder": "Moved to {name}",
+    "emptyUnfiled": "No unfiled artifacts",
+    "emptyFolder": "No artifacts in this folder",
+    "folderRoot": "No folder",
     "title": "Artifacts",
     "type": {
       "doc": "Doc",
@@ -8540,7 +8681,7 @@ const catalog = {
     "empty": "No artifacts yet",
     "emptyHint": "Ask an agent for a doc, a deck or a dashboard, or start a new doc.",
     "emptyFiltered": "No artifacts match",
-    "moveTo": "Move to space",
+    "moveTo": "Move to channel",
     "projectWide": "Workspace-wide",
     "moved": "Artifact moved",
     "moveFailed": "Could not move the artifact",
@@ -8904,8 +9045,8 @@ const catalog = {
         "openCompany": "Open Company memory · {count, plural, one {# page} other {# pages}}"
       },
       "source": {
-        "thread": "Open the thread “{label}”",
-        "threadGone": "From the thread “{label}”",
+        "thread": "Open the session “{label}”",
+        "threadGone": "From the session “{label}”",
         "outside": "Open {label} in a new tab",
         "outsideText": "From {label}",
         "person": "Added by {label}",
@@ -8913,7 +9054,7 @@ const catalog = {
       },
       "used": {
         "label": "Used {places} memory · {count, plural, one {# page} other {# pages}}",
-        "title": "Pages this thread started with",
+        "title": "Pages this session started with",
         "company": "Company",
         "removed": "Removed"
       },
@@ -8924,7 +9065,7 @@ const catalog = {
       },
       "company": {
         "subtitle": "What every agent in this workspace knows.",
-        "gateDescription": "Company memory comes with Spaces: every agent in this workspace starts each thread with what the team saved here.",
+        "gateDescription": "Company memory comes with channels. Every agent in this workspace starts each session with what the team saved here.",
         "title": "Memory",
         "place": "Company"
       },
@@ -8937,7 +9078,7 @@ const catalog = {
       "updated": "Updated {time} by {author}",
       "updatedAt": "Updated {time}",
       "sourceKind": {
-        "thread": "thread",
+        "thread": "session",
         "person": "message",
         "outside": "link",
         "import": "file"
@@ -8966,7 +9107,7 @@ const catalog = {
     },
     "addTab": "Add a tab",
     "gone": {
-      "title": "This space is gone",
+      "title": "This channel is gone",
       "hint": "Someone removed it from kortix.yaml, or the link is wrong.",
       "back": "Back to the workspace"
     },
@@ -8974,9 +9115,9 @@ const catalog = {
     "loadError": "Could not load this tab",
     "retry": "Try again",
     "empty": {
-      "goals": "Goals bound to this space will show up here",
-      "apps": "Apps bound to this space will show up here",
-      "artifacts": "Artifacts bound to this space will show up here",
+      "goals": "Goals bound to this channel will show up here",
+      "apps": "Apps bound to this channel will show up here",
+      "artifacts": "Artifacts bound to this channel will show up here",
       "folder": "This folder is empty",
       "board": "Blocks on this board will show up here",
       "boardHint": "Ask Xera to add a block: a note, an App, a file or an embedded page."
@@ -9005,7 +9146,7 @@ const catalog = {
     },
     "add": {
       "linkTitle": "Add a link",
-      "linkHint": "A page people in this space open often.",
+      "linkHint": "A page people in this channel open often.",
       "folderTitle": "Add a folder",
       "folderHint": "A folder of the workspace files, by its path.",
       "url": "URL",
@@ -9026,85 +9167,85 @@ const catalog = {
       "remove": "Remove {name}"
     },
     "nav": {
-      "title": "Spaces",
-      "new": "New space",
+      "title": "Channels",
+      "new": "New channel",
       "unread": "{count, plural, one {# unread message} other {# unread messages}}"
     },
     "create": {
-      "title": "Create a space",
-      "description": "A space organises one area of work, like Marketing, Hiring or Ops. People and agents work in its threads.",
+      "title": "Create a channel",
+      "description": "A channel holds one area of work, like Marketing, Hiring or Ops. People and agents work in its sessions.",
       "nameLabel": "Name",
       "name": "Name",
       "namePlaceholder": "Marketing",
-      "slugPlaceholder": "space-name",
+      "slugPlaceholder": "channel-name",
       "descriptionLabel": "Description (optional)",
-      "descriptionPlaceholder": "What this space is for",
-      "taken": "A space #{slug} exists already.",
+      "descriptionPlaceholder": "What this channel is for",
+      "taken": "A channel #{slug} exists already.",
       "about": "Description",
-      "aboutPlaceholder": "What this space is for",
+      "aboutPlaceholder": "What this channel is for",
       "template": "Starting tabs",
-      "submit": "Create space",
-      "created": "Space created",
+      "submit": "Create channel",
+      "created": "Channel created",
       "nameRequired": "Add a name.",
       "invalidName": "Use at least one letter or number in the name.",
       "slugTaken": "<link>#{slug}</link> already exists.",
-      "failed": "Could not create the space. Try again.",
-      "renameTitle": "Rename space",
-      "renameDescription": "The space's link changes with its name.",
+      "failed": "Could not create the channel. Try again.",
+      "renameTitle": "Rename channel",
+      "renameDescription": "The channel's link changes with its name.",
       "save": "Save",
-      "renamed": "Space renamed",
-      "renameFailed": "Could not rename the space. Try again.",
-      "descriptionPrivate": "Only the people you add can see and use the space.",
+      "renamed": "Channel renamed",
+      "renameFailed": "Could not rename the channel. Try again.",
+      "descriptionPrivate": "Only the people you add can see and use the channel.",
       "privateLabel": "Private",
       "privateHint": "Only invited members can see it.",
-      "privateUnavailable": "Private spaces are not available in this workspace yet.",
-      "privateLimits": "Private hides the space from other people. Code changes (git branches) and the agents’ own tools aren’t private.",
-      "error": "Could not create the space"
+      "privateUnavailable": "Private channels are not available in this workspace yet.",
+      "privateLimits": "Private hides the channel from other people. Code changes (git branches) and the agents’ own tools aren’t private.",
+      "error": "Could not create the channel"
     },
     "view": {
       "welcomeTitle": "Welcome to #{name}",
-      "welcomeEmpty": "A space organises one area of work. People and agents work here in threads: every message starts one.",
+      "welcomeEmpty": "A channel holds one area of work. Every message starts a session, where people and agents work.",
       "welcomeStart": "This is the start of #{name}.",
-      "dmIntro": "Only you and {agent} see this space.",
+      "dmIntro": "Only you and {agent} see this chat.",
       "today": "Today",
       "yesterday": "Yesterday",
-      "openThread": "Open thread",
-      "replyInThread": "Reply in thread",
+      "openThread": "Open session",
+      "replyInThread": "Reply in session",
       "lastReply": "Last reply {time}",
       "working": "{agent} is working…",
       "agentFallback": "Agent",
       "authorFallback": "Someone",
-      "loadEarlier": "Load earlier threads",
+      "loadEarlier": "Load earlier sessions",
       "messageChannel": "Message #{name}",
       "messageAgent": "Message {agent}",
-      "threadsEmptyTitle": "No threads yet",
-      "threadsEmpty": "Threads you start will show up here.",
-      "loadError": "Could not load this space.",
-      "threadsLoadError": "Could not load the threads.",
+      "threadsEmptyTitle": "No sessions yet",
+      "threadsEmpty": "Sessions you start show up here.",
+      "loadError": "Could not load this channel.",
+      "threadsLoadError": "Could not load the sessions.",
       "retry": "Try again",
-      "notFound": "This space doesn't exist.",
-      "notFoundHint": "The link may be wrong, or someone renamed the space.",
+      "notFound": "This channel doesn't exist.",
+      "notFoundHint": "The link may be wrong, or someone renamed the channel.",
       "openDefault": "Open #{name}",
       "archivedTitle": "#{name} is archived.",
-      "archivedHint": "Unarchive it to read and start threads here again.",
+      "archivedHint": "Unarchive it to read and start sessions here again.",
       "archivedLocked": "Only its creator or a workspace manager can unarchive it.",
-      "unarchive": "Unarchive space",
-      "unarchived": "Space unarchived",
-      "unarchiveFailed": "Could not unarchive the space. Try again.",
+      "unarchive": "Unarchive channel",
+      "unarchived": "Channel unarchived",
+      "unarchiveFailed": "Could not unarchive the channel. Try again.",
       "dmFailed": "Could not open this conversation.",
-      "archive": "Archive space",
+      "archive": "Archive channel",
       "archiveTitle": "Archive #{name}?",
-      "archiveDescription": "The space leaves the sidebar for every member. Its threads stay, and its creator or a workspace manager can unarchive it.",
-      "archived": "Space archived",
-      "archiveFailed": "Could not archive the space. Try again.",
-      "threadTitle": "Thread",
-      "closeThread": "Close thread",
-      "sendFailed": "Could not start the thread. Try again.",
+      "archiveDescription": "The channel leaves the sidebar for every member. Its sessions stay, and its creator or a workspace manager can unarchive it.",
+      "archived": "Channel archived",
+      "archiveFailed": "Could not archive the channel. Try again.",
+      "threadTitle": "Session",
+      "closeThread": "Close session",
+      "sendFailed": "Could not start the session. Try again.",
       "replies": "{count, plural, one {# reply} other {# replies}}",
       "replyPlaceholder": "Reply…",
       "tab": {
         "chat": "Chat",
-        "threads": "Threads",
+        "threads": "Sessions",
         "files": "Files",
         "memory": "Memory",
         "apps": "Apps",
@@ -9128,11 +9269,11 @@ const catalog = {
         },
         "links": {
           "title": "No links yet",
-          "description": "Links people share in {place} threads show up here. Pin one to give it to every agent in the space."
+          "description": "Links people share in {place} sessions show up here. Pin one to give it to every agent in the channel."
         },
         "triggers": {
           "title": "No triggers yet",
-          "description": "Triggers start a thread in {place} on a schedule or an event.",
+          "description": "Triggers start a session in {place} on a schedule or an event.",
           "action": "New trigger"
         }
       },
@@ -9140,18 +9281,18 @@ const catalog = {
       "roster": "{people} · {agents}",
       "rosterPeople": "{count, plural, one {# person} other {# people}}",
       "rosterAgents": "{count, plural, one {# agent} other {# agents}}",
-      "copyLink": "Copy link to thread",
+      "copyLink": "Copy link to session",
       "linkCopied": "Link copied",
       "notice": {
-        "unreachable": "Lost contact with this thread's computer. Messages you send are queued until it reconnects.",
-        "unreachableMidTurn": "Lost contact with this thread's computer while a turn is still open. Messages you send stay queued until it answers.",
-        "stalled": "Waking this thread's computer is taking longer than usual. Messages you send are queued.",
-        "starting": "Starting this thread's computer. Your message sends automatically.",
-        "idle": "This thread's computer is asleep. Your next message wakes it up and is delivered.",
-        "waking": "Waking this thread's computer. Messages you send are queued and go out automatically."
+        "unreachable": "Lost contact with this session's computer. Messages you send are queued until it reconnects.",
+        "unreachableMidTurn": "Lost contact with this session's computer while a turn is still open. Messages you send stay queued until it answers.",
+        "stalled": "Waking this session's computer is taking longer than usual. Messages you send are queued.",
+        "starting": "Starting this session's computer. Your message sends automatically.",
+        "idle": "This session's computer is asleep. Your next message wakes it up and is delivered.",
+        "waking": "Waking this session's computer. Messages you send are queued and go out automatically."
       },
       "boot": {
-        "restart": "Restart thread"
+        "restart": "Restart session"
       },
       "links": {
         "add": "Add link",
@@ -9161,8 +9302,8 @@ const catalog = {
         "titlePlaceholder": "What it is",
         "invalidUrl": "Enter a valid link, like example.com.",
         "addFailed": "Could not add the link. Try again.",
-        "limit": "This space already pins 200 links. Unpin one first.",
-        "addLimit": "This space already holds 200 added links. Remove one first.",
+        "limit": "This channel already pins 200 links. Unpin one first.",
+        "addLimit": "This channel already holds 200 added links. Remove one first.",
         "added": "Added",
         "remove": "Remove link",
         "removeTitle": "Remove this link?",
@@ -9182,29 +9323,29 @@ const catalog = {
         "all": "All",
         "sharedBy": "Shared by",
         "earlier": "Earlier",
-        "pinHint": "Pin it. Every agent in the space reads pinned links.",
+        "pinHint": "Pin it. Every agent in the channel reads pinned links.",
         "unpinHint": "Unpin it. Agents stop reading it.",
         "copyLink": "Copy link",
         "linkCopied": "Link copied",
-        "openThread": "Open thread",
+        "openThread": "Open session",
         "noMatch": "No links match"
       },
       "appsLoadError": "Could not load the apps.",
       "triggers": {
         "loadError": "Could not load the triggers.",
-        "privateNote": "Triggers can't post into a private space. Ask an agent in a thread to set a loop instead."
+        "privateNote": "Triggers can't post into a private channel. Ask an agent in a session to set a loop instead."
       },
       "reply": "Reply",
       "rosterTitlePeople": "People",
       "rosterTitleAgents": "Agents",
       "viewAllMembers": "View all members",
-      "agentThreads": "{count, plural, one {# thread} other {# threads}}",
+      "agentThreads": "{count, plural, one {# session} other {# sessions}}",
       "threadFilter": {
-        "search": "Search threads",
+        "search": "Search sessions",
         "filter": "Filter",
         "clear": "Clear",
         "clearFilters": "Clear filters",
-        "noMatch": "No threads match",
+        "noMatch": "No sessions match",
         "noMatchHint": "Try another search, or clear the filters.",
         "remove": "Remove filter {facet}: {value}",
         "status": "Status",
@@ -9238,9 +9379,9 @@ const catalog = {
         "rememberHint": "Notes every agent reads"
       },
       "allAgents": "All agents",
-      "join": "Join space",
+      "join": "Join channel",
       "joined": "You joined #{name}.",
-      "joinFailed": "Could not join the space. Try again.",
+      "joinFailed": "Could not join the channel. Try again.",
       "openFullSession": "Open full session",
       "tabEdit": {
         "kind": {
@@ -9251,10 +9392,10 @@ const catalog = {
           "link": "Link"
         },
         "add": "Add tab",
-        "full": "A space holds at most {max} tabs. Remove one first.",
+        "full": "A channel holds at most {max} tabs. Remove one first.",
         "noArtifacts": "No artifacts yet",
         "noApps": "No Apps in this workspace",
-        "spaceFiles": "This space’s files",
+        "spaceFiles": "This channel’s files",
         "otherFolder": "Another folder…",
         "fileItem": "File…",
         "linkItem": "Link…",
@@ -9290,18 +9431,52 @@ const catalog = {
           "description": "It was deleted or renamed, or it is not shared with you."
         }
       },
-      "spaceDetails": "{name} details"
+      "spaceDetails": "{name} details",
+      "moreActions": "More actions",
+      "copyMessage": "Copy message",
+      "copyMarkdown": "Copy as Markdown",
+      "deleteMessage": "Delete message",
+      "messageCopied": "Message copied",
+      "memberJoined": "joined",
+      "findInThread": "Find in thread",
+      "findPlaceholder": "Find",
+      "findCount": "{index} of {count}",
+      "findNone": "No matches",
+      "findPrevious": "Previous match",
+      "findNext": "Next match",
+      "closeFind": "Close find",
+      "openInNewWindow": "Open in new window",
+      "copyThreadText": "Copy thread as text",
+      "copyJson": "Copy as JSON",
+      "threadCopied": "Copied",
+      "jump": {
+        "label": "{day}, jump to a date",
+        "title": "Jump to",
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "week": "A week ago",
+        "month": "A month ago",
+        "first": "First message",
+        "pick": "Pick a date…"
+      },
+      "activity": {
+        "joined": "<b>{name}</b> joined",
+        "added": "<b>{name}</b> was added by <b>{actor}</b>",
+        "addedUnknown": "<b>{name}</b> was added",
+        "removed": "<b>{name}</b> was removed by <b>{actor}</b>",
+        "removedUnknown": "<b>{name}</b> was removed"
+      }
     },
     "details": {
       "about": "About",
       "members": "Members",
-      "name": "Space name",
+      "name": "Channel name",
       "description": "Description",
       "noDescription": "Add a description",
       "created": "Created",
       "editField": "Edit {field}",
-      "archiveTitle": "Archive this space",
-      "archiveHint": "It leaves the sidebar for every member. Its threads stay.",
+      "archiveTitle": "Archive this channel",
+      "archiveHint": "It leaves the sidebar for every member. Its sessions stay.",
       "archive": "Archive",
       "find": "Find people or agents",
       "search": "Search",
@@ -9324,48 +9499,48 @@ const catalog = {
       "peopleFailed": "Could not update the members. Try again.",
       "personMenu": "{person} options",
       "removePerson": "Remove from #{name}",
-      "leave": "Leave space",
+      "leave": "Leave channel",
       "left": "You left #{name}.",
-      "leaveTitle": "Leave this space",
+      "leaveTitle": "Leave this channel",
       "leaveHint": "You can still read it, and join again at any time.",
       "visibilityPrivate": "Only its members",
       "privateNote": "Only members can see #{name}.",
       "makePrivate": "Make private",
       "makePrivateTitle": "Make #{name} private?",
-      "makePrivateWho": "Only members will see #{name}: its threads, files, memory and links. Everyone who started a thread or added a link becomes a member.",
-      "makePrivateLeave": "Everyone else loses access. A member who leaves later loses access too, to their own threads as well.",
+      "makePrivateWho": "Only members will see #{name}: its sessions, files, memory and links. Everyone who started a session or added a link becomes a member.",
+      "makePrivateLeave": "Everyone else loses access. A member who leaves later loses access too, to their own sessions as well.",
       "makePrivateFinal": "You cannot make it public again. Files copied out of it stay where they are.",
       "makePrivateTriggers": "{count, plural, one {# trigger posts here. It stops running.} other {# triggers post here. They stop running.}}",
       "madePrivate": "#{name} is now private",
-      "leaveHintPrivate": "You lose access to its threads, files and memory, your own threads included. A member must add you again.",
+      "leaveHintPrivate": "You lose access to its sessions, files and memory, your own sessions included. A member must add you again.",
       "leavePrivateTitle": "Leave #{name}?",
       "addMembers": "Add members",
-      "privateLimits": "Private hides the space from other people. Code changes (git branches) and the agents’ own tools aren’t private.",
+      "privateLimits": "Private hides the channel from other people. Code changes (git branches) and the agents’ own tools aren’t private.",
       "agentAdded": "{agent} added to #{name}."
     },
     "folder": {
       "memory": "Memory",
       "loadError": "Couldn't load this folder",
-      "memoryNoteChannel": "What agents in {place} remember. Agents read this at the start of every thread.",
-      "memoryNoteDm": "What {agent} remembers from this space. It reads this at the start of every thread.",
+      "memoryNoteChannel": "What agents in {place} remember. Agents read this at the start of every session.",
+      "memoryNoteDm": "What {agent} remembers from this chat. It reads this at the start of every session.",
       "off": {
         "title": "No Drive here",
         "description": "Files and memory for {place} live in the Drive. Enable Drive storage to store persistent workspace files."
       }
     },
     "onboarding": {
-      "reenabled": "Sessions started while Spaces was off are here.",
+      "reenabled": "Sessions started while Channels was off are here.",
       "intro": {
-        "title": "Welcome to Spaces",
-        "channels": "Spaces group work by team.",
-        "threads": "Every new message starts a thread.",
-        "memory": "Agents remember what each space agrees on.",
+        "title": "Welcome to Channels",
+        "channels": "Channels group work by team.",
+        "threads": "Every new message starts a session.",
+        "memory": "Agents remember what each channel agrees on.",
         "gotIt": "Got it",
         "tabs": "Every space has its own tabs. Add, rename and reorder them, or ask Dosco to."
       },
       "getStarted": {
         "dismiss": "Dismiss",
-        "channel": "Create a space for a team",
+        "channel": "Create a channel for a team",
         "done": "Done"
       }
     },
@@ -9394,9 +9569,9 @@ const catalog = {
       "noMatches": "Nothing matches “{query}”."
     },
     "privateNotIn": {
-      "row": "Private spaces you are not in",
-      "title": "Private spaces you are not in",
-      "description": "You can rename, archive and add people. Only members read what is in a space, so you cannot add yourself.",
+      "row": "Private channels you are not in",
+      "title": "Private channels you are not in",
+      "description": "You can rename, archive and add people. Only members read what is in a channel, so you cannot add yourself.",
       "meta": "{count, plural, =0 {No members} one {# member} other {# members}} · created by {name}",
       "metaNoCreator": "{count, plural, =0 {No members} one {# member} other {# members}}",
       "archived": "Archived",
@@ -9412,17 +9587,17 @@ const catalog = {
     "templates": {
       "standard": {
         "label": "Goals, Apps and Artifacts",
-        "description": "What is bound to the space."
+        "description": "What is bound to the channel."
       },
       "board": {
         "label": "A board and Goals",
         "description": "A board for the brief and the links, then Goals.",
         "brief": "Brief",
-        "text": "What this space is for, and how to help."
+        "text": "What this channel is for, and how to help."
       }
     },
     "leave": "Leave {name}",
-    "agents": "Agents in this space",
+    "agents": "Agents in this channel",
     "openAgent": "Open {name}",
     "needsYou": "need you",
     "newSession": "New session",
@@ -9430,12 +9605,12 @@ const catalog = {
     "askPrompt": "I want to change the {name} space (`spaces.{slug}` in kortix.yaml): its tabs, its header or the agents in it. Ask me what to change.",
     "intro": {
       "title": "This is the start of #{name}",
-      "body": "The place for everyone who works in this space.",
+      "body": "The place for everyone who works in this channel.",
       "agents": "{count, plural, one {{names} posts updates here.} other {{names} post updates here.}}",
-      "noAgents": "Agents you add to this space post their updates here.",
+      "noAgents": "Agents you add to this channel post their updates here.",
       "addTab": "Add a tab with + to pin goals, apps, files or a board here."
     },
-    "filter": "Filter by space",
+    "filter": "Filter by channel",
     "all": "All",
     "projectWide": "Workspace-wide",
     "blocks": {
@@ -9461,20 +9636,18 @@ const catalog = {
       "people": "People",
       "addPeople": "Add people",
       "you": "You",
-      "tabs": "Tabs",
-      "addTab": "Add tab",
       "routines": "Routines",
       "addRoutine": "Add routine",
-      "routinesPrivate": "A private space takes no routines yet.",
+      "routinesPrivate": "A private channel takes no routines yet.",
       "proactive": "Proactive",
-      "proactiveWatch": "Watch this space",
+      "proactiveWatch": "Watch this channel",
       "proactiveWatchHint": "An agent reads what happens here and writes only when it matters.",
       "proactiveBrief": "Daily brief",
       "proactiveBriefHint": "A short summary at 9:00 on days with news.",
       "proactiveFailed": "The setting was not saved. Try again.",
       "allSettings": "All settings",
-      "askHint": "You can also ask in chat: \"add an agent here\", \"pin the launch doc as a tab\".",
-      "noAgentsToAdd": "Every workspace agent is in this space."
+      "noAgentsToAdd": "Every workspace agent is in this channel.",
+      "members": "Members"
     },
     "profile": {
       "viewProfile": "Show the profile of {name}",
@@ -9483,7 +9656,7 @@ const catalog = {
       "openProfile": "Open profile",
       "you": "(you)",
       "message": "Message",
-      "messageFailed": "Could not open a private space. Try again.",
+      "messageFailed": "Could not open a private channel. Try again.",
       "dmSpaceName": "{a} and {b}",
       "heading": "Profile",
       "close": "Close profile",
@@ -9493,16 +9666,23 @@ const catalog = {
       "connectorsAll": "All connectors",
       "connectorsNone": "No connectors",
       "projectDefault": "Workspace default",
-      "projectDefaultYes": "Answers new threads where no agent is set",
+      "projectDefaultYes": "Answers new sessions where no agent is set",
       "email": "Email",
-      "sharedSpaces": "Spaces you share",
-      "yourSpaces": "Your spaces",
+      "sharedSpaces": "Channels you share",
+      "yourSpaces": "Your channels",
       "addTo": "Add to {space}",
       "addedTo": "{agent} added to {space}",
       "addFailed": "Could not add the agent. Try again.",
-      "spacesIn": "Spaces it is in",
-      "spacesInNone": "Not in a space yet",
-      "default": "Default"
+      "spacesIn": "Channels it is in",
+      "spacesInNone": "Not in a channel yet",
+      "default": "Default",
+      "paused": "Paused",
+      "off": "Off",
+      "copyLink": "Copy link",
+      "linkCopied": "Link copied",
+      "roleOwner": "Workspace owner",
+      "roleAdmin": "Workspace admin",
+      "roleMember": "Workspace member"
     },
     "mentions": {
       "people": "People",
@@ -9513,8 +9693,39 @@ const catalog = {
       "askAdd": "Add {agent} to {space}?",
       "askAddConfirm": "Add",
       "askNotNow": "Not now",
-      "askAdmin": "{agent} isn't in {space}. Ask a Space admin to add it.",
+      "askAdmin": "{agent} isn't in {space}. Ask a channel admin to add it.",
       "dismiss": "Dismiss"
+    },
+    "agentChat": {
+      "pausedBar": "{name} is paused. Schedules and events don't start it until you resume.",
+      "resume": "Resume",
+      "resumeFailed": "Could not resume {name}.",
+      "settings": {
+        "settingsButton": "Agent settings",
+        "status": "Status",
+        "active": "Active",
+        "paused": "Paused",
+        "off": "Off",
+        "pauseFailed": "Could not change the agent's status.",
+        "description": "Description",
+        "save": "Save",
+        "saveFailed": "Could not save the description.",
+        "model": "Model",
+        "allSettings": "All agent settings",
+        "general": "General",
+        "appsTab": "Apps",
+        "routines": "Routines",
+        "workspaceDefault": "Workspace default",
+        "modelDefault": "Workspace default",
+        "modelDefaultNamed": "Workspace default ({model})",
+        "cancel": "Cancel",
+        "searchApps": "Search apps",
+        "noApps": "This workspace has no connectors yet.",
+        "noAppsMatch": "No app matches \"{query}\".",
+        "appsUnavailable": "This agent's apps are set on its agent page.",
+        "appsFailed": "Could not change the agent's apps.",
+        "role": "Role"
+      }
     }
   },
   "imageGen": {
@@ -9621,6 +9832,25 @@ const catalog = {
     "openChat": "Open the chat",
     "turnNote": "Said in a voice call and answered by the voice.",
     "close": "Close"
+  },
+  "dictation": {
+    "start": "Dictate a message",
+    "price": "{credits, plural, one {# credit} other {# credits}} per minute",
+    "recording": "Dictation",
+    "discard": "Discard recording",
+    "finish": "Add the words",
+    "transcribing": "Transcribing…",
+    "nothingHeard": "No speech heard. Try again closer to the microphone.",
+    "retry": "Try again",
+    "failed": "Could not transcribe the recording. Try again.",
+    "busy": "Could not transcribe the recording now. Try again in a moment.",
+    "unavailable": "Dictation is not available on this server.",
+    "limitReached": "Recording stopped at {minutes} minutes",
+    "micDenied": "Could not use the microphone. Allow it for this site in your browser settings.",
+    "micDeniedDesktop": "Could not use the microphone. Allow Dosco in your system privacy settings.",
+    "micMissing": "Could not find a microphone. Connect one and try again.",
+    "micBusy": "Could not use the microphone. Another app is using it.",
+    "micUnsupported": "Could not use the microphone in this browser."
   },
   "agentCapabilities": {
     "skillsTitle": "Skills",
@@ -9807,6 +10037,7 @@ const catalog = {
       },
       "workingFor": "working · {elapsed}",
       "runsAs": "runs as {agent}",
+      "stateCount": "{count} {state}",
       "teamRole": "Role for this session only",
       "attention": {
         "question": "Has a question for you",
@@ -10671,7 +10902,7 @@ const catalog = {
   },
   "workspaceSetup": {
     "title": "Finish setup",
-    "subtitle": "Your agents need these before they can work.",
+    "subtitle": "Finish required steps, or connect optional apps when you need them.",
     "progress": "{done} of {total} done",
     "liveNote": "Updates as you connect.",
     "later": "Later",
@@ -10683,6 +10914,10 @@ const catalog = {
     "completeDescription": "If you started the setup in a terminal, it continues there by itself.",
     "slackName": "Slack",
     "sectionOpen": "Needs you",
+    "sectionOptional": "Optional connectors",
+    "skip": "Skip",
+    "skipNamed": "Skip {name}",
+    "showSkipped": "Show skipped connectors",
     "doneSummary": "{count} already set up",
     "done": "Done",
     "connect": "Connect {name}",
@@ -10816,6 +11051,23 @@ const catalog = {
     "remove": "Remove",
     "share": "Share",
     "notMember": "Share a session only with members of this workspace."
+  },
+  "questionPrompt": {
+    "submitFailed": "Could not submit answers. Your answers are saved here. Try again.",
+    "submitted": "Answers submitted",
+    "submitting": "Submitting answers…",
+    "review": "Review answers",
+    "removeCustom": "Remove custom answer: {answer}",
+    "customAnswer": "Custom answer",
+    "customPlaceholder": "Type your own answer",
+    "submitAnswer": "Submit answer",
+    "addAnswer": "Add answer",
+    "nextQuestion": "Next question",
+    "submitAnswers": "Submit answers",
+    "askClarification": "Ask for clarification",
+    "clarificationFailed": "Could not send clarification. Try again.",
+    "discussionLabel": "Discuss the question without answering it",
+    "sendClarification": "Send clarification"
   }
 };
 

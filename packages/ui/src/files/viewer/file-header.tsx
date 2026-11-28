@@ -228,7 +228,7 @@ export function FileHeader({
   if (!showHeader) return null;
 
   return (
-    <div className="border-border/50 flex h-10 shrink-0 items-center gap-2 border-b px-3 py-1.5">
+    <div className="border-border flex h-10 shrink-0 items-center gap-2 border-b px-3 py-1.5">
       <div className="flex min-w-0 flex-1 items-center gap-1">
         {Breadcrumbs && <Breadcrumbs filePath={filePath} />}
         {status}

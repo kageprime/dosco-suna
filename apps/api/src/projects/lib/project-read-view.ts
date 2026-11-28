@@ -81,6 +81,7 @@ export async function projectReadView(c: Context, loaded: LoadedProject): Promis
     eq(projectSessions.accountId, loaded.row.accountId),
     sessionListViewerSql({
       scope: 'project',
+      allowDeleted: true,
       viewerId: loaded.userId,
       boundCredentialSessionId: bound,
       agentPrincipal: loaded.actor ? isAgentPrincipalActor(loaded.actor) : false,

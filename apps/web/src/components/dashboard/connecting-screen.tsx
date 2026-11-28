@@ -337,7 +337,7 @@ function ErrorView({
       <Link
         href={backHref}
         prefetch
-        className="border-border/40 text-foreground/70 hover:border-border/70 hover:text-foreground inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border px-4 text-xs font-medium transition-colors"
+        className="border-border text-foreground/70 hover:text-foreground inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border px-4 text-xs font-medium transition-colors"
       >
         <ArrowLeft className="h-3 w-3" />
         {tHardcodedUi.raw('i18nComplete.text76900f1bfd16')}
@@ -355,7 +355,7 @@ function StoppedView({ label, backHref }: { label: string; backHref: string }) {
   return (
     <>
       <div
-        className="border-border/40 bg-foreground/[0.03] flex h-12 w-12 items-center justify-center rounded-full border"
+        className="border-border bg-foreground/[0.03] flex h-12 w-12 items-center justify-center rounded-full border"
         aria-hidden
       >
         <Power className="text-muted-foreground h-5 w-5" />
@@ -377,7 +377,7 @@ function StoppedView({ label, backHref }: { label: string; backHref: string }) {
         <Link
           href={backHref}
           prefetch
-          className="border-border/40 text-foreground/70 hover:border-border/70 hover:text-foreground inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border px-4 text-xs font-medium transition-colors"
+          className="border-border text-foreground/70 hover:text-foreground inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border px-4 text-xs font-medium transition-colors"
         >
           <ArrowLeft className="h-3 w-3" />
           {tHardcodedUi.raw('i18nComplete.text76900f1bfd16')}

@@ -3,6 +3,9 @@ import type { ProjectSession } from '@kortix/sdk';
 
 import {
   buildSpaceTimeline,
+  jumpTargetDate,
+  markdownToPlainText,
+  timelineEntries,
   messageMentionSegments,
   postSegments,
   rootPostAuthor,
@@ -251,5 +254,53 @@ describe("a person's message mentions", () => {
   test('no match inside a word or past a word boundary; no candidates: one run', () => {
     expect(messageMentionSegments('mail me@worker or @workers', candidates)).toEqual([{ text: 'mail me@worker or @workers' }]);
     expect(messageMentionSegments('@worker hi', [])).toEqual([{ text: '@worker hi' }]);
+  });
+});
+
+describe('timelineEntries', () => {
+  const thread = (id: string, created: string) => ({ session_id: id, created_at: created }) as ProjectSession;
+  const join = (userId: string, at: string) => ({
+    id: `member:${userId}`,
+    kind: 'member_joined' as const,
+    subject: { kind: 'person' as const, id: userId, name: `Member ${userId}` },
+    actor: null,
+    at,
+  });
+
+  test('a day holds its threads and its joins in time order', () => {
+    const days = buildSpaceTimeline([thread('s1', '2026-11-20T10:00:00'), thread('s2', '2026-11-20T12:00:00')]);
+    const groups = timelineEntries(days, [join('u1', '2026-11-20T11:00:00')], true);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.entries.map((entry) => (entry.kind === 'thread' ? entry.session.session_id : entry.join.subject.id))).toEqual(['s1', 'u1', 's2']);
+  });
+
+  test('a join on a day with no thread gets its own day', () => {
+    const days = buildSpaceTimeline([thread('s1', '2026-11-20T10:00:00')]);
+    const groups = timelineEntries(days, [join('u1', '2026-11-22T09:00:00')], true);
+    expect(groups.map((group) => group.entries.length)).toEqual([1, 1]);
+  });
+
+  test('while older threads remain to load, a join older than the oldest loaded thread waits', () => {
+    const days = buildSpaceTimeline([thread('s1', '2026-11-20T10:00:00')]);
+    expect(timelineEntries(days, [join('u1', '2026-11-01T09:00:00')], false).flatMap((group) => group.entries)).toHaveLength(1);
+    expect(timelineEntries(days, [join('u1', '2026-11-01T09:00:00')], true).flatMap((group) => group.entries)).toHaveLength(2);
+  });
+});
+
+describe('jumpTargetDate', () => {
+  const now = new Date(2026, 10, 26, 15, 30);
+  test('each target is a local midnight', () => {
+    expect(jumpTargetDate('today', now)).toEqual(new Date(2026, 10, 26));
+    expect(jumpTargetDate('yesterday', now)).toEqual(new Date(2026, 10, 25));
+    expect(jumpTargetDate('week', now)).toEqual(new Date(2026, 10, 19));
+    expect(jumpTargetDate('month', now)).toEqual(new Date(2026, 9, 26));
+  });
+});
+
+describe('markdownToPlainText', () => {
+  test('keeps the words, drops the marks', () => {
+    expect(markdownToPlainText('# Plan\n**Ship** the [rail](https://example.com) with `pins` and _care_.\n> quoted')).toBe(
+      'Plan\nShip the rail with pins and care.\nquoted',
+    );
   });
 });

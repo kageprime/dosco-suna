@@ -15,6 +15,7 @@ import type { GitBackedProject } from '../projects/git/types';
 import { buildMyKortixConfig } from '../projects/lib/my-kortix-agent';
 import {
   __clearConfigReleaseCachesForTests,
+  archiveQueryVariant,
   buildConfigArchive,
   buildConfigRelease,
   ConfigArchiveTooLargeError,
@@ -24,6 +25,7 @@ import {
   storeConfigArchive,
   toDescriptor,
 } from './builder';
+import { serveConfigArchive } from './serve-archive';
 import { configArchiveKey } from './store';
 import { MemoryConfigArchiveStore } from './__tests__/fakes';
 
@@ -624,6 +626,171 @@ describe('buildConfigRelease', () => {
     expect(still.release_id).toBe(moved.release_id);
   });
 
+  // D3 of the per-agent config release plan: pi reads the root AGENTS.md and
+  // the agent's local pi packages from the release, so an agent without
+  // repository access receives them too.
+  test('the agent variant ships the root AGENTS.md and the local pi packages its agents enable, and nothing beside its tools', async () => {
+    const sha = commit(
+      {
+        'kortix.yaml': [
+          'project:',
+          '  name: builder-test',
+          'default_agent: kortix',
+          'tools:',
+          '  lookup: tools/lookup.ts',
+          'extensions:',
+          '  audit:',
+          '    pi: extensions/audit/index.ts',
+          '  other:',
+          '    pi: extensions/other',
+          '  web:',
+          '    pi: npm:pi-web-access@0.30.0',
+          'agents:',
+          '  kortix:',
+          '    prompt: You are the main agent.',
+          '  support:',
+          '    description: support',
+          '    prompt: Help.',
+          '    tools: [lookup]',
+          '    extensions: [audit, web]',
+          '',
+        ].join('\n'),
+        'AGENTS.md': 'Project rules.\n',
+        'CLAUDE.md': 'Same rules.\n',
+        'extensions/audit/index.ts': 'export default () => {}\n',
+        'extensions/audit/package.json': '{"name":"audit"}\n',
+        'extensions/other/index.ts': 'export default () => {}\n',
+        'tools/lookup.ts': 'export default { description: "d", parameters: { type: "object" }, execute: () => 1 }\n',
+        'tools/sibling.ts': 'export const secret = 1\n',
+        'src/app.ts': 'console.log(1)\n',
+      },
+      'packages',
+    );
+    const release = await buildConfigRelease(project, sha, 'agent:support', { store });
+    expect(release.reason).toBeNull();
+    expect(release.tools_only).toBe(true);
+    expect(release.files?.map(([path]) => path)).toEqual([
+      'AGENTS.md',
+      'CLAUDE.md',
+      'extensions/audit/index.ts',
+      'extensions/audit/package.json',
+      'tools/lookup.ts',
+    ]);
+    expect(release.archive?.url).toBe(`/v1/projects/${project.projectId}/config-archives/${release.config_tree_id}?commit=${sha}&agent=support`);
+  });
+
+  // The per-agent release of a session WITH repository access: whole folders
+  // around the agent's tools, the module-resolution config above them, the
+  // root manifest, and every path a skill links to. #9197 replaced a release
+  // that dropped such files.
+  test('the repo-agent variant ships what its agents use with whole tool folders, and nothing the agents do not name', async () => {
+    const sha = commit(
+      {
+        'kortix.yaml': [
+          'project:',
+          '  name: builder-test',
+          'default_agent: kortix',
+          'tools:',
+          '  report: ops/tools/report.ts',
+          '  scan: research/scan.ts',
+          '  root_tool: root-tool.ts',
+          '  unused: unused/tool.ts',
+          'skills:',
+          '  writing: skills/writing',
+          '  other: skills/other',
+          'agents:',
+          '  kortix:',
+          '    prompt: You are the main agent.',
+          '  ops:',
+          '    description: ops',
+          '    prompt: Operate.',
+          '    tools: [report, root_tool]',
+          '    skills: [writing]',
+          '    subagents: [researcher]',
+          '  researcher:',
+          '    description: researches',
+          '    mode: subagent',
+          '    prompt: Research.',
+          '    tools: [scan]',
+          '    skills: none',
+          '',
+        ].join('\n'),
+        '.gitattributes': 'ops/tools/fixtures/** export-ignore\n',
+        'AGENTS.md': 'Project rules.\n',
+        'package.json': '{"name":"root"}\n',
+        'tsconfig.json': '{}\n',
+        'ops/package.json': '{"name":"ops"}\n',
+        // Read at run time by path, not imported: only the folder rule keeps it.
+        'ops/tools/report.ts': "import { format } from '../lib/format'\nimport { readFileSync } from 'node:fs'\nexport default { description: 'r', parameters: { type: 'object' }, execute: () => format(readFileSync(new URL('./template.md', import.meta.url), 'utf8')) }\n",
+        'ops/tools/template.md': '# Report\n',
+        'ops/tools/fixtures/big.json': '{}\n',
+        'ops/lib/format.ts': 'export const format = (x: string) => x\n',
+        'ops/lib/queries.sql': 'select 1;\n',
+        'ops/docs/readme.md': 'Not a tool folder.\n',
+        'research/scan.ts': 'export default { description: "s", parameters: { type: "object" }, execute: () => 1 }\n',
+        'research/notes.txt': 'beside the subagent tool\n',
+        'root-tool.ts': 'export default { description: "t", parameters: { type: "object" }, execute: () => 1 }\n',
+        'unused/tool.ts': 'export default {}\n',
+        'skills/writing/SKILL.md': '---\nname: writing\ndescription: Write.\n---\nFollow [the style](../../shared/style.md), see [assets](../../shared/assets/) and `./examples/a.md`. Not [a site](https://example.com/x.md) nor [the repo](../../).\n',
+        'skills/writing/examples/a.md': 'Example.\n',
+        'skills/other/SKILL.md': '---\nname: other\ndescription: Other.\n---\nOther.\n',
+        'shared/style.md': 'Style.\n',
+        'shared/assets/logo.svg': '<svg/>\n',
+        'shared/unlinked.md': 'Nobody links here.\n',
+        'src/app.ts': 'console.log(1)\n',
+      },
+      'repo agent',
+    );
+    const release = await buildConfigRelease(project, sha, 'repo-agent:ops', { store });
+    expect(release.reason).toBeNull();
+    expect('tools_only' in release).toBe(false);
+    expect(release.files?.map(([path]) => path)).toEqual([
+      'AGENTS.md',
+      'kortix.yaml',
+      'ops/lib/format.ts',
+      'ops/lib/queries.sql',
+      'ops/package.json',
+      'ops/tools/report.ts',
+      'ops/tools/template.md',
+      'package.json',
+      'research/notes.txt',
+      'research/scan.ts',
+      'root-tool.ts',
+      'shared/assets/logo.svg',
+      'shared/style.md',
+      'skills/writing/SKILL.md',
+      'skills/writing/examples/a.md',
+      'tsconfig.json',
+    ]);
+    expect(release.archive?.url).toBe(
+      `/v1/projects/${project.projectId}/config-archives/${release.config_tree_id}?commit=${sha}&agent=ops&scope=repo`,
+    );
+    const archive = store.objects.get(configArchiveKey(project.projectId, release.config_tree_id!));
+    const dir = extract(archive!);
+    expect(run('find', ['.', '-type', 'f'], dir).split('\n').map((path) => path.slice(2)).sort()).toEqual(release.files!.map(([path]) => path));
+    for (const [path, , blob] of release.files!) expect(blobOf(join(dir, path))).toBe(blob);
+    const agents = Object.entries(JSON.parse(release.compiled_governance!).agent).filter(([, agent]) => !(agent as { disable?: boolean }).disable).map(([name]) => name);
+    expect(agents.sort()).toEqual(['ops', 'researcher']);
+
+    // A file the agent does not use leaves the release as it is; a file beside its tool moves it.
+    const still = await buildConfigRelease(project, commit({ 'src/app.ts': 'console.log(2)\n', 'shared/unlinked.md': 'Edited.\n' }, 'unrelated'), 'repo-agent:ops', { store });
+    expect(still.release_id).toBe(release.release_id);
+    const moved = await buildConfigRelease(project, commit({ 'ops/tools/template.md': '# Report v2\n' }, 'template'), 'repo-agent:ops', { store });
+    expect(moved.release_id).not.toBe(release.release_id);
+
+    // The archive route rebuilds the tree from the URL's commit, agent and scope when the store misses it.
+    const mirror = await refreshMirror(project);
+    const url = new URL(release.archive!.url, 'http://api.invalid');
+    const variant = archiveQueryVariant(url.searchParams.get('agent'), url.searchParams.get('scope'));
+    expect(variant).toBe('repo-agent:ops');
+    const served = await serveConfigArchive(project, release.config_tree_id!, async () => mirror, async () => mirror, { store: new MemoryConfigArchiveStore(), publicOverride: null }, url.searchParams.get('commit'), variant);
+    expect(served.status).toBe(200);
+    expect(Buffer.from(await served.arrayBuffer()).equals(archive!)).toBe(true);
+    // The same agent's `exact` release is another tree: the URL without its scope names nothing.
+    const unscoped = await serveConfigArchive(project, release.config_tree_id!, async () => mirror, async () => mirror, { store: new MemoryConfigArchiveStore(), publicOverride: null }, url.searchParams.get('commit'), archiveQueryVariant('ops', null));
+    expect(unscoped.status).toBe(404);
+  });
+
   test('an unknown selected agent produces no release and names the reason', async () => {
     const sha = seed();
     const release = await buildConfigRelease(project, sha, 'agent:ghost', { store });
@@ -770,6 +937,32 @@ describe('buildConfigRelease', () => {
     expect(descriptor.reason).toBe('repository access withheld');
     expect(descriptor.compiled_governance).toBe(release.compiled_governance);
     expect(descriptor.compiled_governance_etag).toBe(release.compiled_governance_etag);
+  });
+
+  test('a release that was not built stays no release for a session without repository access', () => {
+    const governance = '{"agent":{}}';
+    const notBuilt = {
+      release_id: null,
+      source_commit: 'c'.repeat(40),
+      config_dir: null,
+      config_tree_id: null,
+      archive: null,
+      files: null,
+      compiled_governance: governance,
+      compiled_governance_etag: 'e'.repeat(16),
+    };
+    // The tree threads were busy, and the agent's files were over the cap.
+    for (const release of [
+      { ...notBuilt, reason: 'another release of this project is being built', deferred: true as const },
+      { ...notBuilt, reason: 'the files of the agent exceed the 32-byte config archive limit' },
+    ]) {
+      const descriptor = toDescriptor(release, { repositoryAccess: false });
+      expect(descriptor.release_id).toBeNull();
+      expect(descriptor.reason).toBe(release.reason);
+      expect(descriptor.files).toBeNull();
+      expect(descriptor.archive).toBeNull();
+      expect('deferred' in descriptor).toBe(false);
+    }
   });
 
   test('a whole-tree release given to a session without repository access loses its files', async () => {

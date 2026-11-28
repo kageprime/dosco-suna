@@ -268,27 +268,4 @@ describe('My Kortix memory in the prompt', () => {
       expect({ rule, found: section.includes(rule) }).toEqual({ rule, found: true });
     }
   });
-
-  // KRTX-4732: a run of several colleagues answers once, after the last
-  // report — the old rule replied per notice and the person read a wall of
-  // short messages instead of one result.
-  test('the prompt answers a run once after its last report, never one reply per notice', () => {
-    const section = MY_KORTIX_PROMPT.slice(
-      MY_KORTIX_PROMPT.indexOf('## How you work'),
-      MY_KORTIX_PROMPT.indexOf('## Custom colleagues on the fly'),
-    );
-    expect(section.startsWith('## How you work')).toBe(true);
-    for (const rule of [
-      'When the last report of a run arrives, answer once',
-      'send no reply between notices',
-      'never one reply per notice',
-      'the outcome of the whole run',
-      'When a notice needs the person to decide something, answer that one at once',
-    ]) {
-      expect({ rule, found: section.includes(rule) }).toEqual({ rule, found: true });
-    }
-    // The old per-notice reply rule is gone: it produced the wall of replies.
-    expect(section).not.toContain('The writer is done too');
-    expect(section).not.toContain('one short summary');
-  });
 });

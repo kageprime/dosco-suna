@@ -49,7 +49,8 @@ const View = z.object({
   /** Can the server decrypt the stored value? Never carries the value. */
   status: SecretValueStatusSchema,
   /** The last check of a provider API key against its provider (on save, on
-   *  rotate, or on request); null for a login and for a key never checked. */
+   *  rotate, or on request); null for a key never checked. A Claude login:
+   *  `invalid` with Anthropic's words while Anthropic forbids it (403), else null. */
   verification: KeyVerificationSchema.nullable(),
 });
 const Create = z.object({

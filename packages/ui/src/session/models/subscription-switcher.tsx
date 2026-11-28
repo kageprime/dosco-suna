@@ -114,8 +114,8 @@ export function SubscriptionSwitcher({
   // The row a save is applying: it shows the pending glyph in its check slot.
   const pendingId = pending ? (pools.setPool.variables?.secretIds?.[0] ?? null) : undefined;
 
-  const rows: Array<{ secretId: string | null; label: string; line: string | null; window: SubscriptionUsageWindow | null; limited: boolean; broken: boolean }> = [
-    { secretId: null, label: t('projectDefaultShort'), line: t('subscriptionSwitcherDefault'), window: null, limited: false, broken: false },
+  const rows: Array<{ secretId: string | null; label: string; line: string | null; window: SubscriptionUsageWindow | null; limited: boolean; broken: boolean; forbidden: boolean }> = [
+    { secretId: null, label: t('projectDefaultShort'), line: t('subscriptionSwitcherDefault'), window: null, limited: false, broken: false, forbidden: false },
     ...logins.map((secret) => {
       const peak = peakBlockingWindow(secret.usage, now, providerId);
       return {
@@ -125,6 +125,8 @@ export function SubscriptionSwitcher({
         window: peak,
         limited: loginLimit(secret.usage ?? null, now).limited,
         broken: needsReconnection(secret),
+        // Anthropic forbade this Claude login (403): the gateway skips it, so its last usage is stale.
+        forbidden: providerId === 'claude-agent' && secret.verification?.status === 'invalid',
       };
     }),
   ];
@@ -169,10 +171,12 @@ export function SubscriptionSwitcher({
                   text: `${windowLabel(row.window.id, tUsage)} · ${tUsage('percent', { percent: Math.round(row.window.used_percent) })}`,
                 }
               : null;
-          // One status per row, in one right-hand slot: a broken login cannot
-          // run a turn, so that outranks its last usage.
+          // One status per row, in one right-hand slot: a broken or forbidden
+          // login cannot run a turn, so that outranks its last usage.
           const status = row.broken ? (
             <span className="text-muted-foreground shrink-0 text-xs">{t('needsReconnection')}</span>
+          ) : row.forbidden ? (
+            <span className="text-kortix-orange shrink-0 text-xs">{t('refusedByAnthropic')}</span>
           ) : meter ? (
             <SubscriptionRowMeter {...meter} />
           ) : row.secretId ? (

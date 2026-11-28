@@ -70,7 +70,8 @@ export interface DispatchContext {
   signal?: AbortSignal;
   /** Resolves a fallback model's candidates. Called only when the plan reaches that model. */
   resolveCandidates: (model: string) => Promise<UpstreamDescriptor[]>;
-  notePoolRateLimit?: (secretId: string, seconds: number) => Promise<void>;
+  /** `model` scopes an Antigravity quota rest to the model that hit 429. */
+  notePoolRateLimit?: (secretId: string, seconds: number, model?: string) => Promise<void>;
   /** `GatewayHooks.notePoolUsage`, bound to the request's principal. */
   notePoolUsage?: (secretId: string, usage: SubscriptionUsage) => Promise<void>;
   /** `GatewayHooks.refreshCredential`, bound to the request's principal. */
@@ -317,27 +318,63 @@ export async function fallbackCandidates(
 const MAX_USAGE_LIMIT_REST_SECONDS = 8 * 24 * 60 * 60;
 
 /**
- * Seconds until a ChatGPT plan limit (`usage_limit_reached`) resets, from its
- * `resets_in_seconds` or `resets_at`. A pooled account rests that long: a
- * 30 s rest made every request in the window pay one more refused call.
+ * Seconds named by Google's `QUOTA_EXHAUSTED` 429. Cloud Code sends the reset
+ * either at the top level or under `error` / `details[].metadata`, as an ISO
+ * timestamp or a proto duration (`"54782.7s"`). A 30 s default made every
+ * request in the window pay one more refused call.
+ */
+function quotaResetSeconds(error: Record<string, unknown>): number | undefined {
+  const details = Array.isArray(error.details) ? error.details : [];
+  const detail = details.find((entry) => entry && typeof entry === 'object') as Record<string, unknown> | undefined;
+  const metadata = detail?.metadata && typeof detail.metadata === 'object'
+    ? detail.metadata as Record<string, unknown> : undefined;
+  const iso = typeof error.quotaResetTimeStamp === 'string' ? error.quotaResetTimeStamp
+    : typeof metadata?.quotaResetTimeStamp === 'string' ? metadata.quotaResetTimeStamp : undefined;
+  if (iso) {
+    const reset = Date.parse(iso);
+    if (Number.isFinite(reset)) {
+      const seconds = Math.ceil((reset - Date.now()) / 1000);
+      if (seconds > 0) return Math.min(MAX_USAGE_LIMIT_REST_SECONDS, seconds);
+    }
+  }
+  const delay = typeof error.quotaResetDelay === 'string' ? error.quotaResetDelay
+    : typeof metadata?.quotaResetDelay === 'string' ? metadata.quotaResetDelay : undefined;
+  if (delay) {
+    const parsed = /^(\d+(?:\.\d+)?)s$/.exec(delay.trim());
+    if (parsed) {
+      const seconds = Math.ceil(Number(parsed[1]));
+      if (Number.isFinite(seconds) && seconds > 0) return Math.min(MAX_USAGE_LIMIT_REST_SECONDS, seconds);
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Seconds until a pooled account's limit resets: ChatGPT's
+ * `usage_limit_reached` or Google's `QUOTA_EXHAUSTED`. A pooled account rests
+ * that long; the caller can move to the next account in the same request.
  */
 async function usageLimitResetSeconds(failure: Failure): Promise<number | undefined> {
   const text = failure.response
     ? await failure.response.clone().text().catch(() => '')
     : failure.error instanceof UpstreamHttpError ? failure.error.body : '';
-  let error: unknown;
+  let parsed: unknown;
   try {
-    error = (JSON.parse(text) as { error?: unknown }).error;
+    parsed = JSON.parse(text);
   } catch {
     return undefined;
   }
+  // Cloud Code sends the error object at the top level; OpenAI wraps it.
+  const error = (parsed as { error?: unknown }).error ?? parsed;
   if (!error || typeof error !== 'object') return undefined;
   const { type, resets_in_seconds: inSeconds, resets_at: at } = error as Record<string, unknown>;
-  if (type !== 'usage_limit_reached') return undefined;
-  const seconds =
-    typeof inSeconds === 'number' ? inSeconds : typeof at === 'number' ? at - Date.now() / 1000 : undefined;
-  if (seconds === undefined || !(seconds > 0)) return undefined;
-  return Math.min(MAX_USAGE_LIMIT_REST_SECONDS, Math.ceil(seconds));
+  if (type === 'usage_limit_reached') {
+    const seconds =
+      typeof inSeconds === 'number' ? inSeconds : typeof at === 'number' ? at - Date.now() / 1000 : undefined;
+    if (seconds === undefined || !(seconds > 0)) return undefined;
+    return Math.min(MAX_USAGE_LIMIT_REST_SECONDS, Math.ceil(seconds));
+  }
+  return quotaResetSeconds(error as Record<string, unknown>);
 }
 
 function retryAfterOf(failure: Failure): string | null | undefined {
@@ -443,7 +480,7 @@ export async function dispatch(
     earliestPoolRetryAt = Math.min(earliestPoolRetryAt, Date.now() + clientSeconds * 1000);
     if (!ctx.notePoolRateLimit) return;
     try {
-      await ctx.notePoolRateLimit(secretId, seconds);
+      await ctx.notePoolRateLimit(secretId, seconds, failure.attempt.model);
     } catch (error) {
       logger.error('[gateway] provider key cooldown could not be recorded', {
         secretId,

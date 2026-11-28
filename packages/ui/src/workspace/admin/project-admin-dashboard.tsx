@@ -573,7 +573,7 @@ export function ProjectAdminDashboard({
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {isMobile ? (
           // The frame's title bar names the panel; this row is the rail only.
-          <nav aria-label={title} className="border-border/60 bg-background flex shrink-0 flex-col border-b">
+          <nav aria-label={title} className="border-border bg-background flex shrink-0 flex-col border-b">
             <FadedScrollArea ref={stripRef} orientation="horizontal" fadeColor="from-background" className="min-w-0 flex-1 py-2">
               {settled ? (
                 <div className="flex w-fit items-center gap-2">

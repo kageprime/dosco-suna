@@ -28,6 +28,7 @@ import {
   readinessValue,
   runtimeReadyWaitPatch,
   runtimeBootEpochMs,
+  runtimeBootIsWake,
   runtimeProvenThisBoot,
   servesThroughProbeMiss,
   shouldWarnRuntimeUnreachable,
@@ -45,6 +46,7 @@ import {
   sessionRuntimeUrlPath,
 } from './stopped-wake-result';
 import { captureProductEvent } from '../../shared/product-analytics';
+import { recordProviderEvent } from '../../platform/services/provider-events';
 
 // A provider-running box normally binds the daemon within seconds. A daemon
 // that remains unreachable for 30 seconds needs an explicit restart, not five
@@ -132,11 +134,21 @@ export async function markRuntimeReadyWaitStarted(
  */
 async function markRuntimeAnswered(
   row: typeof sessionSandboxes.$inferSelect,
-): Promise<{ firstProof: boolean; bootEpochMs: number | null; bootMs: number | null }> {
+): Promise<{
+  firstProof: boolean;
+  bootEpochMs: number | null;
+  bootMs: number | null;
+  afterWake: boolean;
+}> {
   const metadata = sandboxMetadata(row);
   const proven = runtimeProvenThisBoot(metadata);
   const bootEpochMs = runtimeBootEpochMs(metadata);
-  const answer = { firstProof: false, bootEpochMs, bootMs: null as number | null };
+  const answer = {
+    firstProof: false,
+    bootEpochMs,
+    bootMs: null as number | null,
+    afterWake: runtimeBootIsWake(metadata),
+  };
   if (!hasRuntimeReadinessClock(metadata) && proven) return answer;
   try {
     await db
@@ -494,6 +506,23 @@ export async function judgeBootBudget(
           stage: 'ready',
         },
       });
+      // The last phase of a resume (KRTX-1642): provider running to the
+      // runtime's first answer. The admin provider analytics pairs it with the
+      // `wake` row of the same boot (`bootEpochMs`).
+      if (answered.afterWake && answered.bootMs !== null) {
+        recordProviderEvent({
+          provider: row.provider,
+          kind: 'wake-ready',
+          outcome: 'ok',
+          totalMs: answered.bootMs,
+          marks: [
+            { label: 'runtime-ready', atMs: answered.bootMs, deltaMs: answered.bootMs },
+            { bootEpochMs: answered.bootEpochMs },
+          ],
+          sessionId: row.sessionId,
+          accountId: row.accountId,
+        });
+      }
     }
   }
   return null;

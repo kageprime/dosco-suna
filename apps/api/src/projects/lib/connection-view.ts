@@ -29,7 +29,9 @@ export function serializeConnection(row: {
     label: row.label,
     status: row.status,
     is_default: row.isDefault,
-    metadata: row.metadata ?? {},
+    metadata: Object.fromEntries(Object.entries(row.metadata ?? {}).filter(
+      ([key]) => key !== 'requesting_session_id' && key !== 'connect_session_ids',
+    )),
     connected_as: connectedAsOf(row.metadata),
   };
 }

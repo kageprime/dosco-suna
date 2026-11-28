@@ -15,7 +15,12 @@
  *   4. relays the response (status, type, stream) unchanged.
  *
  * A 429 rests that account and the request moves to the next one; a 401 marks
- * the account for reconnection and moves on. Every response's plan usage
+ * the account for reconnection and moves on; a 403 (Anthropic forbids the
+ * account, for example when its organization turned Claude Code off) stores
+ * Anthropic's reason on the account and moves on; a 403 that is not Anthropic's
+ * error JSON (a proxy or firewall page) is relayed as received. When the last account was
+ * forbidden, the host is asked again: it now skips the forbidden accounts and
+ * answers why none is left, naming them. Every other response's plan usage
  * headers go to `notePoolUsage`. Nothing here translates the
  * request or logs a body. Only token counts are observed in transit. The account token
  * never leaves the gateway and the API.
@@ -50,6 +55,13 @@ export interface ClaudeCodeHooks {
   claudeCredentials: (principal: AuthedPrincipal, input: { model: string | null }) => Promise<ClaudeCodeCredentials>;
   /** Anthropic refused this account's token (401): the host marks it for reconnection. */
   claudeRefused?: (principal: AuthedPrincipal, secretId: string, failedKeySha256: string) => Promise<void>;
+  /**
+   * Anthropic forbade this account (403): the token is valid, but the account may not
+   * run Claude Code, for example "Your organization has disabled Claude subscription
+   * access for Claude Code". The host stores `message` (Anthropic's words) on the
+   * account and skips the account for a while.
+   */
+  claudeForbidden?: (principal: AuthedPrincipal, secretId: string, failedKeySha256: string, message: string) => Promise<void>;
   notePoolRateLimit?: (principal: AuthedPrincipal, secretId: string, seconds: number) => Promise<void>;
   /** The plan usage this account's response reported (`anthropic-ratelimit-unified-*`). */
   notePoolUsage?: (principal: AuthedPrincipal, secretId: string, usage: SubscriptionUsage) => Promise<void>;
@@ -118,6 +130,62 @@ function usageLimitError(message: string, restSeconds: number): Response {
   });
 }
 
+/** The host's reason no account can serve, in the Anthropic error shape Claude Code reads. */
+function hostError(error: Extract<ClaudeCodeCredentials, { error: unknown }>['error']): Response {
+  const { status, message, suggestion, retryAfterSeconds, restSeconds } = error;
+  const text = suggestion ? `${message} ${suggestion}` : message;
+  if (status === 429 && restSeconds !== undefined && restSeconds > USAGE_LIMIT_MIN_REST_SECONDS) return usageLimitError(text, restSeconds);
+  return anthropicError(status, text, retryAfterSeconds);
+}
+
+/** The longest reason stored for a forbidden account (`verify_message` holds 500). */
+const MAX_FORBIDDEN_MESSAGE = 300;
+
+/**
+ * Anthropic's words in its own 403 error body (`{"type":"error","error":{"message":…}}`),
+ * on one line and capped, or null when the body is not Anthropic's error JSON. A
+ * proxy or firewall page in front of Anthropic is not a refusal of the account.
+ */
+export function forbiddenMessage(body: string): string | null {
+  type AnthropicError = { type?: unknown; error?: { message?: unknown } } | null;
+  const parsed = ((): AnthropicError => {
+    try {
+      return JSON.parse(body) as AnthropicError;
+    } catch {
+      return null;
+    }
+  })();
+  if (parsed?.type !== 'error' || typeof parsed.error?.message !== 'string') return null;
+  const message = parsed.error.message.replace(/\s+/g, ' ').trim();
+  if (!message) return null;
+  return message.length > MAX_FORBIDDEN_MESSAGE ? `${message.slice(0, MAX_FORBIDDEN_MESSAGE - 1)}…` : message;
+}
+
+const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
+
+/** The most of a 403 body the gateway reads: Anthropic's error JSON is under 1 KiB. */
+const MAX_FORBIDDEN_BODY_BYTES = 64 * 1024;
+
+/** A 403 body, at most `MAX_FORBIDDEN_BODY_BYTES`; the rest is cancelled, never buffered. */
+async function boundedText(response: Response): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) return '';
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (size < MAX_FORBIDDEN_BODY_BYTES) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const room = MAX_FORBIDDEN_BODY_BYTES - size;
+      chunks.push(value.byteLength > room ? value.subarray(0, room) : value);
+      size += Math.min(value.byteLength, room);
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
+
 function sessionToken(headers: Headers): string | null {
   const bearer = headers.get('authorization')?.match(/^Bearer\s+(\S.*)$/i)?.[1]?.trim();
   if (bearer) return bearer;
@@ -168,12 +236,7 @@ export function createClaudeCodePassthrough(hooks: ClaudeCodeHooks, deps: Claude
     const model = requestModel(req.body);
     const id = crypto.randomUUID();
     const found = await hooks.claudeCredentials(principal, { model });
-    if ('error' in found) {
-      const { status, message, suggestion, retryAfterSeconds, restSeconds } = found.error;
-      const text = suggestion ? `${message} ${suggestion}` : message;
-      if (status === 429 && restSeconds !== undefined && restSeconds > USAGE_LIMIT_MIN_REST_SECONDS) return usageLimitError(text, restSeconds);
-      return anthropicError(status, text, retryAfterSeconds);
-    }
+    if ('error' in found) return hostError(found.error);
 
     const headers = new Headers();
     req.headers.forEach((value, key) => {
@@ -185,6 +248,21 @@ export function createClaudeCodePassthrough(hooks: ClaudeCodeHooks, deps: Claude
       headers.set('authorization', `Bearer ${credential.apiKey}`);
       const response = await fetchImpl(target, { method: 'POST', headers, body: req.body as BodyInit | null, signal: req.signal });
       const more = index < found.credentials.length - 1;
+      if (response.status === 403) {
+        // A forbidden account reports no plan usage: the host reads a usage
+        // report as a served call and clears the account's 403 reason with it.
+        const body = await boundedText(response).catch(() => '');
+        const answer = new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
+        const reason = forbiddenMessage(body);
+        // Not Anthropic's refusal of this account (a proxy or firewall page): relayed as received.
+        if (!reason) return relay(answer);
+        await hooks.claudeForbidden?.(principal, credential.secretId, sha256(credential.apiKey), reason).catch((err) => {
+          logger.warn('[claude-code] could not mark a forbidden Claude account', { secretId: credential.secretId, error: String(err) });
+        });
+        last = answer;
+        if (!more) break;
+        continue;
+      }
       const usage = subscriptionUsageFromHeaders(response.headers);
       if (usage && hooks.notePoolUsage) void hooks.notePoolUsage(principal, credential.secretId, usage).catch(() => undefined);
       if (response.status === 429) {
@@ -192,7 +270,7 @@ export function createClaudeCodePassthrough(hooks: ClaudeCodeHooks, deps: Claude
           logger.warn('[claude-code] could not record a Claude account rest', { secretId: credential.secretId, error: String(err) });
         });
       } else if (response.status === 401) {
-        const digest = createHash('sha256').update(credential.apiKey).digest('hex');
+        const digest = sha256(credential.apiKey);
         await hooks.claudeRefused?.(principal, credential.secretId, digest).catch((err) => {
           logger.warn('[claude-code] could not mark a refused Claude account', { secretId: credential.secretId, error: String(err) });
         });
@@ -228,6 +306,13 @@ export function createClaudeCodePassthrough(hooks: ClaudeCodeHooks, deps: Claude
       }
       // Free the refused attempt's connection before the next one.
       await response.body?.cancel().catch(() => undefined);
+    }
+    if (last?.status === 403 && hooks.claudeForbidden) {
+      // The last account was forbidden, and every earlier one failed too. The host
+      // now skips the forbidden accounts: its answer names them, Anthropic's
+      // reason and the fix, where Anthropic's own 403 names no account.
+      const again = await hooks.claudeCredentials(principal, { model }).catch(() => null);
+      if (again && 'error' in again) return hostError(again.error);
     }
     return last ? relay(last) : anthropicError(400, 'No Claude account is available.');
   };

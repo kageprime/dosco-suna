@@ -93,9 +93,8 @@ describe('shapeTranscript', () => {
     const parsed = JSON.parse(shapeTranscript({}, { source: 'live', messages: [msg(0)] }));
     expect(parsed.omitted_older).toBeUndefined();
   });
-  test('the stored copy is named the session log, not the v1 mirror', () => {
-    expect(JSON.parse(shapeTranscript({}, { source: 'mirror', messages: [msg(0)] })).transcript_source).toBe('log');
-    expect(JSON.parse(shapeTranscript({}, { source: 'live', messages: [msg(0)] })).transcript_source).toBe('live');
+  test('the source passes through: read_session reads the session log', () => {
+    expect(JSON.parse(shapeTranscript({}, { source: 'log', messages: [msg(0)] })).transcript_source).toBe('log');
   });
   test('error is name + message; last_turn_error is the newest assistant error; no header dump', () => {
     const error = { name: 'APIError', data: { message: 'requires a paid plan', statusCode: 400, responseHeaders: { 'cf-ray': 'x' }, responseBody: '{}' } };

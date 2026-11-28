@@ -8,6 +8,7 @@ import Loading from '../../primitives/loading';
 import { Popover, PopoverContent, PopoverTrigger } from '../../primitives/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../primitives/tabs';
 import { errorToast } from '../../primitives/toast';
+import { FadedScrollArea } from '../../primitives/faded-scroll-area';
 import { useTranslations } from '../../i18n';
 import { agentDisplayName } from '../../internal/components/agent-mark';
 import { cn } from '../../lib/utils';
@@ -39,6 +40,7 @@ import {
   type LineMark,
 } from './agent-model';
 import { TasksPanel } from './tasks-panel';
+import { AgentChip } from './agent-surface';
 import {
   isLargeRun,
   LargeRunBadge,
@@ -241,7 +243,6 @@ export function AgentsPanel({ projectId, sessionId, agents, team, runs, tasks, o
   const t = useTranslations('multiAgent.strip');
   const anyWorking = live && [...agents, ...team].some((row) => row.state === 'working');
   const now = useNow(1_000, anyWorking);
-  const sections = [agents.length > 0, team.length > 0, runs.length > 0].filter(Boolean).length;
 
   const renderRows = (list: AgentRow[], teammate: boolean) => (
     <ul>
@@ -259,11 +260,16 @@ export function AgentsPanel({ projectId, sessionId, agents, team, runs, tasks, o
     </ul>
   );
 
+  const people = [...agents, ...team];
+  // The summary stays put; the rows scroll under it, faded at the edges.
   const list = (
-    <div className="max-h-96 overflow-y-auto p-1">
+    <div className="flex max-h-96 min-h-0 flex-col p-1">
+      {people.length > 0 && <AgentsSummary rows={people} />}
+      <FadedScrollArea fadeColor="from-popover" fadeSize="6" rootClassName="h-auto" className="overscroll-contain">
       {agents.length > 0 && (
         <section aria-label={t('label')}>
-          {sections > 1 && <GroupLabel>{t('label')}</GroupLabel>}
+          {/* The summary above already says "N agents": the label only sets agents apart from a Team group. */}
+          {team.length > 0 && <GroupLabel>{t('label')}</GroupLabel>}
           {renderRows(agents, false)}
         </section>
       )}
@@ -283,6 +289,7 @@ export function AgentsPanel({ projectId, sessionId, agents, team, runs, tasks, o
           </ul>
         </section>
       )}
+      </FadedScrollArea>
     </div>
   );
 
@@ -291,8 +298,10 @@ export function AgentsPanel({ projectId, sessionId, agents, team, runs, tasks, o
   return (
     <Tabs defaultValue="agents" className="gap-0">
       <TabsContent value="agents">{list}</TabsContent>
-      <TabsContent value="tasks" className="max-h-96 overflow-y-auto p-1">
-        <TasksPanel tasks={tasks} />
+      <TabsContent value="tasks" className="flex max-h-96 min-h-0 flex-col p-1">
+        <FadedScrollArea fadeColor="from-popover" fadeSize="6" rootClassName="h-auto" className="overscroll-contain">
+          <TasksPanel tasks={tasks} />
+        </FadedScrollArea>
       </TabsContent>
       <div className="border-t p-1">
         <TabsList size="xs" animate="none" className="w-full">
@@ -304,6 +313,48 @@ export function AgentsPanel({ projectId, sessionId, agents, team, runs, tasks, o
         </TabsList>
       </div>
     </Tabs>
+  );
+}
+
+/** The order and colour of each state in the summary: what needs the person first. */
+const SUMMARY: { state: AgentRowState; color: string }[] = [
+  { state: 'needs_input', color: 'var(--kortix-blue)' },
+  { state: 'failed', color: 'var(--kortix-red)' },
+  { state: 'working', color: 'var(--kortix-green)' },
+  { state: 'completed', color: 'var(--kortix-green)' },
+  { state: 'stopped', color: 'var(--muted-foreground)' },
+];
+/** `idle` reads as done: it counts with `completed`. */
+const summaryState = (state: AgentRowState): AgentRowState => (state === 'idle' ? 'completed' : state);
+
+/**
+ * How the session's colleagues are doing, in one glance: the count, each state's
+ * count, and a bar split by state. Done is the green ring's colour at a lighter
+ * weight, so working and done read apart.
+ */
+function AgentsSummary({ rows }: { rows: readonly AgentRow[] }) {
+  const t = useTranslations('multiAgent.strip');
+  const counts = SUMMARY.map((item) => ({ ...item, count: rows.filter((row) => summaryState(row.state) === item.state).length })).filter(
+    (item) => item.count > 0,
+  );
+  return (
+    <div data-slot="agents-summary" className="flex flex-col gap-2 px-2 pt-1.5 pb-2.5">
+      <div className="flex min-w-0 items-baseline justify-between gap-3">
+        <span className="text-foreground text-sm">{t('agents', { count: rows.length })}</span>
+        <span className="text-muted-foreground truncate text-xs">
+          {counts.map((item) => t('stateCount', { count: item.count, state: t(`state.${item.state}`) })).join(' · ')}
+        </span>
+      </div>
+      <div aria-hidden className="flex h-1 gap-0.5 overflow-hidden rounded-full">
+        {counts.map((item) => (
+          <span
+            key={item.state}
+            className={cn('h-full', item.state === 'completed' && 'opacity-50')}
+            style={{ flexGrow: item.count, backgroundColor: item.color }}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -339,47 +390,42 @@ function AgentLineRow({
   onStop: () => void;
 }) {
   const t = useTranslations('multiAgent.strip');
-  // The result, or what it waits for: one line on hover, never inline.
+  // The result, or what it waits for: the row's second line, before "runs as".
   const detail = row.state === 'needs_input' ? (row.line ?? t(`attention.${row.attention ?? 'question'}`)) : row.line;
-  const handle = (
-    <span className="text-foreground min-w-0 truncate font-medium" title={teammate ? undefined : row.handle}>
-      {row.handle}
-    </span>
-  );
-  const state = (
-    <span className="text-muted-foreground shrink-0 tabular-nums">{rowState(row, now, t)}</span>
-  );
+  const chip = <AgentChip handle={row.handle} name={row.handle} className="max-w-none min-w-0 shrink" />;
+  const stateWord = rowState(row, now, t);
+  const sub = [detail, row.named && row.agent ? t('runsAs', { agent: agentDisplayName(row.agent) }) : null].filter(Boolean).join(' · ');
   return (
     <li
       data-testid="agents-line-row"
       data-agent-row={row.sessionId}
-      className="group/row hover:bg-hover focus-within:bg-hover flex min-w-0 items-center gap-1 rounded-sm"
+      className="group/row hover:bg-hover focus-within:bg-hover flex min-w-0 items-start rounded-md"
     >
-      <div onClick={onOpen} className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-1.5 pl-2 text-xs">
-        <AgentStateMark state={row.state} />
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-baseline gap-2">
-            {teammate ? (
-              <Hint label={t('teamRole')} side="top">
-                {handle}
-              </Hint>
-            ) : (
-              handle
-            )}
-            {detail ? (
-              <Hint label={<span className="block max-w-72 truncate">{detail}</span>} side="top">
-                {state}
-              </Hint>
-            ) : (
-              state
-            )}
-          </div>
-          {row.named && row.agent && (
-            <p className="text-muted-foreground truncate">{t('runsAs', { agent: agentDisplayName(row.agent) })}</p>
+      <div onClick={onOpen} className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1 py-2 pl-2">
+        <div className="flex min-w-0 items-center gap-2">
+          {teammate ? (
+            <Hint label={t('teamRole')} side="top">
+              {chip}
+            </Hint>
+          ) : (
+            chip
           )}
+          <span className="flex-1" />
+          <span
+            data-slot="agent-row-state"
+            className={cn(
+              'shrink-0 text-xs tabular-nums',
+              // Red text reads at 6:1; the blue token is under 4.5:1 at 12px, so "needs you" stays in ink.
+              row.state === 'failed' ? 'text-kortix-red' : row.state === 'needs_input' ? 'text-foreground' : 'text-muted-foreground',
+            )}
+          >
+            {stateWord}
+          </span>
         </div>
+        {sub && <p className="text-muted-foreground truncate pl-0.5 text-xs">{sub}</p>}
       </div>
-      <div className={cn(ROW_ACTIONS, 'pr-1', stopping && 'opacity-100')}>
+      {/* Its own column beside the state word, so neither covers the other. */}
+      <div className={cn(ROW_ACTIONS, 'pt-1.5 pr-1 pl-1', stopping && 'opacity-100')}>
         <Hint label={t('openAgent', { name: row.handle })} side="top">
           <Button
             type="button"

@@ -223,7 +223,7 @@ export async function listVisibleTriggerRuns(input: {
     const more = rows.length > input.limit;
     const batch = rows.slice(0, input.limit);
     const sessionIds = batch.flatMap((r) => (r.row.sessionId ? [r.row.sessionId] : []));
-    const visible = await loadVisibleSessionsForList(input.loaded, sessionIds, input.binding, input.binding, { triggerReaderRead: true });
+    const visible = await loadVisibleSessionsForList(input.loaded, sessionIds, input.binding, input.binding, { triggerReaderRead: true, personRead: true });
     for (const [index, r] of batch.entries()) {
       if (r.row.sessionId && !visible.has(r.row.sessionId)) continue;
       kept.push(r);

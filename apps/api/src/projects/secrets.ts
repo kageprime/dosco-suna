@@ -1,6 +1,6 @@
 import { connectors, projectSecrets, projectSecretTombstones } from '@kortix/db';
 import type { Database } from '@kortix/db';
-import { and, desc, eq, gt, inArray, isNull, lt, or } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, lt, ne, or } from 'drizzle-orm';
 import { isGatewayManagedEnv } from '../llm-gateway/sandbox-credentials';
 import {
   type SecretConsumer,
@@ -85,9 +85,20 @@ export async function writeSharedProjectSecret(input: {
         rotatedAt: now,
         updatedAt: now,
       },
+      // A website login keeps its `{ username, password }` shape: a plain
+      // value never overwrites it (`browser-logins.ts`). The intake refuses
+      // that case with a 409 before it gets here.
+      setWhere: notBrowserLogin(),
     })
     .returning({ secretId: projectSecrets.secretId });
-  return row!.secretId;
+  if (!row) throw new Error(`${identifier} is a website login; a plain value cannot replace it`);
+  return row.secretId;
+}
+
+/** Rows that are not website logins. A login's value is JSON with a password
+ *  in it: only the browser consumer reads it, never a generic secret map. */
+function notBrowserLogin() {
+  return or(isNull(projectSecrets.consumer), ne(projectSecrets.consumer, 'browser'));
 }
 
 /** A deletion older than the longest setup-link TTL (MAX_TTL_MINUTES in
@@ -158,7 +169,29 @@ export async function projectSecretsDeletedSince(
   return rows.map((row) => row.name);
 }
 
-/** Lock a legacy runtime secret to the server-side connector boundary. */
+/**
+ * The identifiers among `identifiers` that name a website login (consumer
+ * `browser`). A connector may never bind one: its value is a person's password
+ * for one site, and a connector would send it to the connector's own host.
+ */
+export async function websiteLoginIdentifiers(projectId: string, identifiers: string[]): Promise<Set<string>> {
+  if (identifiers.length === 0) return new Set();
+  const rows = await db
+    .select({ identifier: projectSecrets.identifier })
+    .from(projectSecrets)
+    .where(
+      and(
+        eq(projectSecrets.projectId, projectId),
+        inArray(projectSecrets.identifier, identifiers),
+        isNull(projectSecrets.ownerUserId),
+        eq(projectSecrets.consumer, 'browser'),
+      ),
+    );
+  return new Set(rows.map((row) => row.identifier));
+}
+
+/** Lock a legacy runtime secret to the server-side connector boundary. A
+ *  website login is never rewritten: it stays the browser's alone. */
 export async function confineSharedProjectSecretToConnector(
   projectId: string,
   identifier: string,
@@ -177,6 +210,7 @@ export async function confineSharedProjectSecretToConnector(
         eq(projectSecrets.projectId, projectId),
         eq(projectSecrets.identifier, identifier),
         isNull(projectSecrets.ownerUserId),
+        notBrowserLogin(),
       ),
     );
 }
@@ -208,7 +242,7 @@ export async function listProjectSecrets(projectId: string): Promise<Record<stri
         updatedAt: projectSecrets.updatedAt,
       })
       .from(projectSecrets)
-      .where(and(eq(projectSecrets.projectId, projectId), isNull(projectSecrets.ownerUserId)))
+      .where(and(eq(projectSecrets.projectId, projectId), isNull(projectSecrets.ownerUserId), notBrowserLogin()))
       .orderBy(desc(projectSecrets.updatedAt)),
   });
 
@@ -288,6 +322,8 @@ export async function listResolvedProjectSecrets(
       and(
         eq(projectSecrets.projectId, projectId),
         eq(projectSecrets.scope, 'runtime'),
+        // A website login never enters an env, an App or a capability list.
+        notBrowserLogin(),
         userId
           ? or(isNull(projectSecrets.ownerUserId), eq(projectSecrets.ownerUserId, userId))
           : isNull(projectSecrets.ownerUserId),

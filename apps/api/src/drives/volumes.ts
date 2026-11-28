@@ -1,7 +1,11 @@
 // The storage behind a drive: one Platinum volume in drive sync mode. Every
 // call here speaks the Platinum volumes API; nothing above this file does.
 
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { drives } from '@kortix/db';
+import { eq } from 'drizzle-orm';
+import { config } from '../config';
+
 import { logger } from '../lib/logger';
 import { isPlatinumConfigured, platinumFetch, platinumRegionControlPlane } from '../shared/platinum';
 import { logWindowDecision } from '../shared/log-window';
@@ -273,6 +277,13 @@ async function call(volume: DriveVolume | null, path: string, init: RequestInit 
     case 409:
       if (code === 'volume_busy') throw new DriveStorageError(409, 'The drive is attached to a running session', code);
       if (code === 'not_a_directory') throw new DriveStorageError(409, 'That path is a file, not a folder', code);
+      // A version older than storage keeps (or one that never existed): not a name clash.
+      if (code === 'read_point_gone') throw new DriveStorageError(404, 'That version is no longer available', code);
+      // A shared volume takes a fixed number of read-write mounts at once (a
+      // mount, never a file write): the drive is busy, not a name clash.
+      if (code === 'sharedfs_writers_full') {
+        throw new DriveStorageError(409, 'Too many sessions have these files open right now. Close a session that uses them, or try again in a minute.', code);
+      }
       if (code === 'volume_in_other_region') {
         logger.warn(`[drives] ${init.method ?? 'GET'} ${path} -> 409 ${text.slice(0, 300)}`);
         throw new DriveStorageError(409, 'These files live in another region than this session', code);
@@ -285,6 +296,12 @@ async function call(volume: DriveVolume | null, path: string, init: RequestInit 
     case 422:
       // A sandbox mount (`/v1/sandboxes/…`) is about mounting; a volume write is a write.
       if (code === 'sub_path_too_large') throw folderTooLarge(refusal, volume !== null);
+      // A commit-based call on a shared volume: the volume is live. The
+      // callers that can take the live path catch the code and do.
+      if (code === 'sharedfs_unsupported') {
+        if (volume) noteVolumeType(volume.name, 'sharedfs');
+        throw new DriveStorageError(503, 'Drive storage is unavailable, try again shortly', code);
+      }
       logger.warn(`[drives] ${init.method ?? 'GET'} ${path} -> 422 ${text.slice(0, 300)}`);
       throw new DriveStorageError(503, 'Drive storage is unavailable, try again shortly', code);
     case 429:
@@ -312,6 +329,65 @@ async function callJson<T>(volume: DriveVolume | null, path: string, init: Reque
 const v = (volume: DriveVolume) => `/v1/volumes/${encodeURIComponent(volume.name)}`;
 
 /**
+ * A volume's type, fixed when storage creates it. `block` syncs through
+ * commits: each write is a commit, a mount pulls and saves. `sharedfs` is
+ * live: every mount and every file call sees each write at once, and it has
+ * no commit-based calls (folder usage, the block upload, copy, pull), which
+ * storage refuses with 422 `sharedfs_unsupported`. Storage may convert an
+ * existing drive volume from block to sharedfs in place, under the same name.
+ */
+export type VolumeType = 'block' | 'sharedfs';
+
+export interface VolumeInfo {
+  id: string;
+  logical_bytes: number;
+  file_count: number;
+  last_commit_at: string | null;
+  head_commit_id?: string | null;
+  size_limit_bytes?: number | null;
+  /** Absent from a storage version without shared volumes: block. */
+  type?: VolumeType;
+  /**
+   * A shared volume's head stamp: moves on every write. Null when the volume
+   * was never written or storage could not read it; absent for a block volume.
+   */
+  head_stamp?: string | null;
+}
+
+/**
+ * Kortix's own bookkeeping at a drive's root (`/.kortix-folded` fold markers,
+ * `/.kortix-uploads` staging of a shared volume's block upload): no person's
+ * file. Every walk of a drive that shows, indexes or syncs files skips it,
+ * as the Files listing does.
+ */
+export function isKortixInternalPath(path: string): boolean {
+  return path.startsWith('/.kortix');
+}
+
+// replica-local: the type storage last reported per volume name. A wrong or
+// missing entry costs one refused call, never a wrong write: every call that
+// depends on it falls back on storage's own 422 `sharedfs_unsupported`.
+const volumeTypes = new Map<string, VolumeType>();
+const VOLUME_TYPES_MAX = 10_000;
+
+function noteVolumeType(name: string, type: unknown): void {
+  if (type !== 'block' && type !== 'sharedfs') return;
+  if (volumeTypes.size >= VOLUME_TYPES_MAX && !volumeTypes.has(name)) volumeTypes.clear();
+  volumeTypes.set(name, type);
+}
+
+/** The volume's type as storage last reported it to this process; undefined when not known yet. */
+export function knownVolumeType(name: string): VolumeType | undefined {
+  return volumeTypes.get(name);
+}
+
+/** Storage refused a commit-based call because the volume is shared (live). */
+export function isSharedfsUnsupported(err: unknown): boolean {
+  return err instanceof DriveStorageError && err.code === 'sharedfs_unsupported';
+}
+
+
+/**
  * What one folder holds, summed the way a folder mount sums it
  * (`GET /v1/volumes/:v/files/usage?path=`, #2422; Platinum caches it per
  * commit). Null on a Platinum without the route or for a missing folder.
@@ -320,6 +396,9 @@ export async function volumeFolderUsage(volume: DriveVolume, path: string): Prom
   if (!isPlatinumConfigured()) {
     return supabaseDriveStorage.volumeFolderUsage(volume, path);
   }
+  // A shared volume has no folder-mount cap and no `files/usage`.
+  if (knownVolumeType(volume.name) === 'sharedfs') return null;
+
   try {
     const r = await callJson<{ bytes?: number; complete?: boolean }>(volume, `${v(volume)}/files/usage?${new URLSearchParams({ path })}`, {
       signal: AbortSignal.timeout(10_000),
@@ -327,6 +406,7 @@ export async function volumeFolderUsage(volume: DriveVolume, path: string): Prom
     return Number.isFinite(Number(r.bytes)) ? { bytes: Number(r.bytes), complete: r.complete !== false } : null;
   } catch (err) {
     if (err instanceof DriveStorageError && (err.status === 404 || err.status === 400)) return null;
+    if (isSharedfsUnsupported(err)) return null;
     throw err;
   }
 }
@@ -340,9 +420,18 @@ export function isMissingVolume(err: unknown): boolean {
  * Open-or-create by name in the volume's region, so a retry after a lost
  * response never makes a second volume.
  */
-export async function openDriveVolume(volume: DriveVolume, signal?: AbortSignal): Promise<VolumeInfo> {
+export async function openDriveVolume(
+  volume: DriveVolume,
+  signal?: AbortSignal,
+  opts: { preferShared?: boolean } = {},
+): Promise<VolumeInfo> {
   if (!isPlatinumConfigured()) {
     return supabaseDriveStorage.openVolume(volume, signal);
+  }
+  if (opts.preferShared) {
+    const created = await createSharedDriveVolume(volume, signal);
+    if (created) return created;
+
   }
   try {
     const info = await callJson<VolumeInfo & { region?: string }>(volume, v(volume), {
@@ -350,10 +439,8 @@ export async function openDriveVolume(volume: DriveVolume, signal?: AbortSignal)
       body: JSON.stringify({ sync_mode: 'drive' }),
       ...(signal ? { signal } : {}),
     });
-    if (volume.region && info.region && info.region !== volume.region) {
-      logger.warn(`[drives] volume ${volume.name} answered from ${info.region}, not ${volume.region}`);
-      throw new DriveStorageError(503, 'Drive storage is not available', 'drive_storage_unavailable');
-    }
+    assertOwnRegion(volume, info);
+    noteVolumeType(volume.name, info.type);
     return info;
   } catch (err) {
     // A 404 here means volumes are not enabled for the storage account: not a
@@ -365,11 +452,110 @@ export async function openDriveVolume(volume: DriveVolume, signal?: AbortSignal)
   }
 }
 
-export async function getDriveVolume(volume: DriveVolume, signal?: AbortSignal): Promise<VolumeInfo> {
-  if (!isPlatinumConfigured()) {
-    return supabaseDriveStorage.getVolume(volume, signal);
+function assertOwnRegion(volume: DriveVolume, info: { region?: string }): void {
+  if (volume.region && info.region && info.region !== volume.region) {
+    logger.warn(`[drives] volume ${volume.name} answered from ${info.region}, not ${volume.region}`);
+    throw new DriveStorageError(503, 'Drive storage is not available', 'drive_storage_unavailable');
   }
-  return callJson<VolumeInfo>(volume, v(volume), signal ? { signal } : {});
+}
+
+/**
+ * Create a drive's volume as a shared volume, when storage serves them. Only
+ * for a volume that does not exist yet (a read answers `volume_not_found`).
+ * Null for every other outcome, and the caller opens the volume as before:
+ * - it exists (here or in another region): the open finds it, whatever its type;
+ * - storage serves no shared volumes (503 `sharedfs_unavailable`), refuses the
+ *   create for any other reason, or cannot be reached: the open creates a block
+ *   volume in drive sync mode, as every drive was created before.
+ * So with shared volumes off, the drive's volume is exactly what it was.
+ */
+async function createSharedDriveVolume(volume: DriveVolume, signal?: AbortSignal): Promise<VolumeInfo | null> {
+  try {
+    await getDriveVolume(volume, signal);
+    return null;
+  } catch (err) {
+    if (!isMissingVolume(err)) return null;
+  }
+  if (signal?.aborted || !driveStorageAvailable()) return null;
+  await assertDriveWritable(volume);
+  let res: Response;
+  try {
+    res = await platinumFetch(
+      '/v1/volumes',
+      { method: 'POST', body: JSON.stringify({ name: volume.name, type: 'sharedfs' }), ...(signal ? { signal } : {}) },
+      volumeOrigin(volume),
+    );
+  } catch {
+    return null;
+  }
+  bustVolumeListCache(volume.name);
+  if (res.status !== 201) {
+    await res.body?.cancel();
+    return null;
+  }
+  const info = (await res.json().catch(() => null)) as (VolumeInfo & { region?: string }) | null;
+  if (!info?.id) return null;
+  assertOwnRegion(volume, info);
+  // A storage version without types made a block volume in drive sync mode,
+  // the same volume the open would have made.
+  noteVolumeType(volume.name, info.type ?? 'block');
+  logger.info(`[drives] created volume ${volume.name} as ${info.type ?? 'block'}`);
+  return info;
+}
+
+export async function getDriveVolume(volume: DriveVolume, signal?: AbortSignal): Promise<VolumeInfo> {
+  const info = await callJson<VolumeInfo>(volume, v(volume), signal ? { signal } : {});
+  noteVolumeType(volume.name, info.type);
+  return info;
+}
+
+/** What `GET /v1/volumes/:v/usage` answers for a shared volume. */
+interface SharedVolumeUsage {
+  used_bytes?: number | null;
+  file_count?: number | null;
+  last_change_at?: string | null;
+  too_large?: boolean;
+}
+
+/** A volume's head as the callers that re-read a drive only when it moved see it. */
+export interface DriveVolumeHead {
+  /** Changes whenever the volume's files change; null when the volume has no content yet. */
+  token: string | null;
+  /** The commit to read the volume at for a consistent view; null = read it live (a shared volume). */
+  commit: string | null;
+}
+
+/**
+ * The volume's head, for the callers that re-read a drive only when it
+ * moved (search index, conflict scan, drive sync, region move). A block
+ * volume's token is its head commit, as before. A shared volume has no head
+ * commit (or keeps the one it had before it was converted, which never moves
+ * again), so its token is storage's head stamp, which moves on every write.
+ * Without one (never written, or storage could not read it), the token is
+ * built from its newest version id plus what it holds now: the newest change
+ * time of any entry, the file count and the bytes. A shared volume too large to count answers a new token
+ * every time, so the caller re-reads it. Either moves with Kortix's own
+ * staging under `/.kortix-uploads` too (storage cannot leave a folder out):
+ * that costs a caller one re-read, which skips the staging as every walker does.
+ */
+export async function driveVolumeHead(volume: DriveVolume, signal?: AbortSignal): Promise<DriveVolumeHead> {
+  const info = await getDriveVolume(volume, signal);
+  if (info.type !== 'sharedfs') {
+    const head = info.head_commit_id ?? null;
+    return { token: head, commit: head };
+  }
+  if (typeof info.head_stamp === 'string' && info.head_stamp) return { token: `stamp:${info.head_stamp}`, commit: null };
+  // Without a stamp, the newest version id moves on every change, a rename
+  // included (storage checkpoints a changed volume within ~20 s); the usage
+  // figures move sooner on writes but not on a rename, so the token is both.
+  const [u, newest] = await Promise.all([
+    callJson<SharedVolumeUsage>(volume, `${v(volume)}/usage`, signal ? { signal } : {}),
+    callJson<{ commits?: Array<{ id?: string }> }>(volume, `${v(volume)}/commits?limit=1`, signal ? { signal } : {})
+      .then((r) => r.commits?.[0]?.id ?? '-', () => '-'),
+  ]);
+  const token = u.too_large ? `live:${Date.now()}` : `live:${newest}:${u.last_change_at ?? '-'}:${u.file_count ?? '-'}:${u.used_bytes ?? '-'}`;
+  return { token, commit: null };
+
 }
 
 export async function deleteDriveVolume(volume: DriveVolume): Promise<void> {
@@ -468,13 +654,15 @@ export async function writeVolumeFile(
   volume: DriveVolume,
   path: string,
   body: Uint8Array<ArrayBuffer>,
-  opts: { overwrite: boolean; ifMatch?: string },
+  opts: { overwrite: boolean; ifMatch?: string; mode?: number },
 ): Promise<{ path: string; size: number; version?: string; commit?: VolumeWriteCommit }> {
   if (!isPlatinumConfigured()) {
     bustVolumeListCache(volume.name);
     return supabaseDriveStorage.writeVolumeFile(volume, path, body, opts);
   }
   const q = new URLSearchParams({ path, overwrite: String(opts.overwrite) });
+  // A shared volume takes the file's permission bits with the write, in octal.
+  if (opts.mode !== undefined) q.set('mode', (opts.mode & 0o7777).toString(8));
   const r = await callJson<{ path: string; size: number; version?: string }>(volume, `${v(volume)}/files/content?${q}`, {
     method: 'PUT',
     body,
@@ -530,17 +718,26 @@ export async function planVolumeUpload(volume: DriveVolume, plan: unknown): Prom
   if (!isPlatinumConfigured()) {
     return supabaseDriveStorage.planVolumeUpload(volume, plan);
   }
-  return callJson<unknown>(volume, `${v(volume)}/files/upload`, {
-    method: 'POST',
-    body: JSON.stringify(plan),
-    signal: AbortSignal.timeout(FILE_TIMEOUT_MS),
-  });
+  if (knownVolumeType(volume.name) !== 'sharedfs') {
+    try {
+      return await callJson<unknown>(volume, `${v(volume)}/files/upload`, {
+        method: 'POST',
+        body: JSON.stringify(plan),
+        signal: AbortSignal.timeout(FILE_TIMEOUT_MS),
+      });
+    } catch (err) {
+      if (!isSharedfsUnsupported(err)) throw err;
+    }
+  }
+  return planSharedUpload(volume, plan);
 }
 
 export async function putVolumeUploadBlock(volume: DriveVolume, uploadId: string, sha: string, body: Uint8Array<ArrayBuffer>): Promise<void> {
   if (!isPlatinumConfigured()) {
     return supabaseDriveStorage.putVolumeUploadBlock(volume, uploadId, sha, body);
   }
+  if (isSharedUploadId(uploadId)) return putSharedUploadBlock(volume, uploadId, sha, body);
+
   await call(volume, `${v(volume)}/files/upload/${encodeURIComponent(uploadId)}/blocks/${encodeURIComponent(sha)}`, {
     method: 'PUT',
     body,
@@ -554,10 +751,197 @@ export async function commitVolumeUpload(volume: DriveVolume, uploadId: string):
     bustVolumeListCache(volume.name);
     return supabaseDriveStorage.commitVolumeUpload(volume, uploadId);
   }
+  if (isSharedUploadId(uploadId)) return commitSharedUpload(volume, uploadId);
+
   return callJson<unknown>(volume, `${v(volume)}/files/upload/${encodeURIComponent(uploadId)}/commit`, {
     method: 'POST',
     signal: AbortSignal.timeout(FILE_TIMEOUT_MS),
   });
+}
+
+// ─── The block upload on a shared volume ──────────────────────────────────
+//
+// A shared volume has no block upload (422 `sharedfs_unsupported`), but the
+// Kortix routes, the SDK and the box's drive sync all speak it. So the same
+// three calls run here on top of plain file writes: the plan is kept in a
+// staging folder of the volume, each block is written there as one file named
+// by its sha256, and the commit streams each file's blocks in order into one
+// `PUT /files/content` and then removes the staging folder. Every replica
+// sees the staging folder, so plan, blocks and commit may land on different
+// API processes. The staging folder is under `/.kortix`, which the drive's
+// listing hides, and sessions mount folders below the drive root, so no box
+// sees it. Differences from the block volume's upload, by design:
+// - every block of the plan is "missing" (no dedupe against stored bytes);
+// - the staged blocks count toward the volume's size until the commit;
+// - files land one by one at the commit, each whole, not all in one step;
+// - a commit sent again after it landed answers 404 (`upload_not_found`).
+
+const SHARED_UPLOADS_DIR = '/.kortix-uploads';
+/** `sfs-<created ms>-<16 hex>`: a storage upload id never has this shape. */
+const SHARED_UPLOAD_ID = /^sfs-(\d{13})-[0-9a-f]{16}-[0-9a-f]{32}$/;
+/** A staging folder older than this is an abandoned upload, removed by the next plan's sweep. */
+const SHARED_UPLOAD_TTL_MS = 6 * 60 * 60_000;
+const SHA256 = /^[0-9a-f]{64}$/;
+
+/** A path in the staging folder of a shared volume's block upload: half an upload, never a drive file. */
+export function isSharedUploadStaging(path: string): boolean {
+  return path === SHARED_UPLOADS_DIR || path.startsWith(`${SHARED_UPLOADS_DIR}/`);
+}
+
+export function isSharedUploadId(uploadId: string): boolean {
+  return SHARED_UPLOAD_ID.test(uploadId);
+}
+
+interface SharedUploadPlan {
+  files: Array<{ path: string; size: number; blocks: string[] }>;
+  overwrite: boolean;
+}
+
+function sharedUploadPlan(plan: unknown): SharedUploadPlan {
+  const p = (plan ?? {}) as { files?: unknown; dirs?: unknown; overwrite?: unknown };
+  if (Array.isArray(p.dirs) && p.dirs.length) {
+    throw new DriveStorageError(400, 'An upload to these files cannot create empty folders', 'upload_dirs_unsupported');
+  }
+  if (!Array.isArray(p.files) || !p.files.length) throw new DriveStorageError(400, 'Invalid upload plan');
+  const files = p.files.map((f) => {
+    const file = (f ?? {}) as { path?: unknown; size?: unknown; blocks?: unknown };
+    const blocks = Array.isArray(file.blocks) ? file.blocks : null;
+    const size = Number(file.size);
+    if (
+      typeof file.path !== 'string' || !file.path.startsWith('/') || !Number.isSafeInteger(size) || size < 0 || !blocks
+      || !blocks.every((b): b is string => typeof b === 'string' && SHA256.test(b))
+      || blocks.length !== Math.ceil(size / BLOCK_BYTES)
+    ) {
+      throw new DriveStorageError(400, 'Invalid upload plan');
+    }
+    return { path: file.path, size, blocks };
+  });
+  return { files, overwrite: p.overwrite !== false };
+}
+
+const sharedUploadDir = (uploadId: string) => `${SHARED_UPLOADS_DIR}/${uploadId}`;
+
+/**
+ * The upload id seals its plan: the staged plan.json lives on the volume, where
+ * any session with the drive mounted can rewrite it, so the id carries a MAC of
+ * the exact plan bytes under the server secret and every later step checks it.
+ * A rewritten plan reads as tampered, never as a list of paths to write.
+ */
+function sealPlan(base: string, planJson: string): string {
+  return createHmac('sha256', config.API_KEY_SECRET).update(`shared-upload\n${base}\n${planJson}`).digest('hex').slice(0, 32);
+}
+
+/** The upload's plan, as sealed into its id; 404 when gone, 409 when rewritten. */
+async function loadSharedUploadPlan(volume: DriveVolume, uploadId: string): Promise<SharedUploadPlan> {
+  const m = /^(sfs-\d{13}-[0-9a-f]{16})-([0-9a-f]{32})$/.exec(uploadId);
+  if (!m) throw new DriveStorageError(404, 'Upload not found', 'upload_not_found');
+  let text: string;
+  try {
+    text = await (await readVolumeFile(volume, `${sharedUploadDir(uploadId)}/plan.json`)).text();
+  } catch (err) {
+    if (err instanceof DriveStorageError && err.status === 404) throw new DriveStorageError(404, 'Upload not found', 'upload_not_found');
+    throw err;
+  }
+  const want = Buffer.from(sealPlan(m[1]!, text), 'hex');
+  const got = Buffer.from(m[2]!, 'hex');
+  if (want.length !== got.length || !timingSafeEqual(want, got)) {
+    throw new DriveStorageError(409, 'The upload changed after it was planned. Start the upload again.', 'upload_tampered');
+  }
+  return sharedUploadPlan(JSON.parse(text));
+}
+
+async function planSharedUpload(volume: DriveVolume, raw: unknown): Promise<{ upload_id: string; missing: string[]; expires_at: string }> {
+  const plan = sharedUploadPlan(raw);
+  const now = Date.now();
+  const base = `sfs-${now}-${randomBytes(8).toString('hex')}`;
+  const planJson = JSON.stringify(plan);
+  const uploadId = `${base}-${sealPlan(base, planJson)}`;
+  void sweepSharedUploads(volume, now);
+  await writeVolumeFile(volume, `${sharedUploadDir(uploadId)}/plan.json`, new TextEncoder().encode(planJson), { overwrite: false });
+  return {
+    upload_id: uploadId,
+    missing: [...new Set(plan.files.flatMap((f) => f.blocks))],
+    expires_at: new Date(now + SHARED_UPLOAD_TTL_MS).toISOString(),
+  };
+}
+
+async function putSharedUploadBlock(volume: DriveVolume, uploadId: string, sha: string, body: Uint8Array<ArrayBuffer>): Promise<void> {
+  if (!SHA256.test(sha)) throw new DriveStorageError(400, 'A block is named by its lowercase sha256');
+  if (body.byteLength > BLOCK_BYTES) throw new DriveStorageError(400, 'A block is at most 1 MiB', 'block_too_large');
+  if (createHash('sha256').update(body).digest('hex') !== sha) {
+    throw new DriveStorageError(400, 'The block does not match its sha256', 'block_mismatch');
+  }
+  // Only blocks the sealed plan names are staged: the plan is what the limits were checked against.
+  const plan = await loadSharedUploadPlan(volume, uploadId);
+  if (!plan.files.some((f) => f.blocks.includes(sha))) {
+    throw new DriveStorageError(400, 'The upload plan does not name this block', 'block_not_in_plan');
+  }
+  await writeVolumeFile(volume, `${sharedUploadDir(uploadId)}/${sha}`, body, { overwrite: true });
+}
+
+async function commitSharedUpload(volume: DriveVolume, uploadId: string): Promise<{ outcome: 'written'; commit_id: null; files: number }> {
+  const dir = sharedUploadDir(uploadId);
+  const plan = await loadSharedUploadPlan(volume, uploadId);
+  // Every block the plan names must be staged, at its size, before any file lands.
+  const staged = new Map<string, number>();
+  let cursor: string | undefined;
+  do {
+    const page = await listVolumeFilesPage(volume, dir, { recursive: false, cursor, signal: AbortSignal.timeout(FILE_TIMEOUT_MS) });
+    for (const e of page.entries) if (e.type === 'file') staged.set(e.path.slice(e.path.lastIndexOf('/') + 1), Number(e.size));
+    cursor = page.next_cursor ?? undefined;
+  } while (cursor);
+  for (const f of plan.files) {
+    const sizes = f.blocks.map((sha) => staged.get(sha));
+    if (sizes.some((s) => s === undefined) || sizes.reduce<number>((a, s) => a + (s ?? 0), 0) !== f.size) {
+      throw new DriveStorageError(409, 'Some blocks of the upload were not sent. Send them, then commit again.', 'upload_incomplete');
+    }
+  }
+  for (const f of plan.files) {
+    await callJson<unknown>(volume, `${v(volume)}/files/content?${new URLSearchParams({ path: f.path, overwrite: String(plan.overwrite) })}`, {
+      method: 'PUT',
+      body: f.size ? stagedBlocks(volume, dir, f.blocks) : new Uint8Array(),
+      // A large file streams block by block through this process: at least 8 MiB/s, never under the usual budget.
+      signal: AbortSignal.timeout(Math.max(FILE_TIMEOUT_MS, Math.ceil(f.size / (8 * BLOCK_BYTES)) * 1_000)),
+      headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': String(f.size) },
+    });
+  }
+  await removeVolumeFile(volume, dir, true).catch((err: unknown) => {
+    logger.warn(`[drives] removing the staging folder of upload ${uploadId} failed`, { error: err instanceof Error ? err.message : String(err) });
+  });
+  return { outcome: 'written', commit_id: null, files: plan.files.length };
+}
+
+/** A file's staged blocks, read one at a time, in order. */
+function stagedBlocks(volume: DriveVolume, dir: string, blocks: string[]): ReadableStream<Uint8Array> {
+  let next = 0;
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      if (next >= blocks.length) return controller.close();
+      const res = await readVolumeFile(volume, `${dir}/${blocks[next++]}`);
+      controller.enqueue(new Uint8Array(await res.arrayBuffer()));
+    },
+  });
+}
+
+// replica-local: when this process last swept each volume's abandoned uploads.
+const sharedUploadSweeps = new Map<string, number>();
+const SHARED_UPLOAD_SWEEP_EVERY_MS = 10 * 60_000;
+
+/** Remove staging folders older than {@link SHARED_UPLOAD_TTL_MS}; best effort, at most every 10 minutes per volume. */
+async function sweepSharedUploads(volume: DriveVolume, now: number): Promise<void> {
+  if (now - (sharedUploadSweeps.get(volume.name) ?? 0) < SHARED_UPLOAD_SWEEP_EVERY_MS) return;
+  if (sharedUploadSweeps.size >= VOLUME_TYPES_MAX) sharedUploadSweeps.clear();
+  sharedUploadSweeps.set(volume.name, now);
+  try {
+    const entries = await listVolumeFiles(volume, SHARED_UPLOADS_DIR, false, AbortSignal.timeout(30_000));
+    for (const e of entries) {
+      const m = SHARED_UPLOAD_ID.exec(e.path.slice(e.path.lastIndexOf('/') + 1));
+      if (e.type === 'dir' && m && now - Number(m[1]) > SHARED_UPLOAD_TTL_MS) await removeVolumeFile(volume, e.path, true);
+    }
+  } catch (err) {
+    if (err instanceof DriveStorageError && err.status === 404) return;
+    logger.warn(`[drives] sweeping abandoned uploads of ${volume.name} failed`, { error: err instanceof Error ? err.message : String(err) });
+  }
 }
 
 const BLOCK_BYTES = 1024 * 1024;
@@ -567,6 +951,10 @@ const BLOCK_CONCURRENCY = 8;
  * Write many files as ONE commit, through the block protocol: the store
  * answers which 1 MiB blocks it lacks, only those travel (8 at a time), and the
  * commit lands every file at once. A reader never sees half a folder.
+ *
+ * A shared volume has no block protocol and no commits: each file is written
+ * whole with its own PUT, 4 at a time, and a reader may see some of them
+ * before the rest. No commit is returned.
  */
 export async function writeVolumeFiles(
   volume: DriveVolume,
@@ -578,6 +966,8 @@ export async function writeVolumeFiles(
     bustVolumeListCache(volume.name);
     return supabaseDriveStorage.writeVolumeFiles(volume, files, opts);
   }
+  if (knownVolumeType(volume.name) === 'sharedfs') return writeSharedFiles(volume, files, opts);
+
   const blocks = new Map<string, Uint8Array<ArrayBuffer>>();
   const planned = files.map((f) => {
     const shas: string[] = [];
@@ -589,12 +979,51 @@ export async function writeVolumeFiles(
     }
     return { path: f.path, size: f.bytes.byteLength, blocks: shas };
   });
-  const plan = (await planVolumeUpload(volume, { files: planned, overwrite: opts.overwrite })) as { upload_id: string; missing?: string[] };
+  let plan: { upload_id: string; missing?: string[] };
+  try {
+    plan = await callJson<{ upload_id: string; missing?: string[] }>(volume, `${v(volume)}/files/upload`, {
+      method: 'POST',
+      body: JSON.stringify({ files: planned, overwrite: opts.overwrite }),
+      signal: AbortSignal.timeout(FILE_TIMEOUT_MS),
+    });
+  } catch (err) {
+    if (isSharedfsUnsupported(err)) return writeSharedFiles(volume, files, opts);
+    throw err;
+  }
   const missing = [...new Set(plan.missing ?? [])];
   for (let i = 0; i < missing.length; i += BLOCK_CONCURRENCY) {
     await Promise.all(missing.slice(i, i + BLOCK_CONCURRENCY).map((sha) => putVolumeUploadBlock(volume, plan.upload_id, sha, blocks.get(sha)!)));
   }
   return parseVolumeWriteCommit(await commitVolumeUpload(volume, plan.upload_id));
+}
+
+const SHARED_WRITE_CONCURRENCY = 4;
+
+async function writeSharedFiles(
+  volume: DriveVolume,
+  files: Array<{ path: string; bytes: Uint8Array<ArrayBuffer> }>,
+  opts: { overwrite: boolean },
+): Promise<undefined> {
+  for (let i = 0; i < files.length; i += SHARED_WRITE_CONCURRENCY) {
+    await Promise.all(
+      files.slice(i, i + SHARED_WRITE_CONCURRENCY).map((f) => writeVolumeFile(volume, f.path, f.bytes, { overwrite: opts.overwrite })),
+    );
+  }
+  return undefined;
+}
+
+/** An empty folder, with any missing parents (`POST /files/folder`); one that exists already is fine. */
+export async function makeVolumeFolder(volume: DriveVolume, path: string): Promise<void> {
+  try {
+    await call(volume, `${v(volume)}/files/folder`, {
+      method: 'POST',
+      body: JSON.stringify({ path }),
+      signal: AbortSignal.timeout(FILE_TIMEOUT_MS),
+    });
+  } catch (err) {
+    if (err instanceof DriveStorageError && err.code === 'path_exists') return;
+    throw err;
+  }
 }
 
 export async function moveVolumeFile(volume: DriveVolume, src: string, dst: string): Promise<void> {

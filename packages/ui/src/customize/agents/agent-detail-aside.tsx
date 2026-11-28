@@ -258,7 +258,7 @@ function AgentScopeCard({
         {/* The save bar only exists once there is something to save — an always-on
             disabled pair of buttons is chrome that never earns its row. */}
         {dirty ? (
-          <div className="border-border/50 flex items-center justify-end gap-2 border-t pt-3">
+          <div className="border-border flex items-center justify-end gap-2 border-t pt-3">
             <Button
               variant="ghost"
               size="sm"
@@ -437,7 +437,7 @@ function ScopeEditor({
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <span className="text-muted-foreground text-xs">{label}</span>
-        <div className="border-border/70 inline-flex shrink-0 overflow-hidden rounded-md border">
+        <div className="border-border inline-flex shrink-0 overflow-hidden rounded-md border">
           {(['all', 'specific', 'none'] as const).map((m) => (
             <button
               key={m}
@@ -464,7 +464,7 @@ function ScopeEditor({
         (rows.length === 0 ? (
           <p className="text-muted-foreground text-xs">{emptyLabel}</p>
         ) : (
-          <div className="border-border/60 max-h-44 overflow-y-auto rounded-md border p-1">
+          <div className="border-border max-h-44 overflow-y-auto rounded-md border p-1">
             {rows.map((o) => (
               <button
                 key={o.id}
@@ -481,7 +481,7 @@ function ScopeEditor({
                     'flex size-4 shrink-0 items-center justify-center rounded-sm border',
                     o.selected
                       ? 'border-foreground bg-foreground text-background'
-                      : 'border-border/70',
+                      : 'border-border',
                   )}
                 >
                   {o.selected && <Check className="size-3" />}

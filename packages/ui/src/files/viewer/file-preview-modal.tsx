@@ -565,7 +565,7 @@ export function FilePreviewModal({
       </div>
 
       {historyPath && (
-        <div className="bg-popover border-border/60 animate-in slide-in-from-bottom-4 fade-in-0 absolute right-4 bottom-4 z-30 overflow-hidden rounded-md border shadow-md duration-normal">
+        <div className="bg-popover border-border animate-in slide-in-from-bottom-4 fade-in-0 absolute right-4 bottom-4 z-30 overflow-hidden rounded-md border shadow-md duration-normal">
           <HistoryContent
             filePath={historyPath}
             onClose={() => setHistoryPath(null)}
@@ -580,7 +580,7 @@ export function FilePreviewModal({
       <div
         ref={toolbarRef}
         data-file-toolbar=""
-        className="border-border/40 bg-background/95 flex h-12 shrink-0 items-center gap-2 border-b px-3 backdrop-blur-sm"
+        className="border-border bg-background/95 flex h-12 shrink-0 items-center gap-2 border-b px-3 backdrop-blur-sm"
       >
         {toolbar}
       </div>
@@ -627,7 +627,7 @@ export function FilePreviewModal({
           value0: fileName ? `: ${fileName}` : "",
         })}
         tabIndex={-1}
-        className="kx-fullscreen-modal border-border/60 bg-background animate-in fade-in-0 zoom-in-[0.98] pointer-events-auto fixed inset-3 flex flex-col overflow-hidden rounded-xl border shadow-lg duration-normal outline-none sm:inset-4"
+        className="kx-fullscreen-modal border-border bg-background animate-in fade-in-0 zoom-in-[0.98] pointer-events-auto fixed inset-3 flex flex-col overflow-hidden rounded-xl border shadow-md duration-normal outline-none sm:inset-4"
         style={{ zIndex: dialogContentZ(dialogDepth) }}
       >
         {panelInner}

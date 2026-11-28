@@ -44,7 +44,7 @@ function randomSpanId() {
   return randomBytes(8).toString('hex');
 }
 
-function toUnixNano(ms: number) {
+export function toUnixNano(ms: number) {
   return String(BigInt(Math.round(ms)) * 1_000_000n);
 }
 
@@ -59,7 +59,7 @@ function toOtelValue(value: unknown): Record<string, unknown> | null {
   return { stringValue: String(value) };
 }
 
-function toOtelAttributes(attributes: Record<string, unknown>) {
+export function toOtelAttributes(attributes: Record<string, unknown>) {
   return Object.entries(attributes)
     .map(([key, value]) => {
       const otelValue = toOtelValue(value);

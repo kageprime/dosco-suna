@@ -44,7 +44,11 @@ export default async function ProjectLayout({ children, modal, params }: Project
     <ProjectAccessBoundary projectId={projectId}>
       <ProjectShell projectId={projectId}>
         {children}
-        {modal}
+        {/* `hidden`: the slot draws only overlays, and they portal out. Next.js
+            makes `[id]/loading.tsx` (a `flex-1` pending screen) the fallback of
+            every slot of this layout. While `(.)setup` loads, that fallback
+            would sit beside the page in the shell's flex column and halve it. */}
+        <div hidden>{modal}</div>
       </ProjectShell>
     </ProjectAccessBoundary>
   );

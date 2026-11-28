@@ -485,7 +485,8 @@ function createdFromProject(project: KortixProject): Workspace {
  * Rejects with an `ApiError`. Codes a host handles: `account_creation_restricted`
  * (403: this deployment lets only its admin create workspaces; ask for an
  * invite), `new_workspace_requires_person` (403: an API key, a service
- * account or a workspace key), `impersonation_invalid` (403),
+ * account, a workspace key, an OAuth token bound to one workspace or an App
+ * viewer token), `impersonation_invalid` (403),
  * `provision_in_flight` (409: retry with the same key).
  */
 export async function createWorkspace(

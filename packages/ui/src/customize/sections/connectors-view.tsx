@@ -176,7 +176,7 @@ function SaveBar({
   const tI18nHardcoded = useTranslations('hardcodedUi');
   if (!dirty) return null;
   return (
-    <div className="border-border/60 mt-5 flex items-center justify-end gap-2 border-t pt-4">
+    <div className="border-border mt-5 flex items-center justify-end gap-2 border-t pt-4">
       <span className="text-muted-foreground mr-auto flex items-center gap-1.5 text-xs">
         <span className="bg-kortix-orange size-1.5 rounded-full" />
         {tI18nHardcoded.raw(
@@ -208,7 +208,7 @@ function CodeSnippet({
   return (
     <div
       className={cn(
-        'border-border/60 bg-card flex w-full overflow-x-auto rounded-md border',
+        'border-border bg-card flex w-full overflow-x-auto rounded-md border',
         className,
       )}
     >
@@ -1367,7 +1367,7 @@ export function SlackConnectForm({
           <div
             className={cn(
               'space-y-5',
-              !customOnly && 'border-border/60 bg-card rounded-md border p-4',
+              !customOnly && 'border-border bg-card rounded-md border p-4',
             )}
           >
             {!customOnly && (
@@ -1440,7 +1440,7 @@ export function SlackConnectForm({
                   tI18nComplete.raw('text2cf7a6e21f7e'),
                 ].map((step, index) => (
                   <li key={step} className="text-muted-foreground flex gap-2 text-xs">
-                    <span className="border-border/60 bg-muted/40 text-foreground flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs font-medium">
+                    <span className="border-border bg-muted/40 text-foreground flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs font-medium">
                       {index + 1}
                     </span>
                     <span className="pt-0.5">{step}</span>
@@ -1632,7 +1632,7 @@ export function ConnectionSection({
             {connector.authorizationStrategy === 'project' &&
               connector.authSecret &&
               onSetCredential && (
-                <div className="border-border/60 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+                <div className="border-border flex flex-wrap items-center justify-between gap-3 border-t pt-4">
                   <div className="min-w-0">
                     <p className="text-sm font-medium">
                       {tI18nHardcoded.raw('i18nComplete.textb1c42b3ce118')}
@@ -2382,7 +2382,7 @@ export function CustomConnectorForm({
               )}
             </BannerAlertDescription></BannerAlert>
           )}
-          <div className="border-border/60 flex justify-end border-t pt-5">
+          <div className="border-border flex justify-end border-t pt-5">
             <Button
               type="submit"
               size="sm"

@@ -39,6 +39,8 @@ const fakes: Record<string, Record<string, unknown>> = {
       probes.push({ target, actions });
       return Object.fromEntries(actions.map((action) => [action, cans[action] ?? can(false, true)]));
     },
+    // `review_swipe` off: Needs you stays the list this file renders.
+    useFeatureFlag: () => ({ enabled: false }),
   },
   '@/components/kortix/page-header': {
     PageHeader: (props: any) => {

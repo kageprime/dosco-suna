@@ -1,7 +1,5 @@
 import type {
 	AssistantMessage,
-	Message,
-	Part,
 	SnapshotFileDiff,
 } from "../../../core/runtime/runtime-types";
 import type { AbortReason } from "../../../core/http/abort-error";
@@ -44,7 +42,4 @@ export type MessageError = NonNullable<AssistantMessage["error"]> | SyntheticAbo
 // MessageWithParts — the shape components consume
 // ============================================================================
 
-export interface MessageWithParts {
-	info: Message;
-	parts: Part[];
-}
+export type { MessageWithParts } from "../../../transcript";

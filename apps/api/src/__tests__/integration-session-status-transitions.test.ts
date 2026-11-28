@@ -16,6 +16,7 @@ import { sessionSandboxes } from '@kortix/db';
 import { eq, sql } from 'drizzle-orm';
 import * as realComputeMetering from '../billing/services/compute-metering';
 import * as realProviders from '../platform/providers';
+import type { SandboxStartOptions } from '../platform/providers';
 import * as realSandboxRuntimeRefresh from '../projects/lib/sandbox-runtime-refresh';
 import * as realSessionAttachments from '../projects/lib/session-attachments';
 import { db } from '../shared/db';
@@ -29,7 +30,7 @@ let onProviderRemove: () => Promise<void> = async () => {};
 let providerStatus = 'stopped';
 let providerStarts = 0;
 /** What the provider start waits on. A resume case gates it to race a writer. */
-let onProviderStart: () => Promise<void> = async () => {};
+let onProviderStart: (opts?: SandboxStartOptions) => Promise<void> = async () => {};
 /** Compute meters (re)opened: one per runtime that became active. */
 let computeReopens = 0;
 /** `getProvider` throws synchronously for a provider the deployment cannot build. */
@@ -39,9 +40,9 @@ mock.module('../platform/providers', () => ({
   getProvider: () => {
     if (providerUnbuildable) throw new Error('PLATINUM_API_KEY is not set');
     return {
-      start: async () => {
+      start: async (_externalId: string, opts?: SandboxStartOptions) => {
         providerStarts += 1;
-        await onProviderStart();
+        await onProviderStart(opts);
       },
       stop: async () => {
         providerStops += 1;
@@ -88,6 +89,7 @@ const { claimRetiredSandboxRow, isRetiredSandboxRow } = await import(
   '../platform/services/retired-sandbox-row'
 );
 const { stopSession } = await import('../projects/session-lifecycle/stop');
+const { runtimeBootEpochMs, runtimeBootIsWake } = await import('../projects/session-lifecycle/readiness-clocks');
 const { beginSandboxTurn } = await import('../projects/sandbox-turn-lifecycle');
 const { transitionRuntime, transitionSandbox, transitionSession } = await import(
   '../projects/session-lifecycle/status-transitions'
@@ -191,6 +193,7 @@ afterAll(async () => {
          set metadata = coalesce(metadata, '{}'::jsonb) || '{"deletedAt":"cleanup"}'::jsonb
        where session_id = ${sessionId}`);
     await db.execute(sql`delete from kortix.session_turns where session_id = ${sessionId}`);
+    await db.execute(sql`delete from kortix.provider_events where session_id = ${sessionId}`);
     await db.execute(
       sql`delete from kortix.session_sandboxes where sandbox_id = ${sessionId}::uuid`,
     );
@@ -645,6 +648,84 @@ describe('resume (resumeStoppedSandbox)', () => {
       expect(sandbox.status).toBe('stopped');
       expect(sandbox.metadata.stopReason).toBe('manual');
       expect(computeReopens).toBe(0);
+    } finally {
+      onProviderStart = async () => {};
+      providerStatus = 'stopped';
+    }
+  });
+
+  /** The `provider_events` rows a wake of this fixture recorded. */
+  async function wakeEvents(f: Fixture): Promise<Row[]> {
+    return rows(
+      await db.execute(sql`
+        select outcome, total_ms, marks, error from kortix.provider_events
+         where kind = 'wake' and session_id = ${f.sandboxId}`),
+    );
+  }
+
+  // KRTX-1642: a resume records where its time went, one row per wake.
+  test('a resume that restores from archive records each wake phase', async () => {
+    const { f, row, releaseStart } = await stoppedFixture();
+    try {
+      onProviderStart = async (opts) => {
+        // The provider reports a cold-storage restore in progress.
+        await opts?.onProgress?.('archive');
+        providerStatus = 'running';
+      };
+      expect(await resumeStoppedSandbox(row)).toBe(true);
+      releaseStart();
+      await until(async () => (await wakeEvents(f)).length > 0);
+      const [event] = await wakeEvents(f);
+      expect(event!.outcome).toBe('ok');
+      const marks = event!.marks as { label: string; atMs: number; deltaMs: number }[];
+      // The last entry is the boot this wake started: the epoch the runtime's
+      // first answer reads (runtimeBootEpochMs) and records on its `wake-ready`
+      // row, so the analytics pairs the two.
+      const boot: unknown = marks.pop();
+      const { sandbox } = await read(f);
+      expect(runtimeBootIsWake(sandbox.metadata)).toBe(true);
+      expect(boot).toEqual({ bootEpochMs: runtimeBootEpochMs(sandbox.metadata) });
+      expect(marks.map((m) => m.label)).toEqual(['archive-restore', 'provider-running', 'rows-active']);
+      for (const m of marks) expect(m.deltaMs).toBeGreaterThanOrEqual(0);
+      expect(event!.total_ms).toBeGreaterThanOrEqual(marks.at(-1)!.atMs);
+    } finally {
+      onProviderStart = async () => {};
+      providerStatus = 'stopped';
+    }
+  });
+
+  test('a resume that only waited for host capacity is not counted as an archive restore', async () => {
+    const { f, row } = await stoppedFixture();
+    try {
+      onProviderStart = async (opts) => {
+        // Platinum's host is full: start() renews the lease while it retries.
+        await opts?.onProgress?.('wait');
+        providerStatus = 'running';
+      };
+      expect(await resumeStoppedSandbox(row)).toBe(true);
+      await until(async () => (await wakeEvents(f)).length > 0);
+      const [event] = await wakeEvents(f);
+      expect(event!.outcome).toBe('ok');
+      const labels = (event!.marks as { label?: string }[]).flatMap((m) => m.label ?? []);
+      expect(labels).toEqual(['provider-start', 'provider-running', 'rows-active']);
+    } finally {
+      onProviderStart = async () => {};
+      providerStatus = 'stopped';
+    }
+  });
+
+  test('a resume whose provider start fails records the failure and its reason', async () => {
+    const { f, row } = await stoppedFixture();
+    try {
+      onProviderStart = async () => {
+        throw new Error('provider refused the start');
+      };
+      expect(await resumeStoppedSandbox(row)).toBe(true);
+      await until(async () => (await wakeEvents(f)).length > 0);
+      const [event] = await wakeEvents(f);
+      expect(event!.outcome).toBe('error');
+      expect(event!.error).toBe('start_failed');
+      expect((event!.marks as { label: string }[]).map((m) => m.label)).toEqual(['provider-start']);
     } finally {
       onProviderStart = async () => {};
       providerStatus = 'stopped';

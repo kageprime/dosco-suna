@@ -12,7 +12,9 @@ export type SecretConsumer =
   | 'connector'
   | 'git_proxy'
   | 'http_broker'
-  | 'network';
+  | 'network'
+  /** A website login the sandbox browser types (`submitBrowserLoginSetupLink`). */
+  | 'browser';
 export type SecretDeliveryStatus = 'available' | 'unavailable' | 'disabled';
 export type SecretDeliveryBlockedReason = 'no_agent_grant';
 /**

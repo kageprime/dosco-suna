@@ -68,6 +68,7 @@ export function createAgentPrompt(input: {
 }): string {
   const review =
     (input.title ? `Write \`title: ${JSON.stringify(input.title)}\` in its block: the name people see. The key stays "${input.name}". ` : '') +
+    'Declare it a helper: `mode: subagent` and `hidden: true`, so it stays out of the pickers until I promote it as a primary agent. ' +
     'Then open a change request so I can review and merge it.';
   const desc = input.description.trim();
   if (input.start === 'duplicate' && input.from) {

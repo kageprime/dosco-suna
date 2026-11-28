@@ -21,7 +21,6 @@ const sdk = await import('@kortix/sdk');
 mock.module('@kortix/sdk', () => ({
   ...sdk,
   SANDBOX_PORTS: {},
-  getPublicSessionShare: async () => ({ session: { title: 'Synthetic preview' } }),
   getPublicShareByToken: async () => {
     reads++;
     if (failRefresh && reads === 2) throw new Error('Share refresh failed');

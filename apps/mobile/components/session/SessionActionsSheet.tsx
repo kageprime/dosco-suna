@@ -93,11 +93,6 @@ import { useSessionPromptRequestStore } from '@/stores/session-prompt-request-st
 import { SessionChangeFileView, SessionChangesList } from '@/components/session/SessionChangesView';
 import { SessionRenameForm } from '@/components/session/SessionRenameForm';
 import { SessionShareForm } from '@/components/session/SessionShareForm';
-import {
-  PUBLIC_SHARE_CONFIRM_TITLE,
-  SessionShareLinkConfirm,
-  type PublicShareConfirmKind,
-} from '@/components/session/SessionPublicShareRows';
 import { useSandboxContext } from '@/contexts/SandboxContext';
 import { haptics } from '@/lib/haptics';
 import { REVIEW_CONTROL_ACTIONS, changeRequestControlsFrom } from '@kortix/sdk';
@@ -136,15 +131,11 @@ import {
 } from '@/lib/session/session-cache-write';
 import { useTabStore } from '@/stores/tab-store';
 
-/**
- * The sheet's view: its actions, or a form pushed over them. The public
- * link's confirms push over Share, and Back returns to Share.
- */
-type SheetView = 'options' | 'rename' | 'share' | PublicShareConfirmKind | 'changes' | 'change-file';
+/** The sheet's view: its actions, or a form pushed over them. */
+type SheetView = 'options' | 'rename' | 'share' | 'changes' | 'change-file';
 const PUSHED_VIEW_TITLE: Record<Exclude<SheetView, 'options'>, string> = {
   rename: 'Rename session',
   share: 'Share session',
-  ...PUBLIC_SHARE_CONFIRM_TITLE,
   changes: 'Changes',
   // The pushed file's name replaces this while one shows.
   'change-file': 'Changes',
@@ -153,8 +144,6 @@ const PUSHED_VIEW_TITLE: Record<Exclude<SheetView, 'options'>, string> = {
 const PARENT_VIEW: Record<Exclude<SheetView, 'options'>, SheetView> = {
   rename: 'options',
   share: 'options',
-  'create-link': 'share',
-  'stop-link': 'share',
   changes: 'options',
   'change-file': 'changes',
 };
@@ -716,25 +705,10 @@ export const SessionActionsSheet = React.forwardRef<SessionActionsSheetRef, Sess
                   onDone={closeSheet}
                 />
               </Animated.View>
-            ) : sheetView === 'share' ? (
-              // Share pushes in place of the options. Back from a link confirm
-              // slides it back in from the left.
-              <Animated.View key="share" entering={returning ? POP_IN : PUSH_IN}>
-                <SessionShareForm
-                  projectId={projectId}
-                  session={liveRow(menuSession)}
-                  onDone={closeSheet}
-                  onConfirmPublicLink={pushView}
-                />
-              </Animated.View>
             ) : (
-              <Animated.View key={sheetView} entering={PUSH_IN}>
-                <SessionShareLinkConfirm
-                  projectId={projectId}
-                  session={liveRow(menuSession)}
-                  kind={sheetView}
-                  onDone={popView}
-                />
+              // Share pushes in place of the options.
+              <Animated.View key="share" entering={PUSH_IN}>
+                <SessionShareForm projectId={projectId} session={liveRow(menuSession)} onDone={closeSheet} />
               </Animated.View>
             )}
           </SheetScrollView>

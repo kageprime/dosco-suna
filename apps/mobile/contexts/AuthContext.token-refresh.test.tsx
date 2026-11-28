@@ -48,7 +48,6 @@ mock.module('expo-web-browser', () => ({ maybeCompleteAuthSession: noop }));
 mock.module('expo-apple-authentication', empty);
 mock.module('expo-linking', empty);
 mock.module('expo-auth-session/build/QueryParams', empty);
-mock.module('@/lib/billing/provider', () => ({ shouldUseRevenueCat: () => false }));
 mock.module('@/lib/auth/callback-state', () => ({
   consumeAuthCallbackState: async () => true,
   createAuthCallbackRedirect: async () => 'dosco://auth/callback',

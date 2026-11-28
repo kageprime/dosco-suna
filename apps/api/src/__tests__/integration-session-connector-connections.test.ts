@@ -43,6 +43,7 @@ import {
 import { makeDbGatewayDeps } from '../connectors/db-deps';
 import { finalizePipedreamConnectionAuthorization } from '../connectors/pipedream';
 import {
+  isSessionChannelConnector,
   listEntitledConnectorConnections,
   resolveEffectiveSessionConnectorBindings,
   resolveSessionConnectorConnection,
@@ -1346,6 +1347,22 @@ describe('session connector isolation', () => {
     expect(owners.map((r) => r.projectId).sort()).toEqual([PROJECT_A, PROJECT_B].sort());
     await releaseEmailInbox(PROJECT_A, sharedInbox);
     await releaseEmailInbox(PROJECT_B, sharedInbox);
+  });
+
+  test("an email session binds its inbox without the agent's connectors grant; nothing else does", async () => {
+    // An inbox bound to an agent with `connectors: none` dead-lettered every
+    // create with "is not granted connector email", and the mail was dropped
+    // with no session and no notice.
+    expect(await isSessionChannelConnector(PROJECT_A, 'email', 'email')).toBe(true);
+    expect(await isSessionChannelConnector(PROJECT_A, 'kortix_email', 'email')).toBe(true);
+    // A session another source starts binds the inbox only under a grant.
+    expect(await isSessionChannelConnector(PROJECT_A, 'email', 'slack')).toBe(false);
+    expect(await isSessionChannelConnector(PROJECT_A, 'email', 'api')).toBe(false);
+    expect(await isSessionChannelConnector(PROJECT_A, 'email', undefined)).toBe(false);
+    // An email session's other connectors stay under the grant.
+    expect(await isSessionChannelConnector(PROJECT_A, 'veyris', 'email')).toBe(false);
+    // Another project's inbox connector is not this project's channel.
+    expect(await isSessionChannelConnector(PROJECT_B, 'email', 'email')).toBe(false);
   });
 });
 

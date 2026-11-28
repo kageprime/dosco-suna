@@ -150,7 +150,7 @@ export function AgentSpawnTool({ call, defaultOpen, forceOpen }: ToolProps) {
           // inside the row card's. `-mx-3` cancels the body's horizontal inset
           // so the `border-t` spans the card edge to edge, `px-3` puts the
           // content back where it was, and only the top inset survives.
-          <div className="border-border/30 -mx-3 border-t px-3 pt-3">
+          <div className="border-border -mx-3 border-t px-3 pt-3">
             <SubAgentActivity childSessionId={childSessionId} calls={childCalls} />
           </div>
         )}

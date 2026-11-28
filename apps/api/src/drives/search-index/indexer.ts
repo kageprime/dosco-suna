@@ -26,7 +26,8 @@ import {
   type DriveVolume,
   type VolumeEntry,
   driveStorageAvailable,
-  getDriveVolume,
+  driveVolumeHead,
+  isKortixInternalPath,
   isMissingVolume,
   listVolumeFilesPage,
   readVolumeFile,
@@ -78,7 +79,7 @@ async function listAtHead(volume: DriveVolume, head: string | null): Promise<{ e
       ...(head ? { at: head } : {}),
     });
     for (const e of page.entries) {
-      if (e.type === 'symlink' || baseName(e.path) === FOLDER_MARKER || !e.path.startsWith('/')) continue;
+      if (e.type === 'symlink' || baseName(e.path) === FOLDER_MARKER || !e.path.startsWith('/') || isKortixInternalPath(e.path)) continue;
       entries.push(e);
       if (entries.length >= MAX_INDEX_ENTRIES) return { entries, truncated: true };
     }
@@ -147,8 +148,10 @@ export async function indexDrive(drive: DriveRow): Promise<DriveIndexResult> {
   // A drive moving regions is fenced; the index waits for the move.
   if (volume.moving) return result;
   let head: string | null;
+  // The commit to read at; null reads a shared volume live.
+  let at: string | null;
   try {
-    head = (await getDriveVolume(volume, AbortSignal.timeout(10_000))).head_commit_id ?? null;
+    ({ token: head, commit: at } = await driveVolumeHead(volume, AbortSignal.timeout(10_000)));
   } catch (err) {
     if (!isMissingVolume(err)) throw err;
     await markIndexChecked(drive.driveId);
@@ -159,7 +162,7 @@ export async function indexDrive(drive: DriveRow): Promise<DriveIndexResult> {
     return result;
   }
 
-  const { entries, truncated } = await listAtHead(volume, head);
+  const { entries, truncated } = await listAtHead(volume, at);
   if (truncated) {
     logger.warn(`[drive-index] drive ${drive.driveId} holds more than ${MAX_INDEX_ENTRIES} entries; the rest stay out of search`);
   }
@@ -196,7 +199,7 @@ export async function indexDrive(drive: DriveRow): Promise<DriveIndexResult> {
     while (next < batch.length) {
       const e = batch[next++]!;
       try {
-        const extracted = extractText(e.path, await readPrefix(volume, e.path, indexReadBytes(e.path), head));
+        const extracted = extractText(e.path, await readPrefix(volume, e.path, indexReadBytes(e.path), at));
         rows.push({ ...nameRow(e), body: extracted.body, contentHash: extracted.contentHash });
       } catch (err) {
         // Gone since the listing: the next pass deletes its row.

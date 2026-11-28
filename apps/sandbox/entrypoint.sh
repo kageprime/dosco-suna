@@ -150,7 +150,16 @@ if [ "$(id -u)" -eq 0 ] && id kortix >/dev/null 2>&1; then
   # runtime user reaches the socket through the docker group.
   if [ "${KORTIX_CONTAINER_RUNTIME:-}" = 1 ] && command -v dockerd >/dev/null 2>&1 \
       && ! pgrep -x dockerd >/dev/null 2>&1; then
-    nohup dockerd >/var/log/dockerd.log 2>&1 </dev/null &
+    # Workspace cache (project flag `platinum_cache`, KORTIX_WORKSPACE_CACHE): Docker keeps its images,
+    # layers and volumes in /workspace/.docker, so they come back with the cached workspace instead of
+    # being loaded again at every boot (the Supabase image load alone is ~64 s on a 6 vCPU box).
+    # A cached session always has its /workspace volume; wait out a late mount as the volume check below does.
+    docker_root=
+    if [ -n "${KORTIX_WORKSPACE_CACHE:-}" ]; then
+      for _ in $(seq 1 240); do mountpoint -q /workspace && break; sleep 0.25; done
+      if mountpoint -q /workspace; then mkdir -p /workspace/.docker && docker_root=/workspace/.docker; fi
+    fi
+    nohup dockerd ${docker_root:+--data-root "$docker_root"} >/var/log/dockerd.log 2>&1 </dev/null &
   fi
   export HOME=/home/kortix USER=kortix LOGNAME=kortix SHELL=/bin/bash
   if command -v setpriv >/dev/null 2>&1; then
@@ -211,6 +220,11 @@ read-write mounts under /drives (a drive can be attached at any time), fixes
 ownership once, then follows the mount with inotify and fixes each new or
 changed entry as it appears. Read-only mounts are left alone. stdlib only.
 
+A mount is known by its mount id, not only its path: a drive switched to a
+live (shared) volume while the box runs comes back at the same path as a new
+mount, so it is walked again, and what the web app wrote into it while it was
+someone else's mount does not stay root-owned.
+
 Who gets an entry (`wants`). A drive folder is mounted read-write into several
 boxes at once, so every box must agree on the owner, or two boxes re-own the
 same files forever:
@@ -264,7 +278,7 @@ class Watcher:
         if self.fd < 0:
             raise OSError(ctypes.get_errno(), "inotify_init1")
         self.paths = {}  # wd -> dir
-        self.mounts = set()
+        self.mounts = {}  # mount path -> mount identity
 
     def own(self, path, attrib_only=False):
         try:
@@ -285,9 +299,11 @@ class Watcher:
                 self.paths[wd] = dirpath
 
     def sync_mounts(self):
-        live = set(rw_mounts())
-        for mnt in sorted(live - self.mounts):
-            self.add_tree(mnt)
+        live = rw_mounts()
+        for mnt in sorted(live):
+            if self.mounts.get(mnt) != live[mnt]:
+                # New, or a new mount at a known path (its device changed).
+                self.add_tree(mnt)
         self.mounts = live
 
     def drain(self):
@@ -302,7 +318,7 @@ class Watcher:
             i += 16 + length
             if mask & IN_Q_OVERFLOW:
                 # Missed events: walk every mount again.
-                self.mounts = set()
+                self.mounts = {}
                 continue
             if mask & (IN_IGNORED | IN_UNMOUNT | IN_DELETE_SELF):
                 self.paths.pop(wd, None)
@@ -317,17 +333,32 @@ class Watcher:
                 self.own(path, attrib_only=not mask & (IN_CREATE | IN_MOVED_TO))
 
 
-def rw_mounts():
-    out = []
-    with open("/proc/mounts") as f:
-        for line in f:
-            parts = line.split()
-            if len(parts) < 4:
-                continue
-            mnt = parts[1].replace("\\040", " ")
-            if mnt.startswith(ROOT + "/") and "rw" in parts[3].split(","):
-                out.append(mnt)
+def parse_mountinfo(text):
+    """{mount path: identity} of the read-write mounts under ROOT.
+
+    One /proc/self/mountinfo line: `id parent major:minor root path options
+    [optional...] - fstype source superoptions`. The identity is the mount id,
+    the device, the fstype and the source: any of them changes when another
+    volume is mounted at the same path. Read from the kernel's table, never by
+    stat, so a hung mount never blocks the helper.
+    """
+    out = {}
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) < 6 or "-" not in parts[6:]:
+            continue
+        sep = parts.index("-", 6)
+        mnt = parts[4].replace("\\040", " ")
+        if not mnt.startswith(ROOT + "/") or "rw" not in parts[5].split(","):
+            continue
+        tail = parts[sep + 1 : sep + 3]
+        out[mnt] = (parts[0], parts[2], *tail)
     return out
+
+
+def rw_mounts():
+    with open("/proc/self/mountinfo") as f:
+        return parse_mountinfo(f.read())
 
 
 def main():

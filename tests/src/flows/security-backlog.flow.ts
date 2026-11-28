@@ -766,168 +766,117 @@ flow(
   },
 );
 
-// ─── SEC-K: client roles cannot reach privileged database surfaces ───────────
+// ─── SEC-K: the Supabase Data API (PostgREST) is off ────────────────────────
 //
-// Supabase PostgREST accepts the public anon key and every user's own JWT. The
-// 2026-09-24 incident: both could call SECURITY DEFINER functions and the
-// wallet RPCs (mint/drain credits on any account) and read `kortix` tables.
-// Migration 20260924194804787_client_role_lockdown revokes those grants, and
-// 20260925013304428_wallet_private_schema moves the wallet functions into the
-// private `kortix_wallet` schema. This
-// flow calls PostgREST directly, as the anon key and as a real user, and
-// requires a permission refusal. GET runs the RPC in a read-only transaction,
-// so a regression cannot write anything.
-const PRIVILEGED_RPCS: Array<[string, Record<string, string>]> = [
-  ['atomic_add_credits', { p_account_id: NIL_UUID, p_amount: '0' }],
-  [
-    'atomic_use_credits',
-    {
-      p_account_id: NIL_UUID,
-      p_amount: '0',
-      p_description: 'sec-k',
-      p_ledger_type: 'sec-k',
-    },
-  ],
-  ['atomic_settle_credits', { p_account_id: NIL_UUID }],
-  [
-    'atomic_reset_expiring_credits',
-    { p_account_id: NIL_UUID, p_new_credits: '0' },
-  ],
-  [
-    'atomic_daily_credit_refresh',
-    {
-      p_account_id: NIL_UUID,
-      p_credit_amount: '0',
-      p_tier: 'sec-k',
-      p_processed_by: 'sec-k',
-    },
-  ],
-];
+// Supabase PostgREST accepts the public anon key and every user's own JWT, so
+// while it runs, only Postgres grants stand between them and the database. The
+// 2026-09-24 incident: both could call the wallet RPCs (mint/drain credits on
+// any account) and read `kortix` tables. Kortix never calls the Data API (the
+// API reaches Postgres directly), so local Supabase starts without it (every
+// `supabase start` passes `-x postgrest`) and it is off on the hosted dev,
+// staging and prod projects (dashboard: Integrations → Data API, since
+// 2026-11-23). The grants stay locked down as a second layer; the DB suites
+// assert them (`apps/api/src/__tests__/integration-kortix-rls.test.ts`,
+// `tests/migration/credit-rpc-overloads.test.ts`).
+//
+// This flow sends the requests that used to reach data and requires that no
+// schema answers. The accepted answers, by where the flow runs:
+//   - local: Kong has no PostgREST container to route to → 503;
+//   - hosted, PostgREST 12: the only exposed schema is Supabase's empty
+//     placeholder `pg_pgrst_no_exposed_schemas`, named in the error body;
+//   - hosted, PostgREST 14: the placeholder schema fails to load → 503 PGRST002.
+// A 2xx, a 42501 permission refusal, or any error that names a real schema
+// means the Data API is on again.
+const DATA_API_PLACEHOLDER_SCHEMA = 'pg_pgrst_no_exposed_schemas';
 
-// The complete argument set of each private wallet function (none has
-// defaults). With a partial set PostgREST answers 404 PGRST202 before it checks
-// privileges, which would say nothing about reachability. The amounts are 0 and
-// the account is the nil uuid, so even a regression that let the call through
-// could move no credit.
-const WALLET_FUNCTIONS: Array<[string, Record<string, unknown>]> = [
-  [
-    'grant_credits',
-    {
-      p_account_id: NIL_UUID,
-      p_amount: 0,
-      p_is_expiring: false,
-      p_description: 'sec-k',
-      p_expires_at: null,
-      p_type: null,
-      p_stripe_event_id: null,
-      p_idempotency_key: null,
-    },
-  ],
-  [
-    'debit_credits',
-    {
-      p_account_id: NIL_UUID,
-      p_amount: 0,
-      p_enforce_floor: true,
-      p_description: 'sec-k',
-      p_ledger_type: 'sec-k',
-      p_idempotency_key: null,
-    },
-  ],
-  [
-    'reset_expiring_credits',
-    {
-      p_account_id: NIL_UUID,
-      p_new_credits: 0,
-      p_description: 'sec-k',
-      p_stripe_event_id: null,
-    },
-  ],
-];
+function dataApiAnswerIsOff(status: number, body: string): boolean {
+  return status === 503 || body.includes(DATA_API_PLACEHOLDER_SCHEMA);
+}
 
-flow('SEC-K', { domain: 'security', routes: [] }, async (ctx) => {
-  const base = ctx.env.supabaseUrl;
-  const anonKey = ctx.env.supabaseAnonKey;
-  if (!anonKey) throw new Error('SEC-K: KE2E_SUPABASE_ANON_KEY is required');
-  const owner = ctx.P.OWNER.auth;
-  if (owner.mode !== 'bearer')
-    throw new Error('SEC-K: OWNER must authenticate with a bearer JWT');
-  const callers: Array<[string, string]> = [
-    ['anon key', anonKey],
-    ['user JWT', owner.token],
-  ];
-
-  const refused = (status: number, body: string) =>
-    [401, 403].includes(status) && body.includes('42501');
-
-  for (const [who, bearer] of callers) {
-    await ctx.step(
-      `${who}: every wallet RPC is refused with 42501 permission denied`,
-      async () => {
-        for (const [fn, args] of PRIVILEGED_RPCS) {
-          const url = `${base}/rest/v1/rpc/${fn}?${new URLSearchParams(args)}`;
-          const res = await fetch(url, {
-            headers: { apikey: anonKey, authorization: `Bearer ${bearer}` },
-          });
-          const body = await res.text();
-          // 404 PGRST202 = the function does not exist in this database: nothing to reach.
-          if (res.status === 404 && body.includes('PGRST202')) continue;
-          if (!refused(res.status, body)) {
-            throw new Error(
-              `SEC-K: ${who} reached rpc/${fn}: ${res.status} ${body.slice(0, 200)}`,
-            );
-          }
-        }
-      },
-    );
-
-    await ctx.step(
-      `${who}: the private kortix_wallet functions are not reachable`,
-      async () => {
-        for (const [fn, args] of WALLET_FUNCTIONS) {
-          const res = await fetch(`${base}/rest/v1/rpc/${fn}`, {
-            method: 'POST',
-            headers: {
-              apikey: anonKey,
-              authorization: `Bearer ${bearer}`,
-              'content-profile': 'kortix_wallet',
-              'content-type': 'application/json',
-            },
-            body: JSON.stringify(args),
-          });
-          const body = await res.text();
-          // 406 PGRST106 = schema not exposed; 401/403 42501 = exposed but no grant.
-          const ok =
-            (res.status === 406 && body.includes('PGRST106')) ||
-            refused(res.status, body);
-          if (!ok)
-            throw new Error(
-              `SEC-K: ${who} reached kortix_wallet.${fn}: ${res.status} ${body.slice(0, 200)}`,
-            );
-        }
-      },
-    );
-
-    await ctx.step(`${who}: the kortix schema is not readable`, async () => {
-      const res = await fetch(
+flow(
+  'SEC-K',
+  { domain: 'security', tags: ['deployed'], routes: [] },
+  async (ctx) => {
+    const base = ctx.env.supabaseUrl;
+    const anonKey = ctx.env.supabaseAnonKey;
+    if (!anonKey) throw new Error('SEC-K: KE2E_SUPABASE_ANON_KEY is required');
+    const owner = ctx.P.OWNER.auth;
+    if (owner.mode !== 'bearer')
+      throw new Error('SEC-K: OWNER must authenticate with a bearer JWT');
+    const callers: Array<[string, string]> = [
+      ['anon key', anonKey],
+      ['user JWT', owner.token],
+    ];
+    // GET runs an RPC in a read-only transaction; the POST bodies move 0
+    // credits on the nil account. Even with the Data API on, nothing changes.
+    const requests: Array<[string, string, RequestInit]> = [
+      [
+        'kortix.accounts',
         `${base}/rest/v1/accounts?select=account_id&limit=1`,
+        { headers: { 'accept-profile': 'kortix' } },
+      ],
+      [
+        'public rpc atomic_add_credits',
+        `${base}/rest/v1/rpc/atomic_add_credits?${new URLSearchParams({ p_account_id: NIL_UUID, p_amount: '0' })}`,
+        {},
+      ],
+      [
+        'kortix_wallet rpc grant_credits',
+        `${base}/rest/v1/rpc/grant_credits`,
         {
-          headers: {
-            apikey: anonKey,
-            authorization: `Bearer ${bearer}`,
-            'accept-profile': 'kortix',
-          },
+          method: 'POST',
+          headers: { 'content-profile': 'kortix_wallet', 'content-type': 'application/json' },
+          body: JSON.stringify({
+            p_account_id: NIL_UUID,
+            p_amount: 0,
+            p_is_expiring: false,
+            p_description: 'sec-k',
+            p_expires_at: null,
+            p_type: null,
+            p_stripe_event_id: null,
+            p_idempotency_key: null,
+          }),
+        },
+      ],
+      [
+        'graphql',
+        `${base}/graphql/v1`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ query: '{ __typename }' }),
+        },
+      ],
+    ];
+
+    for (const [who, bearer] of callers) {
+      await ctx.step(
+        `${who}: no Data API request reaches a schema (kortix tables, public and kortix_wallet RPCs, GraphQL)`,
+        async () => {
+          for (const [what, url, init] of requests) {
+            const res = await fetch(url, {
+              ...init,
+              headers: {
+                ...(init.headers as Record<string, string> | undefined),
+                apikey: anonKey,
+                authorization: `Bearer ${bearer}`,
+              },
+            });
+            const body = await res.text();
+            if (!dataApiAnswerIsOff(res.status, body)) {
+              // A local Supabase started before config.toml turned PostgREST
+              // off keeps running it until the containers are recreated.
+              const fix =
+                ctx.env.target === 'local'
+                  ? ' Local Supabase still runs PostgREST from an older start: run `supabase stop` in supabase/, then start it again (`pnpm dev` passes `-x postgrest`).'
+                  : '';
+              throw new Error(
+                `SEC-K: the Data API answered ${who} for ${what}: ${res.status} ${body.slice(0, 200)}.${fix}`,
+              );
+            }
+          }
         },
       );
-      const body = await res.text();
-      // 406 PGRST106 = schema not exposed; 401/403 42501 = exposed but no grant.
-      const ok =
-        (res.status === 406 && body.includes('PGRST106')) ||
-        refused(res.status, body);
-      if (!ok)
-        throw new Error(
-          `SEC-K: ${who} read kortix.accounts: ${res.status} ${body.slice(0, 200)}`,
-        );
-    });
-  }
-});
+    }
+  },
+);

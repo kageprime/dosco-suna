@@ -89,7 +89,7 @@ export function WebFetchTool({ call, defaultOpen, forceOpen, locked }: ToolProps
             target="_blank"
             rel="noopener noreferrer"
             data-component="web-source-row"
-            className="group border-border/40 hover:bg-muted/30 flex items-center gap-2 border-b px-3 py-2"
+            className="group border-border hover:bg-muted/30 flex items-center gap-2 border-b px-3 py-2"
           >
             <FaviconAvatar value={url} size="xs" className="shrink-0" />
             <span className="min-w-0 flex-1">
@@ -113,7 +113,7 @@ export function WebFetchTool({ call, defaultOpen, forceOpen, locked }: ToolProps
             target="_blank"
             rel="noopener noreferrer"
             data-component="web-source-row"
-            className="group border-border/40 hover:bg-muted/30 flex items-center gap-2 border-b px-3 py-2"
+            className="group border-border hover:bg-muted/30 flex items-center gap-2 border-b px-3 py-2"
           >
             <FaviconAvatar value={url} size="xs" className="shrink-0" />
             <span className="min-w-0 flex-1">
@@ -135,7 +135,7 @@ export function WebFetchTool({ call, defaultOpen, forceOpen, locked }: ToolProps
             <DisclosureTrigger>
               <button
                 type="button"
-                className="border-border/40 text-muted-foreground hover:text-foreground flex w-full items-center gap-1.5 border-t px-3 py-2 text-xs transition-colors"
+                className="border-border text-muted-foreground hover:text-foreground flex w-full items-center gap-1.5 border-t px-3 py-2 text-xs transition-colors"
               >
                 <ChevronRight
                   className={cn('size-3 transition-transform', rawOpen && 'rotate-90')}

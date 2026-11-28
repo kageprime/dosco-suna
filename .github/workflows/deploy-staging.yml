@@ -41,7 +41,6 @@ env:
   GATEWAY_HOST: gateway-staging.kortix.com
   PUBLIC_API_HOST: staging-api.kortix.com
   WEB_HOST: staging.kortix.com
-  ECS_WEB_HOST: staging-fe-ecs.kortix.com
 
 jobs:
   preflight:
@@ -104,7 +103,7 @@ jobs:
           done
 
   # ── Apply staging Terraform before any image rolls ──────────────────────────
-  # Both staging roots are safe to apply unattended: every variable has a
+  # The staging root is safe to apply unattended: every variable has a
   # default and the committed terraform.tfvars.example is identical to those
   # defaults (api_environment = {}, manage_dns = false), so CI plans exactly
   # what an operator plans. Skipped while TF_APPLY_ROLE_ARN_STAGING is unset.
@@ -118,25 +117,6 @@ jobs:
     uses: ./.github/workflows/terraform-apply.yml
     with:
       tf_root: infra/terraform/environments/staging-eu-west-2
-      aws_region: eu-west-2
-      role_arn: ${{ vars.TF_APPLY_ROLE_ARN_STAGING }}
-      github_environment: staging
-      trusted_branch: staging
-      cloudflare: true
-      ref: ${{ needs.preflight.outputs.sha }}
-
-  # staging-web shares modules/ecs-api with staging; apply it after so a shared
-  # module change lands in one order, not two racing ones.
-  terraform-staging-web:
-    name: Apply staging web Terraform
-    needs: [preflight, terraform-staging]
-    if: vars.TF_APPLY_ROLE_ARN_STAGING != ''
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/terraform-apply.yml
-    with:
-      tf_root: infra/terraform/environments/staging-web-eu-west-2
       aws_region: eu-west-2
       role_arn: ${{ vars.TF_APPLY_ROLE_ARN_STAGING }}
       github_environment: staging
@@ -327,7 +307,7 @@ jobs:
           fi
           pnpm --filter @kortix/db migrate
 
-  # Roll staging ECS Fargate (worker, then api + gateway). deploy-web `needs:`
+  # Roll staging ECS Fargate (worker, then api + gateway). `verify` `needs:`
   # this job, so a broken ECS staging deploy fails the staging rollout loudly.
   # A failed WORKER roll does not: the API then runs the scheduled jobs itself.
   deploy-ecs:
@@ -545,101 +525,10 @@ jobs:
             sleep 5
           done
 
-  deploy-web-ecs:
-    name: Deploy staging web to ECS Fargate
-    # Rolls in parallel with the API and gateway (deploy-ecs), not after it:
-    # 3.5 min off every staging deploy (2026-10-12). Nothing here reads
-    # deploy-ecs outputs, the release gate starts only after `verify`, and
-    # `verify` waits for deploy-ecs, so a failed API roll still fails the run.
-    # Prod keeps web after API (deploy-prod.yml): prod serves users mid-roll.
-    needs: [preflight, sync-secret, terraform-staging-web]
-    if: >-
-      ${{ always()
-        && needs.preflight.result == 'success'
-        && needs.sync-secret.result == 'success'
-        && (needs.terraform-staging-web.result == 'success' || needs.terraform-staging-web.result == 'skipped') }}
-    runs-on: ${{ vars.CI_RUNNER_M || 'ubuntu-24.04' }}
-    timeout-minutes: 20
-    permissions:
-      id-token: write
-      contents: read
-    env:
-      ROLE: arn:aws:iam::935064898258:role/kortix-gha-ecs-deploy
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.preflight.outputs.sha }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 22
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
-        with:
-          role-to-assume: ${{ env.ROLE }}
-          aws-region: ${{ env.AWS_REGION }}
-      - name: Check out the aws-env action
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.workflow_sha }}
-          path: .aws-env
-          sparse-checkout: .github/actions
-          persist-credentials: false
-      - name: Read credentials from AWS Secrets Manager
-        uses: ./.aws-env/.github/actions/aws-env
-        with:
-          role-to-assume: ''
-          keys: |
-            DOTENV_PRIVATE_KEY_STAGING=kortix-ci-env:WEB_DOTENV_PRIVATE_KEY_STAGING
-      - name: Sync the encrypted staging web profile to Secrets Manager
-        run: |
-          set -euo pipefail
-          test -n "${DOTENV_PRIVATE_KEY_STAGING:-}" || {
-            echo "::error::WEB_DOTENV_PRIVATE_KEY_STAGING is not configured."
-            exit 1
-          }
-          npx --yes @dotenvx/dotenvx@1.75.1 run \
-            -f apps/web/.env.staging -- bash infra/scripts/sync-web-env.sh staging
-      - name: Roll the staging web service onto the immutable image
-        env:
-          SHA8: ${{ needs.preflight.outputs.sha8 }}
-          VERSION: ${{ needs.preflight.outputs.version }}
-        run: |
-          bash infra/scripts/ecs-deploy.sh \
-            staging-euw2 \
-            "kortix/kortix-frontend:staging-${SHA8}" \
-            --service web \
-            --version "${VERSION}"
-
-  publish-web-ecs-dns:
-    name: Publish staging FE-ECS DNS
-    needs: [deploy-web-ecs]
-    runs-on: ${{ vars.CI_RUNNER_S || 'ubuntu-24.04' }}
-    timeout-minutes: 15
-    permissions:
-      id-token: write
-      contents: read
-    env:
-      ROLE: arn:aws:iam::935064898258:role/kortix-gha-ecs-deploy
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Check out the aws-env action
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.workflow_sha }}
-          path: .aws-env
-          sparse-checkout: .github/actions
-          persist-credentials: false
-      - uses: ./.aws-env/.github/actions/publish-web-dns
-        with:
-          role-to-assume: ${{ env.ROLE }}
-          aws-region: ${{ env.AWS_REGION }}
-          environment: staging
-          alb-name: kortix-staging-euw2-web-alb
-
   deploy-web-vercel:
     name: Deploy staging web to Vercel
-    # Parallel with deploy-ecs, like deploy-web-ecs. `verify` needs deploy-ecs,
-    # so a failed ECS roll still cannot pass silently.
+    # Parallel with deploy-ecs. `verify` needs deploy-ecs, so a failed API roll
+    # still cannot pass silently.
     needs: [preflight, wire-cloudflare, sync-secret]
     runs-on: ${{ vars.CI_RUNNER_M || 'ubuntu-24.04' }}
     # This runner builds the web app; Vercel only hosts the output.
@@ -729,8 +618,8 @@ jobs:
           npx vercel alias set "$url" "$WEB_HOST" --token "$VERCEL_TOKEN"
 
   verify:
-    name: Verify live staging on ECS and Vercel
-    needs: [preflight, wire-cloudflare, deploy-ecs, deploy-web-vercel, publish-web-ecs-dns]
+    name: Verify live staging API and Vercel web
+    needs: [preflight, wire-cloudflare, deploy-ecs, deploy-web-vercel]
     runs-on: ${{ vars.CI_RUNNER_S || 'ubuntu-24.04' }}
     timeout-minutes: 20
     steps:
@@ -749,17 +638,12 @@ jobs:
         with:
           keys: |
             VERCEL_BYPASS=kortix-ci-env:VERCEL_AUTOMATION_BYPASS_SECRET
-            WEB_PROTECTION_PASSWORD=kortix-staging-euw2-web-env:WEB_PROTECTION_PASSWORD
-      - name: Verify API and both web deployment paths
+      - name: Verify the API and the Vercel web deployment
         env:
           EXPECTED_COMMIT: ${{ needs.preflight.outputs.sha }}
           EXPECTED_VERSION: ${{ needs.preflight.outputs.version }}
         run: |
           set -euo pipefail
-          test -n "${WEB_PROTECTION_PASSWORD:-}" || {
-            echo "::error::WEB_PROTECTION_PASSWORD is not configured."
-            exit 1
-          }
           for attempt in $(seq 1 30); do
             api="$(curl -fsS --max-time 15 "https://${PUBLIC_API_HOST}/v1/health" 2>/dev/null || true)"
             envv="$(printf '%s' "$api" | jq -r '.environment // empty' 2>/dev/null || true)"
@@ -772,46 +656,13 @@ jobs:
           done
           [ "${envv:-}" = "staging" ] || { echo "::error::staging API did not report environment=staging"; exit 1; }
 
-          ecs="https://${ECS_WEB_HOST}"
-          cookie_jar="$(mktemp)"
-          trap 'rm -f "$cookie_jar"' EXIT
-          anonymous="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$ecs/")"
-          wrong="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 -u 'kortix:wrong-password' "$ecs/")"
-          protected="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 \
-            -c "$cookie_jar" -u "kortix:${WEB_PROTECTION_PASSWORD}" "$ecs/")"
-          cookie_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 \
-            -b "$cookie_jar" "$ecs/")"
-          [ "$anonymous" = 401 ] || { echo "::error::staging ECS frontend anonymous status=$anonymous"; exit 1; }
-          [ "$wrong" = 401 ] || { echo "::error::staging ECS frontend wrong-password status=$wrong"; exit 1; }
-          { [ "$protected" = 200 ] || [ "$protected" = 307 ] || [ "$protected" = 308 ]; } || {
-            echo "::error::staging ECS frontend valid-password status=$protected"; exit 1;
-          }
-          { [ "$cookie_status" = 200 ] || [ "$cookie_status" = 307 ] || [ "$cookie_status" = 308 ]; } || {
-            echo "::error::staging ECS frontend shared-cookie status=$cookie_status"; exit 1;
-          }
-          # The access cookie is HOST-ONLY since #7065: the old Domain=.kortix.com
-          # cookie reached every subdomain (staging, prod, api.kortix.com) no
-          # matter which environment authorized it. curl writes a host-only
-          # cookie under the exact issuing host, so assert that row and refuse a
-          # Domain-scoped one — a `.kortix.com` row here means #7065 regressed.
-          awk -F'\t' -v h="$ECS_WEB_HOST" '$1 == h || $1 == "#HttpOnly_" h { found = 1 } END { exit !found }' "$cookie_jar" || {
-            echo "::error::staging ECS frontend did not set a host-only access cookie for ${ECS_WEB_HOST}"; exit 1;
-          }
-          if awk -F'\t' '$1 == ".kortix.com" || $1 == "#HttpOnly_.kortix.com" { found = 1 } END { exit !found }' "$cookie_jar"; then
-            echo "::error::staging ECS frontend set a Domain-scoped .kortix.com access cookie (#7065 made it host-only)"; exit 1;
-          fi
-          ecs_health="$(curl -fsS --max-time 20 "$ecs/api/health")"
-          [ "$(jq -r '.commit // empty' <<<"$ecs_health")" = "$EXPECTED_COMMIT" ] || {
-            echo "::error::staging ECS frontend commit mismatch"; exit 1;
-          }
-          [ "$(jq -r '.version // empty' <<<"$ecs_health")" = "$EXPECTED_VERSION" ] || {
-            echo "::error::staging ECS frontend version mismatch"; exit 1;
-          }
-          ecs_runtime="$(curl -fsS --max-time 20 -b "$cookie_jar" "$ecs/api/runtime-config")"
-          printf '%s' "$ecs_runtime" | grep -F "\"BACKEND_URL\":\"https://${PUBLIC_API_HOST}/v1\"" >/dev/null
-          printf '%s' "$ecs_runtime" | grep -F "\"APP_URL\":\"https://${ECS_WEB_HOST}\"" >/dev/null
-
           curl -fsSI --max-time 20 -H "x-vercel-protection-bypass: ${VERCEL_BYPASS}" "https://${WEB_HOST}/" >/tmp/web-headers
+          # The alias must point at this build: the release gate reads the same
+          # commit back (tests/src/core/target-smoke.ts).
+          web_health="$(curl -fsS --max-time 20 -H "x-vercel-protection-bypass: ${VERCEL_BYPASS}" "https://${WEB_HOST}/api/health")"
+          [ "$(jq -r '.commit // empty' <<<"$web_health")" = "$EXPECTED_COMMIT" ] || {
+            echo "::error::staging Vercel frontend commit mismatch (expected ${EXPECTED_COMMIT})"; exit 1;
+          }
           runtime="$(curl -fsS --max-time 20 -H "x-vercel-protection-bypass: ${VERCEL_BYPASS}" "https://${WEB_HOST}/api/runtime-config")"
           printf '%s' "$runtime" | grep -F "\"BACKEND_URL\":\"https://${PUBLIC_API_HOST}/v1\"" >/dev/null
           printf '%s' "$runtime" | grep -F "\"APP_URL\":\"https://${WEB_HOST}\"" >/dev/null
@@ -822,8 +673,7 @@ jobs:
           {
             echo "### Staging verified"
             echo "- API: https://${PUBLIC_API_HOST}/v1/health reports staging ${EXPECTED_VERSION}"
-            echo "- ECS web: https://${ECS_WEB_HOST} reports ${EXPECTED_COMMIT} and accepts its host-only test cookie"
-            echo "- Vercel web: https://${WEB_HOST} serves staging runtime config"
+            echo "- Vercel web: https://${WEB_HOST} reports ${EXPECTED_COMMIT} and serves staging runtime config"
             echo "- GitOps: API ALB via ECS Fargate"
           } >> "$GITHUB_STEP_SUMMARY"
 

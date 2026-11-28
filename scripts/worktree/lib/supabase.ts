@@ -1,8 +1,9 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync, symlinkSync } from 'node:fs';
+import { spawn as spawnChild } from 'node:child_process';
+import { existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Ports } from './ports';
 import { portInUse, run, sh, type ShResult } from './exec';
-import { supaWorkdir } from './registry';
+import { supaWorkdir, WT_HOME } from './registry';
 import { supabaseBin } from './supabase-cli';
 
 export const SHARED_SUPABASE_PORTS = {
@@ -43,7 +44,7 @@ export function renderSupabaseProject(name: string, worktreePath: string, projec
   const rewritten = rewriteConfigToml(srcToml, projectId, ports);
   writeFileSync(join(sbDir, 'config.toml'), rewritten);
 
-  for (const sub of ['seed.sql', 'functions']) {
+  for (const sub of ['seed.sql', 'functions', 'templates']) {
     const target = join(worktreePath, 'supabase', sub);
     const link = join(sbDir, sub);
     if (existsSync(target) && !existsSync(link)) {
@@ -61,7 +62,7 @@ export async function startSupabaseFullStack(name: string, ports: Ports): Promis
   if (!portInUse(ports.sbApi).inUse) {
     await run([supabaseBin(), '--workdir', supaWorkdir(name), 'stop']);
   }
-  return run([supabaseBin(), '--workdir', supaWorkdir(name), 'start']);
+  return run([supabaseBin(), '--workdir', supaWorkdir(name), 'start', '-x', 'postgrest']);
 }
 
 export function slotDbUrl(ports: Pick<Ports, 'sbDb'>): string {
@@ -124,7 +125,63 @@ export function primarySupabaseStatusEnv(root: string): Record<string, string> {
   return env;
 }
 
+/** The pid of a primary Supabase start that `worktree create` left running (prewarmPrimarySupabase), and its log. */
+const PREWARM_PID = join(WT_HOME, 'primary-supabase-prewarm.pid');
+export const PREWARM_LOG = join(WT_HOME, 'primary-supabase-prewarm.log');
+
+/** The prewarm's pid while that process is alive, else null (and a stale pid file is removed). */
+export function prewarmRunning(pidFile = PREWARM_PID): number | null {
+  let pid: number;
+  try { pid = Number(readFileSync(pidFile, 'utf8').trim()); } catch { return null; }
+  try {
+    if (pid > 0) { process.kill(pid, 0); return pid; }
+  } catch { /* gone */ }
+  rmSync(pidFile, { force: true });
+  return null;
+}
+
+/**
+ * Bring the primary checkout's Supabase up in a detached child, the way ensurePrimarySupabase does (`stop`, then
+ * `start -x postgrest`), so it starts while `worktree create` checks out and installs instead of inside
+ * `worktree start`. Measured on a 6 vCPU Kortix session (2026-11-26), fresh Supabase each time: `create` to a live
+ * API took 82.2 / 83.1 s in sequence and 55.3 / 58.8 s with this; Supabase was up at +26.7 s, before `create` ended.
+ * Starts nothing, and returns false, when the stack already answers, a prewarm is running, or Docker is not.
+ */
+export function prewarmPrimarySupabase(root: string, pidFile = PREWARM_PID, logFile = PREWARM_LOG): boolean {
+  if (prewarmRunning(pidFile)) return false;
+  const env = primarySupabaseStatusEnv(root);
+  if (env.API_URL && env.DB_URL && env.SERVICE_ROLE_KEY && env.ANON_KEY) return false;
+  if (!sh(['docker', 'info']).ok) return false;
+  const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+  try {
+    mkdirSync(WT_HOME, { recursive: true });
+    const log = openSync(logFile, 'w');
+    const child = spawnChild('bash', ['-c', `${q(supabaseBin())} stop; exec ${q(supabaseBin())} start -x postgrest`], {
+      cwd: root, detached: true, stdio: ['ignore', log, log],
+    });
+    child.on('error', () => {});
+    if (!child.pid) return false;
+    writeFileSync(pidFile, String(child.pid));
+    child.unref();
+    return true;
+  } catch {
+    return false; // `worktree start` starts it itself.
+  }
+}
+
+/**
+ * Wait, up to `maxMs`, for a prewarm that is still running. ensurePrimarySupabase stops a half-up stack before it
+ * starts one, which would kill a start in flight. Returns true when it waited.
+ */
+export async function waitForPrimaryPrewarm(maxMs = 240_000, pidFile = PREWARM_PID): Promise<boolean> {
+  if (!prewarmRunning(pidFile)) return false;
+  const deadline = Date.now() + maxMs;
+  while (prewarmRunning(pidFile) && Date.now() < deadline) await Bun.sleep(500);
+  return true;
+}
+
 export async function ensurePrimarySupabase(root: string): Promise<Record<string, string>> {
+  if (await waitForPrimaryPrewarm()) console.log('  waited for the Supabase start that `worktree create` began');
   let env = primarySupabaseStatusEnv(root);
   if (env.API_URL && env.DB_URL && env.SERVICE_ROLE_KEY && env.ANON_KEY) return env;
   // Status came back incomplete, so the primary stack is down or half-up. Clear
@@ -139,7 +196,7 @@ export async function ensurePrimarySupabase(root: string): Promise<Record<string
   // NEVER add --no-backup: it deletes the data volumes, i.e. the primary
   // checkout's local Postgres that every shared-db worktree runs against.
   await run([supabaseBin(), 'stop'], { cwd: root });
-  const started = await run([supabaseBin(), 'start'], { cwd: root });
+  const started = await run([supabaseBin(), 'start', '-x', 'postgrest'], { cwd: root });
   if (started !== 0) return {};
   env = primarySupabaseStatusEnv(root);
   return env;

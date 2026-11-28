@@ -93,7 +93,7 @@ function Panel({ title }: { title: string }) {
     groupIds: [],
   });
   return (
-    <div className="border-border/60 bg-card w-[420px] rounded-2xl border p-5">
+    <div className="border-border bg-card w-[420px] rounded-2xl border p-5">
       <h2 className="text-foreground mb-3 text-base font-semibold">{title}</h2>
       <SharingPicker projectId={DEMO_PROJECT} value={value} onChange={setValue} />
       <pre className="bg-muted text-muted-foreground mt-4 rounded-lg px-3 py-2 text-xs">

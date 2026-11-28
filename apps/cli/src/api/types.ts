@@ -98,6 +98,8 @@ export interface ProjectSecret {
     | 'git_proxy'
     | 'http_broker'
     | 'network'
+    /** A website login the sandbox browser types (`kortix secrets logins`). */
+    | 'browser'
     | null;
   /** Whether the selected delivery path is usable. */
   delivery_status?: 'available' | 'unavailable' | 'disabled';

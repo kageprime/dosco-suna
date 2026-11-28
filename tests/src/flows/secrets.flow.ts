@@ -1530,6 +1530,7 @@ flow(
       "POST /v1/projects/:projectId/secrets/:identifier/grant",
       "POST /v1/projects/:projectId/secrets/sync",
       "PATCH /v1/projects/:projectId/features",
+      "GET /v1/projects/:projectId",
       "GET /v1/accounts/:accountId/audit",
     ],
   },
@@ -1635,12 +1636,11 @@ flow(
         .has("$.egress_policy", policy);
     });
 
-    // `secrets_egress` is ON by default since 2026-09-03 (Marko) — the OPTION
-    // is available to every project, and a new secret still defaults to an
-    // environment variable, so enforcing at the network stays a per-secret
-    // choice. The gate did not go away; it only inverted, and that is what the
-    // next two steps prove. Egress delivery itself is exercised straight after.
-    await ctx.step("a project that turns secrets_egress OFF cannot enter egress → 403", async () => {
+    // `secrets_egress` graduated on 2026-11-23: every project can enforce a
+    // secret at the network. The flag is no longer listed, resolved or
+    // accepted; the project detail still sends it as `true` for older clients.
+    // Egress delivery itself is exercised straight after, with no flag write.
+    await ctx.step("the retired secrets_egress flag cannot be written → 400, detail reads true", async () => {
       const off = await ctx.client
         .as(ctx.P.OWNER)
         .patch(
@@ -1648,30 +1648,12 @@ flow(
           { feature: "secrets_egress", enabled: false },
           { params: { projectId: p.id } },
         );
-      off.status(200).body().has("$.experimental.secrets_egress", false);
+      off.status(400).body().has("$.error", "Unknown feature flag 'secrets_egress'");
 
-      const r = await ctx.client
+      const detail = await ctx.client
         .as(ctx.P.OWNER)
-        .put(
-          "/v1/projects/:projectId/secrets/:identifier/strategy",
-          {
-            strategy: "egress",
-            egress_policy: { rules: [{ host: "api.example.com" }], on_no_match: "deny" },
-          },
-          { params: { projectId: p.id, identifier: "CONTROL_PLANE_KEY" } },
-        );
-      r.status(403).body().has("$.code", "feature_disabled").has("$.feature", "secrets_egress");
-    });
-
-    await ctx.step("manager turns the secrets_egress flag back on → 200", async () => {
-      const r = await ctx.client
-        .as(ctx.P.OWNER)
-        .patch(
-          "/v1/projects/:projectId/features",
-          { feature: "secrets_egress", enabled: true },
-          { params: { projectId: p.id } },
-        );
-      r.status(200).body().has("$.experimental.secrets_egress", true);
+        .get("/v1/projects/:projectId", { params: { projectId: p.id } });
+      detail.status(200).body().has("$.experimental.secrets_egress", true);
     });
 
     await ctx.step("egress-enforced delivery stores a host-list-only policy", async () => {
@@ -2544,3 +2526,167 @@ flow('SEC-AUD-4', {
     await restrictedForTeammate('GROUP_ONLY', groupId);
   });
 });
+
+// SEC-LOGIN-1 — a website login is a secret the sandbox browser types, never an
+// env var. The link asks for a login on named sites; the session's own token
+// resolves it for one URL on those sites; everything else is refused.
+flow('SEC-LOGIN-1', {
+  domain: 'secrets', requires: ['database'],
+  routes: [
+    'POST /v1/projects/:projectId/secret-requests',
+    'GET /v1/setup-links/secret/:token',
+    'POST /v1/setup-links/secret/:token',
+    'POST /v1/accounts/tokens',
+    'GET /v1/projects/:projectId/browser-logins',
+    'POST /v1/projects/:projectId/browser-logins/resolve',
+    'GET /v1/projects/:projectId/secrets',
+    'POST /v1/projects/:projectId/secrets',
+    'PUT /v1/projects/:projectId/secrets/:identifier/strategy',
+  ],
+}, deletingSandboxRows(async (ctx, track) => {
+  const { Client: PgClient } = await import('pg');
+  const { waitFor } = await import('../core/poll');
+  const team = await ctx.fixtures.team();
+  track(team.id);
+  const project = await team.project({ seed: true, allowAllSecrets: true });
+  const member = await team.addMember('member');
+  await team.grantProjectRole(project.id, member.userId!, 'member');
+  const owner = ctx.client.as(ctx.P.OWNER);
+  const anon = ctx.client.as(ctx.P.ANON);
+  const params = { projectId: project.id };
+  const PASSWORD = `KX-CANARY-${crypto.randomUUID()} "quoted" \\ {}`;
+  const databaseUrl = ctx.env.databaseUrl!;
+  const openDb = async () => {
+    const db = new PgClient({ connectionString: databaseUrl,
+      ssl: /localhost|127\.0\.0\.1/.test(databaseUrl) ? false : { rejectUnauthorized: false } });
+    await db.connect();
+    return db;
+  };
+
+  /** A session of `userId` running agent `worker`, and a token bound to it. */
+  const sessionCaller = async (as: typeof owner, userId: string, label: string) => {
+    const sessionId = await createDatabaseSession(ctx.env, { projectId: project.id, accountId: team.id, userId });
+    const minted = await as.post('/v1/accounts/tokens', { name: `Login ${label}`, account_id: team.id });
+    minted.status(201);
+    const credential = minted.json<{ token_id: string; secret_key: string }>();
+    const db = await openDb();
+    try {
+      await db.query("UPDATE kortix.project_sessions SET agent_name = 'worker' WHERE session_id = $1", [sessionId]);
+      // A session token is live only while its session has an active sandbox.
+      await db.query("INSERT INTO kortix.session_sandboxes (sandbox_id, session_id, account_id, project_id, status) VALUES ($1::uuid, $1, $2, $3, 'active')", [sessionId, team.id, project.id]);
+      await db.query(lockProjectFirst('UPDATE kortix.account_tokens SET project_id = $2, session_id = $3, agent_grant = $4::jsonb, account_id = $5 WHERE token_id = $1'), [
+        credential.token_id, project.id, sessionId,
+        JSON.stringify({ agent: 'worker', permissions: 'all', connectors: 'all', env: 'all' }), team.id,
+      ]);
+    } finally { await db.end(); }
+    return { sessionId, caller: ctx.client.withBearer(credential.secret_key, `SESSION_${label}`) };
+  };
+  const ownerSession = await sessionCaller(owner, ctx.P.OWNER.userId!, 'OWNER');
+
+  let token = '';
+  await ctx.step('the agent asks for a login on one site; a login without a usable site is refused', async () => {
+    for (const bad of [{}, { sites: [] }, { sites: ['*.example.test'] }, { sites: ['https://user:pw@app.example.test'] }]) {
+      (await ownerSession.caller.post('/v1/projects/:projectId/secret-requests', { names: ['CRM_LOGIN'], scope: 'browser', ...bad }, { params })).status(400);
+    }
+    (await owner.post('/v1/projects/:projectId/secret-requests', { names: ['API_KEY'], sites: ['app.example.test'] }, { params })).status(400);
+    const minted = await ownerSession.caller.post('/v1/projects/:projectId/secret-requests', {
+      names: ['crm_login'], scope: 'browser', sites: ['https://App.Example.test:8443/login'],
+    }, { params });
+    minted.status(200).body().has('$.scope', 'browser').has('$.names', ['CRM_LOGIN']).has('$.sites', ['app.example.test']);
+    token = decodeURIComponent(String(minted.json<{ url: string }>().url).split('/secret-intake/')[1]!);
+  });
+
+  await ctx.step('the form shows the site; a submit without a password or with plain values saves nothing', async () => {
+    (await anon.get('/v1/setup-links/secret/:token', { params: { token } })).status(200).body()
+      .has('$.scope', 'browser').has('$.fields[0].name', 'CRM_LOGIN').has('$.fields[0].sites', ['app.example.test']);
+    (await anon.post('/v1/setup-links/secret/:token', { values: { CRM_LOGIN: 'plain' } }, { params: { token } })).status(400);
+    (await anon.post('/v1/setup-links/secret/:token', { logins: { CRM_LOGIN: { username: 'ada', password: '' } } }, { params: { token } })).status(400);
+  });
+
+  await ctx.step('the person saves the login, kept to them; the link is then spent', async () => {
+    (await anon.post('/v1/setup-links/secret/:token', {
+      logins: { CRM_LOGIN: { username: 'ada@example.test', password: PASSWORD } }, only_requester: true,
+    }, { params: { token } })).status(200).body().has('$.saved', ['CRM_LOGIN']);
+    (await anon.post('/v1/setup-links/secret/:token', {
+      logins: { CRM_LOGIN: { username: 'eve@example.test', password: 'x' } },
+    }, { params: { token } })).status(409);
+    const listed = await owner.get('/v1/projects/:projectId/secrets', { params });
+    listed.status(200);
+    if (listed.text().includes(PASSWORD) || listed.text().includes('ada@example.test')) throw new Error('the secret list leaked the login');
+    const row = listed.json<{ items: Array<Record<string, unknown>> }>().items.find((item) => item.name === 'CRM_LOGIN');
+    if (row?.consumer !== 'browser' || row?.strategy !== 'broker') throw new Error(`login row is ${JSON.stringify(row)}`);
+  });
+
+  await ctx.step('the session lists the login by name and site, without values', async () => {
+    const list = await ownerSession.caller.get('/v1/projects/:projectId/browser-logins', { params });
+    list.status(200).body().has('$.items', [{ name: 'CRM_LOGIN', sites: ['app.example.test'], available: true }]);
+    if (list.text().includes(PASSWORD)) throw new Error('the listing leaked the password');
+  });
+
+  await ctx.step('the session resolves the login for a URL on its site, and only there', async () => {
+    (await ownerSession.caller.post('/v1/projects/:projectId/browser-logins/resolve', {
+      name: 'CRM_LOGIN', url: 'https://app.example.test/login?next=%2F',
+    }, { params })).status(200).body()
+      .has('$.username', 'ada@example.test').has('$.password', PASSWORD).has('$.url', 'https://app.example.test/login?next=%2F');
+    for (const url of ['https://evil.test/login', 'https://app.example.test.evil.test/', 'https://www.app.example.test/']) {
+      const refused = await ownerSession.caller.post('/v1/projects/:projectId/browser-logins/resolve', { name: 'CRM_LOGIN', url }, { params });
+      refused.status(403).body().has('$.code', 'login_site_not_allowed');
+      if (refused.text().includes(PASSWORD)) throw new Error('a refusal leaked the password');
+    }
+    (await ownerSession.caller.post('/v1/projects/:projectId/browser-logins/resolve', { name: 'NO_SUCH_LOGIN', url: 'https://app.example.test/' }, { params }))
+      .status(404).body().has('$.code', 'login_missing');
+  });
+
+  await ctx.step('a person token, and another member\'s session, cannot spend it', async () => {
+    (await owner.post('/v1/projects/:projectId/browser-logins/resolve', { name: 'CRM_LOGIN', url: 'https://app.example.test/' }, { params }))
+      .status(403).body().has('$.code', 'login_session_only');
+    const memberSession = await sessionCaller(ctx.client.as(member), member.userId!, 'MEMBER');
+    (await memberSession.caller.get('/v1/projects/:projectId/browser-logins', { params })).status(200).body().has('$.items', []);
+    // A login kept to the owner reads like a missing one: no existence, no sites.
+    for (const url of ['https://app.example.test/', 'https://evil.test/']) {
+      const refused = await memberSession.caller.post('/v1/projects/:projectId/browser-logins/resolve', { name: 'CRM_LOGIN', url }, { params });
+      refused.status(404).body().has('$.code', 'login_missing');
+      if (refused.text().includes('app.example.test') && !url.includes('app.example.test')) throw new Error('the refusal disclosed the login\'s site');
+    }
+  });
+
+  await ctx.step('a plain value or a delivery change cannot turn the login into an env var', async () => {
+    (await owner.post('/v1/projects/:projectId/secrets', { name: 'CRM_LOGIN', value: 'plain-overwrite' }, { params }))
+      .status(409).body().has('$.code', 'browser_login_read_only');
+    (await owner.put('/v1/projects/:projectId/secrets/:identifier/strategy', { strategy: 'runtime' }, { params: { ...params, identifier: 'CRM_LOGIN' } }))
+      .status(409).body().has('$.code', 'browser_login_delivery');
+    const runtimeLink = await owner.post('/v1/projects/:projectId/secret-requests', { names: ['CRM_LOGIN'] }, { params });
+    runtimeLink.status(200);
+    const runtimeToken = decodeURIComponent(String(runtimeLink.json<{ url: string }>().url).split('/secret-intake/')[1]!);
+    (await anon.post('/v1/setup-links/secret/:token', { values: { CRM_LOGIN: 'plain' } }, { params: { token: runtimeToken } })).status(409);
+    (await ownerSession.caller.post('/v1/projects/:projectId/browser-logins/resolve', { name: 'CRM_LOGIN', url: 'https://app.example.test/' }, { params }))
+      .status(200).body().has('$.password', PASSWORD);
+  });
+
+  await ctx.step('every use and refusal is audited with its site, and no audit row holds the password', async () => {
+    const db = await openDb();
+    try {
+      const rows = await waitFor(
+        async () => (await db.query<{ action: string; source: string; metadata: Record<string, unknown> }>(
+          `SELECT action, source, metadata FROM kortix.audit_events WHERE account_id = $1 AND action LIKE 'secret.consumer.%' AND source = 'browser'`,
+          [team.id],
+        )).rows,
+        { until: (r) => r.filter((x) => x.action === 'secret.consumer.used').length >= 2, timeoutMs: 15_000, intervalMs: 500, description: 'the browser login audit rows' },
+      );
+      const used = rows.filter((row) => row.action === 'secret.consumer.used');
+      if (!used.every((row) => row.metadata.site === 'app.example.test' && row.metadata.name === 'CRM_LOGIN')) {
+        throw new Error(`used rows: ${JSON.stringify(used)}`);
+      }
+      const denied = rows.filter((row) => row.action === 'secret.consumer.denied');
+      if (!denied.some((row) => row.metadata.reason === 'site_not_allowed' && row.metadata.site === 'evil.test')) {
+        throw new Error(`the refusal on another site was not audited: ${JSON.stringify(denied)}`);
+      }
+      // The member's session cannot see a login kept to the owner: audited for
+      // the workspace's managers, invisible to the session.
+      if (!denied.some((row) => row.metadata.reason === 'not_in_audience' && row.metadata.name === 'CRM_LOGIN' && row.metadata.site === 'app.example.test')) {
+        throw new Error(`the member refusal was not audited: ${JSON.stringify(rows)}`);
+      }
+      if (JSON.stringify(rows).includes(PASSWORD)) throw new Error('an audit row holds the password');
+    } finally { await db.end(); }
+  });
+}));

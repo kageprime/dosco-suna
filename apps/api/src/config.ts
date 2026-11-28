@@ -721,11 +721,16 @@ export const envSchema = z.object({
   // mounts, with the folders synced in by the box's daemon.
   KORTIX_DRIVES_SESSION_MOUNT: optStr,
   KORTIX_DRIVES_SYNC: optStr,
-  // `on` (or 1/true/yes): `workspace_volume` (stateless sandboxes) is on for
-  // every project without its own choice; dev and prod set it.
-  // `off` (or 0/false/no): no new session gets a /workspace volume, whatever its
-  // project's flag says. Unset: each project's own choice, default off. A
-  // session that already has a volume keeps it (platform/services/workspace-volume.ts).
+  // Shared (live) drive volumes for NEW drives. Off (the default): a new drive
+  // gets a block volume, whose commits give memory page history and Files →
+  // Versions. On: a new drive gets a shared volume when storage serves them;
+  // a shared volume has no commits, so it has no version history. A drive that
+  // is already shared stays shared either way.
+  KORTIX_SHARED_DRIVES: optBoolFalse,
+  // Stateless sandboxes kill switch. `off` (or 0/false/no): no new session gets
+  // a /workspace volume. Unset, `on` or anything else: every new Platinum
+  // session gets one (the default since 2026-11-23). A session that already
+  // has a volume keeps it (platform/services/workspace-volume.ts).
   KORTIX_WORKSPACE_VOLUMES: optStr,
   // The `us_region` default for a project that has made no choice: true puts
   // its new Files and sessions in KORTIX_PLATINUM_US_REGION. Off by default;
@@ -1029,6 +1034,8 @@ export const envSchema = z.object({
   KORTIX_PUBLIC_RESPONSE_REQS_PER_MIN: optInt(3000),
   KORTIX_DEMO_REQUEST_REQS_PER_MIN: optInt(10),
   KORTIX_FEEDBACK_REQS_PER_MIN: optInt(10),
+  // Composer dictations per user per minute (POST /v1/projects/:id/dictation).
+  KORTIX_DICTATION_REQS_PER_MIN: optInt(20),
   KORTIX_LLM_ROUTER_REQS_PER_MIN_FREE: optInt(60),
   KORTIX_LLM_ROUTER_REQS_PER_MIN_PAID: optInt(600),
   // Per-credential bound on the LLM gateway mount (/v1/llm and its
@@ -1163,6 +1170,14 @@ export const envSchema = z.object({
   // `X-Kortix-Signature: sha256=<HMAC-SHA256 of the raw body>` with the secret.
   // Inert unless both are set (accounts/sales-outbox.ts).
   SALES_RECONCILIATION_TOKEN: optStr,
+  // ── QualiLoop test endpoint (qualiloop/) ────────────────────────────────
+  // POST /v1/qualiloop/chat answers 404 unless the secret and the Kortix
+  // project the test sessions run in are both set. The project key and traces
+  // URL send each test turn's trace to QualiLoop; without them no trace leaves.
+  QUALILOOP_AGENT_SECRET: optStr,
+  QUALILOOP_KORTIX_PROJECT_ID: optStr,
+  QUALILOOP_PROJECT_KEY: optStr,
+  QUALILOOP_OTLP_TRACES_URL: optStr,
   SIGNUP_WEBHOOK_URL: optStr,
   SIGNUP_WEBHOOK_SECRET: optStr,
   POSTHOG_PROJECT_KEY: optStr,
@@ -1749,6 +1764,7 @@ export const config = {
   KORTIX_SNAPSHOT_REAP_PREDECESSOR: env.KORTIX_SNAPSHOT_REAP_PREDECESSOR,
   KORTIX_DRIVES_SESSION_MOUNT: env.KORTIX_DRIVES_SESSION_MOUNT,
   KORTIX_DRIVES_SYNC: env.KORTIX_DRIVES_SYNC,
+  KORTIX_SHARED_DRIVES: env.KORTIX_SHARED_DRIVES,
   KORTIX_WORKSPACE_VOLUMES: env.KORTIX_WORKSPACE_VOLUMES,
   KORTIX_PLATINUM_US_REGION_DEFAULT: env.KORTIX_PLATINUM_US_REGION_DEFAULT,
   KORTIX_PROJECT_SNAPSHOT_MODE: env.KORTIX_PROJECT_SNAPSHOT_MODE,
@@ -1905,6 +1921,7 @@ export const config = {
   KORTIX_PUBLIC_RESPONSE_REQS_PER_MIN: env.KORTIX_PUBLIC_RESPONSE_REQS_PER_MIN,
   KORTIX_DEMO_REQUEST_REQS_PER_MIN: env.KORTIX_DEMO_REQUEST_REQS_PER_MIN,
   KORTIX_FEEDBACK_REQS_PER_MIN: env.KORTIX_FEEDBACK_REQS_PER_MIN,
+  KORTIX_DICTATION_REQS_PER_MIN: env.KORTIX_DICTATION_REQS_PER_MIN,
   KORTIX_LLM_ROUTER_REQS_PER_MIN_FREE: env.KORTIX_LLM_ROUTER_REQS_PER_MIN_FREE,
   KORTIX_LLM_ROUTER_REQS_PER_MIN_PAID: env.KORTIX_LLM_ROUTER_REQS_PER_MIN_PAID,
   KORTIX_LLM_GATEWAY_REQS_PER_MIN: env.KORTIX_LLM_GATEWAY_REQS_PER_MIN,
@@ -1958,6 +1975,10 @@ export const config = {
 
   // ─── Signup webhook (signup → sales factory) ──────────────────────────────
   SALES_RECONCILIATION_TOKEN: env.SALES_RECONCILIATION_TOKEN,
+  QUALILOOP_AGENT_SECRET: env.QUALILOOP_AGENT_SECRET,
+  QUALILOOP_KORTIX_PROJECT_ID: env.QUALILOOP_KORTIX_PROJECT_ID,
+  QUALILOOP_PROJECT_KEY: env.QUALILOOP_PROJECT_KEY,
+  QUALILOOP_OTLP_TRACES_URL: env.QUALILOOP_OTLP_TRACES_URL,
   SIGNUP_WEBHOOK_URL: env.SIGNUP_WEBHOOK_URL,
   SIGNUP_WEBHOOK_SECRET: env.SIGNUP_WEBHOOK_SECRET,
   POSTHOG_PROJECT_KEY: env.POSTHOG_PROJECT_KEY,

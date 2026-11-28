@@ -231,9 +231,9 @@ describe('api-router worker', () => {
     );
 
     expect(ecsDeploy).toContain('refusing live $ENV rollout without --database-migrated');
-    // Four live prod rolls carry the gate: the worker, api, gateway, and the
-    // web service.
-    expect(prodWorkflow.match(/--database-migrated/g)?.length).toBe(4);
+    // Three live prod rolls carry the gate: the worker, api, and gateway. The
+    // prod frontend runs on Vercel, not ECS.
+    expect(prodWorkflow.match(/--database-migrated/g)?.length).toBe(3);
   });
 
   test('keeps production API tasks at the incident-tested 4 GiB and three-task floor', () => {

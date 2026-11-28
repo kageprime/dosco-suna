@@ -206,8 +206,6 @@ PODS:
   - ExpoRouter (58.0.29):
     - ExpoModulesCore
     - RNScreens
-  - ExpoSpeechRecognition (57.1.0):
-    - ExpoModulesCore
   - ExpoSplashScreen (58.0.12):
     - ExpoModulesCore
   - ExpoStatusBar (58.0.4):
@@ -292,11 +290,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - PurchasesHybridCommon (17.55.1):
-    - RevenueCat (= 5.67.1)
-  - PurchasesHybridCommonUI (17.55.1):
-    - PurchasesHybridCommon (= 17.55.1)
-    - RevenueCatUI (= 5.67.1)
   - RCT-Folly (2024.11.18.00):
     - RCT-Folly/Default (= 2024.11.18.00)
     - ReactNativeDependencies
@@ -2216,9 +2209,6 @@ PODS:
     - React-utils (= 0.88.1)
     - ReactNativeDependencies
   - ReactNativeDependencies (0.88.1)
-  - RevenueCat (5.67.1)
-  - RevenueCatUI (5.67.1):
-    - RevenueCat (= 5.67.1)
   - RNCAsyncStorage (2.2.0):
     - hermes-engine
     - RCTRequired
@@ -2316,12 +2306,6 @@ PODS:
     - ReactNativeDependencies
     - RNWorklets
     - Yoga
-  - RNPaywalls (9.15.2):
-    - PurchasesHybridCommonUI (= 17.55.1)
-    - React-Core
-  - RNPurchases (9.15.2):
-    - PurchasesHybridCommon (= 17.55.1)
-    - React-Core
   - RNReanimated (4.7.1):
     - hermes-engine
     - RCTRequired
@@ -2637,7 +2621,6 @@ DEPENDENCIES:
   - "ExpoModulesWorkletsAdapter (from `../../../node_modules/.pnpm/expo-modules-core@58.0.30_react-native-worklets@0.13.0_react-native@0.88.1_react@19.3.0/node_modules/expo-modules-core`)"
   - "ExpoNotifications (from `../../../node_modules/.pnpm/expo-notifications@58.1.7_expo@58.0.22_react-native@0.88.1_react@19.3.0_typescript@6.0.3/node_modules/expo-notifications/ios`)"
   - "ExpoRouter (from `../../../node_modules/.pnpm/expo-router@58.0.29_@expo+log-box@58.0.15_@expo+metro-runtime@58.0.17_@expo+ui@58.0.26_@types_gugl5o2hfjwslndbbi3euowci4/node_modules/expo-router/ios`)"
-  - "ExpoSpeechRecognition (from `../../../node_modules/.pnpm/expo-speech-recognition@57.1.0_expo@58.0.22_react-native@0.88.1_react@19.3.0/node_modules/expo-speech-recognition/ios`)"
   - "ExpoSplashScreen (from `../../../node_modules/.pnpm/expo-splash-screen@58.0.12_expo@58.0.22_typescript@6.0.3/node_modules/expo-splash-screen/ios`)"
   - "ExpoStatusBar (from `../../../node_modules/.pnpm/expo-status-bar@58.0.4_expo@58.0.22_react-native@0.88.1_react@19.3.0/node_modules/expo-status-bar/ios`)"
   - "ExpoSystemUI (from `../../../node_modules/.pnpm/expo-system-ui@58.0.7_expo@58.0.22_react-native-web@0.21.4_react-native@0.88.1/node_modules/expo-system-ui/ios`)"
@@ -2741,8 +2724,6 @@ DEPENDENCIES:
   - "RNCMaskedView (from `../../../node_modules/.pnpm/@react-native-masked-view+masked-view@0.3.2_react-native@0.88.1_react@19.3.0/node_modules/@react-native-masked-view/masked-view`)"
   - "RNGestureHandler (from `../../../node_modules/.pnpm/react-native-gesture-handler@3.3.0_react-native@0.88.1_react@19.3.0/node_modules/react-native-gesture-handler`)"
   - "RNLiveMarkdown (from `../../../node_modules/.pnpm/@expensify+react-native-live-markdown@0.1.364_expensify-common@2.0.224_react-native-worklets@_hepglmxyh7zydqqnuenlov4rk4/node_modules/@expensify/react-native-live-markdown`)"
-  - "RNPaywalls (from `../../../node_modules/.pnpm/react-native-purchases-ui@9.15.2_react-native-purchases@9.15.2_react-native-web@0.21.4_react-native@0.88.1_react@19.3.0/node_modules/react-native-purchases-ui`)"
-  - "RNPurchases (from `../../../node_modules/.pnpm/react-native-purchases@9.15.2_react-native-web@0.21.4_react-native@0.88.1_react@19.3.0/node_modules/react-native-purchases`)"
   - "RNReanimated (from `../../../node_modules/.pnpm/react-native-reanimated@4.7.1_react-native-worklets@0.13.0_react-native@0.88.1_react@19.3.0/node_modules/react-native-reanimated`)"
   - "RNScreens (from `../../../node_modules/.pnpm/react-native-screens@4.30.1_react-native@0.88.1_react@19.3.0/node_modules/react-native-screens`)"
   - "RNSVG (from `../../../node_modules/.pnpm/react-native-svg@15.16.0_react-native@0.88.1_react@19.3.0/node_modules/react-native-svg`)"
@@ -2753,11 +2734,7 @@ DEPENDENCIES:
 SPEC REPOS:
   trunk:
     - lottie-ios
-    - PurchasesHybridCommon
-    - PurchasesHybridCommonUI
     - ReachabilitySwift
-    - RevenueCat
-    - RevenueCatUI
 
 EXTERNAL SOURCES:
   boost:
@@ -2832,8 +2809,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.pnpm/expo-notifications@58.1.7_expo@58.0.22_react-native@0.88.1_react@19.3.0_typescript@6.0.3/node_modules/expo-notifications/ios"
   ExpoRouter:
     :path: "../../../node_modules/.pnpm/expo-router@58.0.29_@expo+log-box@58.0.15_@expo+metro-runtime@58.0.17_@expo+ui@58.0.26_@types_gugl5o2hfjwslndbbi3euowci4/node_modules/expo-router/ios"
-  ExpoSpeechRecognition:
-    :path: "../../../node_modules/.pnpm/expo-speech-recognition@57.1.0_expo@58.0.22_react-native@0.88.1_react@19.3.0/node_modules/expo-speech-recognition/ios"
   ExpoSplashScreen:
     :path: "../../../node_modules/.pnpm/expo-splash-screen@58.0.12_expo@58.0.22_typescript@6.0.3/node_modules/expo-splash-screen/ios"
   ExpoStatusBar:
@@ -3039,10 +3014,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.pnpm/react-native-gesture-handler@3.3.0_react-native@0.88.1_react@19.3.0/node_modules/react-native-gesture-handler"
   RNLiveMarkdown:
     :path: "../../../node_modules/.pnpm/@expensify+react-native-live-markdown@0.1.364_expensify-common@2.0.224_react-native-worklets@_hepglmxyh7zydqqnuenlov4rk4/node_modules/@expensify/react-native-live-markdown"
-  RNPaywalls:
-    :path: "../../../node_modules/.pnpm/react-native-purchases-ui@9.15.2_react-native-purchases@9.15.2_react-native-web@0.21.4_react-native@0.88.1_react@19.3.0/node_modules/react-native-purchases-ui"
-  RNPurchases:
-    :path: "../../../node_modules/.pnpm/react-native-purchases@9.15.2_react-native-web@0.21.4_react-native@0.88.1_react@19.3.0/node_modules/react-native-purchases"
   RNReanimated:
     :path: "../../../node_modules/.pnpm/react-native-reanimated@4.7.1_react-native-worklets@0.13.0_react-native@0.88.1_react@19.3.0/node_modules/react-native-reanimated"
   RNScreens:
@@ -3093,7 +3064,6 @@ SPEC CHECKSUMS:
   ExpoModulesWorkletsAdapter: 94ca1a8fc6e26254ab27d5aa197c11403dcbaebd
   ExpoNotifications: 490c89589ecd1df1c014f569d833b650b44deac2
   ExpoRouter: 03899d5c94d2e5c5e4dadae1fd0ba71a50f162d8
-  ExpoSpeechRecognition: fd92a178301c067e3a4919396820a8cd5ce7043f
   ExpoSplashScreen: e60a9120f4e05377f92278b0c94cfb0ef39eb351
   ExpoStatusBar: 56aa9746e1bee4d8adbab12f4d7efc97000ac49f
   ExpoSystemUI: bfbae2409cccd81019ac00a8f57a8724f0534cfd
@@ -3111,8 +3081,6 @@ SPEC CHECKSUMS:
   KortixContextMenu: 9af742d12cc5e6e01e30653955041ec83d3a3d7d
   lottie-ios: 8f959969761e9c45d70353667d00af0e5b9cadb3
   lottie-react-native: 8c5abb70e92e1651693384e4bdf2f525ff96e6e0
-  PurchasesHybridCommon: ecd9d7c586287625f1225b8de5e24c1021502270
-  PurchasesHybridCommonUI: 3056a3d261529f6adb8f74ecc3ab7f1cc0d3fab4
   RCT-Folly: 82921e585c0400eda46fac1068297aa9dfb035e4
   RCTDeprecation: c62b9b3fbf0d26b76755f3ebd1c913a4fb469dde
   RCTRequired: d0563e2484633b657976195f0543e180133afd3a
@@ -3196,14 +3164,10 @@ SPEC CHECKSUMS:
   ReactCodegen: 13971cc8592268797a33c162201a6110e7ed1619
   ReactCommon: b63ce798b898ed77c6cfdeb80b18080161f52ed5
   ReactNativeDependencies: a5164c3ebbe90d992022b5d9cbabbf770a6d7d05
-  RevenueCat: 9357239a9f0978285e68983637b8a602e65c94f0
-  RevenueCatUI: 6f9291da540f98baf405b5bdfc46b2d5547b704a
   RNCAsyncStorage: 47ffec1d3f091c4a21881654bbd5e2e7f62efbc9
   RNCMaskedView: a9c7c7992c85d8073707286fb59a857bc786cbd5
   RNGestureHandler: ddbdf3f293a498368803f8181ff157271ac05c48
   RNLiveMarkdown: 79376f82e805eed833eced8e2f870822f87f367c
-  RNPaywalls: 26e03d5c8ca04e9d89319eebbe8d26c14faa0a5e
-  RNPurchases: 4f6b0209e2fb4152bda0d0276a2a46d2b3416752
   RNReanimated: 021c235c9ea63f10de24bd6b30551131e563346d
   RNScreens: e4c2c2aa9576604868c0b250096c295a487e1d9e
   RNSVG: c3f9498aa208ae99a217dd3d698251677b224890

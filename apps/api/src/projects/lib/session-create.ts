@@ -36,7 +36,12 @@ import { selectProvider } from '../../platform/services/provider-balancer';
 import { ProvisionTimeline } from '../../platform/services/provision-timeline';
 import { provisionSessionSandbox } from '../../platform/services/session-sandbox';
 import { resolveSessionPlacement } from '../../platform/services/sandbox-region';
-import { startWorkspaceVolume, WORKSPACE_VOLUME_SESSION_KEY, type WorkspaceVolume } from '../../platform/services/workspace-volume';
+import {
+  startWorkspaceVolume,
+  WORKSPACE_VOLUME_SESSION_KEY,
+  workspaceCacheNamespace,
+  type WorkspaceVolume,
+} from '../../platform/services/workspace-volume';
 
 
 import { db } from '../../shared/db';
@@ -70,6 +75,7 @@ import { normalizeJsonObject } from '../../shared/json';
 import { isUuid } from '../../shared/validate';
 import {
   canonicalConnectorAlias,
+  isSessionChannelConnector,
   parseSessionConnectorBindings,
   sessionConnectorBindingsRequirePrivateVisibility,
   validateSessionConnectorBindings,
@@ -92,6 +98,7 @@ import { projectSessionMetadataMerge } from './session-metadata-merge';
 import { transitionSession } from '../session-lifecycle/status-transitions';
 import { mergeSessionSandboxEnv, parseSessionRuntimeContext, reservedRuntimeContextRefusal } from './session-runtime-context';
 import { resolveFeatureFlag } from '../../feature-flags/registry';
+import { AGENT_CHAT_CONTEXT_KEY, startsAgentChat } from './agent-directory';
 import { FRONT_THREAD_CONTEXT_KEY, FRONT_THREAD_METADATA_KEY, sessionIsFrontThread, sessionSpaceAgents, spaceRosterAllows, startsFrontThread } from './front-thread';
 import { SPACE_WATCHER_SOURCE, WATCHER_CONTEXT_KEY } from './space-watch/keys';
 import { resolveMyKortixSandbox } from './my-kortix-agent';
@@ -703,7 +710,7 @@ async function resolveSessionAgent(params: {
         error: {
           status: 400,
           body: {
-            error: `"${agentName}" is not an agent of this space. Pick one of: ${check.roster.join(', ')}.`,
+            error: `"${agentName}" is not an agent of this channel. Pick one of: ${check.roster.join(', ')}.`,
             code: 'AGENT_NOT_IN_SPACE',
             roster: check.roster,
           },
@@ -1077,8 +1084,10 @@ async function validateSessionConnectorsForAgent(params: {
   const { input, accountId, projectId, agentName, loadedAgents, parsedConnectorBindings, visibility } = params;
   const { userId } = input;
   // Every connector this session binds explicitly must be granted to the
-  // session's agent. Nothing is required any more: an unconnected connector no
-  // longer refuses the create, it denies at the call with a connect link.
+  // session's agent, except the connector of the channel that creates it (an
+  // email thread binds its inbox): an agent with `connectors: none` still
+  // answers on its channel. Nothing is required any more: an unconnected
+  // connector no longer refuses the create, it denies at the call with a connect link.
   const grantCheckAliases = new Set<string>(
     parsedConnectorBindings.bindings ? Object.keys(parsedConnectorBindings.bindings) : [],
   );
@@ -1086,7 +1095,10 @@ async function validateSessionConnectorsForAgent(params: {
   if (grantCheckAliases.size > 0) {
     loadedAgentGrant = grantFromLoadedAgents(agentName, loadedAgents);
     for (const alias of grantCheckAliases) {
-      if (!agentMayUseConnector(loadedAgentGrant, canonicalConnectorAlias(alias))) {
+      if (
+        !agentMayUseConnector(loadedAgentGrant, canonicalConnectorAlias(alias)) &&
+        !(await isSessionChannelConnector(projectId, alias, input.metadata?.source))
+      ) {
         return {
           error: {
             status: 403,
@@ -1900,8 +1912,9 @@ export async function createProjectSession(input: {
   const sandboxRegion = await resolveSessionPlacement(projectId, project.metadata);
   const workspaceVolume = startWorkspaceVolume({
     sessionId: identity.sessionId,
-    projectMetadata: project.metadata,
     location: sandboxRegion.location,
+    // Flag `platinum_cache`: the volume starts as the project's newest saved workspace.
+    cacheNamespace: resolveFeatureFlag(project.metadata, 'platinum_cache') ? workspaceCacheNamespace(projectId) : undefined,
   });
   const requestedSpace = await resolveRequestedSessionSpace(input);
   if (requestedSpace.error) return { error: requestedSpace.error };
@@ -2119,11 +2132,23 @@ export async function createProjectSession(input: {
   const sessionMetadata = front ? { ...metadata, [FRONT_THREAD_METADATA_KEY]: true } : metadata;
   // A space's watcher (flag `spaces_proactive`, space-watch/): only the API's own create sets this source.
   const watcher = (input.metadata as Record<string, unknown> | undefined)?.source === SPACE_WATCHER_SOURCE;
+  // A thread of a person's chat with an agent (`channels`): server-side state alone marks it.
+  const agentChat = !front && !watcher
+    ? await startsAgentChat({
+        projectMetadata: project.metadata,
+        spaceId,
+        agentName,
+        callerSessionId: input.callerSessionId,
+        parentSessionId: typeof body.parent_session_id === 'string' ? body.parent_session_id : null,
+      })
+    : false;
   const runtimeContext = front
     ? { ...parsedRuntimeContext.context, [FRONT_THREAD_CONTEXT_KEY]: true }
     : watcher
       ? { ...parsedRuntimeContext.context, [WATCHER_CONTEXT_KEY]: true }
-      : parsedRuntimeContext.context;
+      : agentChat
+        ? { ...parsedRuntimeContext.context, [AGENT_CHAT_CONTEXT_KEY]: true }
+        : parsedRuntimeContext.context;
 
   let sessionRow: ProjectSessionRow | null = null;
   try {

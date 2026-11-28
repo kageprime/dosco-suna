@@ -173,7 +173,8 @@ async function readVolumeUsage(drive: UsageDrive): Promise<VolumeUsage | null> {
     const value: VolumeUsage = {
       usedBytes: Number(info.usage?.logical_bytes ?? info.logical_bytes ?? 0),
       fileCount: Number(info.usage?.file_count ?? info.file_count ?? 0),
-      head: info.head_commit_id ?? null,
+      // A shared volume has no folder sizes to look up (drives/volumes.ts volumeFolderUsage): no head to key them by.
+      head: info.type === 'sharedfs' ? null : (info.head_commit_id ?? null),
       folders: measuredFolders(info.folders),
       at: Date.now(),
     };

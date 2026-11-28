@@ -11,6 +11,7 @@ import { AccountOverviewTab } from '@/features/billing/account-overview';
 import { PlanCard, PlanChanger } from '@/features/billing/plan-card';
 import { EnterpriseAccessRow } from '@/features/billing/enterprise-access-row';
 import { PlanAccessNotice } from '@/features/billing/plan-access-notice';
+import { portalReturnUrl } from '@/features/billing/billing-return';
 import { TopupControls } from '@/features/billing/topup-controls';
 import { useAuth } from '@/features/providers/auth-provider';
 import {
@@ -102,7 +103,7 @@ export function BillingTab({
   }, [isActive, session, authLoading]);
 
   const handleManageSubscription = () => {
-    createPortalSessionMutation.mutate({ return_url: returnUrl });
+    createPortalSessionMutation.mutate({ return_url: portalReturnUrl(returnUrl, billingAccountId) });
   };
 
   const isLoading = isLoadingSubscription || authLoading;

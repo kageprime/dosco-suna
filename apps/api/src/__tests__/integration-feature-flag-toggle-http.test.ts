@@ -151,19 +151,20 @@ describe('PATCH /v1/projects/:projectId/features', () => {
     );
   });
 
-  test('the withdrawn project_channels key reads and writes chat, for released clients', async () => {
+  test('the withdrawn chat and project_channels keys write channels, for released clients', async () => {
     const on = await patch(`/v1/projects/${PROJECT}/features`, JSON.stringify({ feature: 'project_channels', enabled: true }));
     expect(on.status).toBe(200);
     const body = await on.json();
-    expect([body.experimental.chat, body.experimental.project_channels]).toEqual([true, true]);
-    expect(await storedOverrides(PROJECT)).toEqual({ chat: true });
+    expect([body.experimental.channels, body.experimental.chat, body.experimental.project_channels]).toEqual([true, true, true]);
+    expect(await storedOverrides(PROJECT)).toEqual({ channels: true });
 
     const off = await patch(`/v1/projects/${PROJECT}/features`, JSON.stringify({ feature: 'chat', enabled: false }));
     expect(off.status).toBe(200);
     const offBody = await off.json();
-    expect([offBody.experimental.chat, offBody.experimental.project_channels]).toEqual([false, false]);
+    expect([offBody.experimental.channels, offBody.experimental.chat, offBody.experimental.project_channels]).toEqual([false, false, false]);
+    expect(await storedOverrides(PROJECT)).toEqual({ channels: false });
 
-    await patch(`/v1/projects/${PROJECT}/features`, JSON.stringify({ feature: 'project_channels', enabled: null }));
+    await patch(`/v1/projects/${PROJECT}/features`, JSON.stringify({ feature: 'channels', enabled: null }));
     expect(await storedOverrides(PROJECT)).toBeUndefined();
   });
 
@@ -211,7 +212,7 @@ describe('PATCH /v1/projects/:projectId/features', () => {
 
   test('an archived project is 404 and its metadata is NOT mutated', async () => {
     for (const path of [`/v1/projects/${ARCHIVED}/features`, `/v1/projects/${ARCHIVED}/experimental`]) {
-      const res = await patch(path, JSON.stringify({ feature: 'workspace_volume', enabled: false }));
+      const res = await patch(path, JSON.stringify({ feature: 'calendar', enabled: false }));
       expect(res.status).toBe(404);
       expect((await res.json()).error).toBe('Not found');
       // The seed carries a leftover `apps: true` from before Apps went GA —
@@ -220,14 +221,16 @@ describe('PATCH /v1/projects/:projectId/features', () => {
     }
   });
 
-  test('the graduated apps, llm_gateway, session_log and session_log_restore keys are unknown: 400, not an operator-only 403, and nothing is stored', async () => {
+  test('the graduated apps, llm_gateway, session_log, session_log_restore, workspace_volume and chrome keys are unknown: 400, not an operator-only 403, and nothing is stored', async () => {
     // Apps went GA (2026-10-14), the LLM gateway became the only model path
     // (2026-10-20) and the session log the only saved history (2026-10-22):
     // the keys left the registry and the contract. A project manager — or
     // anyone with settings.write — PATCHing one gets the ordinary unknown-key
     // 400; the operator-only refusal is unreachable. `session_log_restore` (the
-    // boot restore from the session log) graduated on 2026-11-05.
-    for (const feature of ['apps', 'llm_gateway', 'session_log', 'session_log_restore', 'connectors_v2', 'connectors_api_discover']) {
+    // boot restore from the session log) graduated on 2026-11-05, and
+    // `workspace_volume` (stateless sandboxes, operator-only until then) on 2026-11-23
+    // and `chrome` (Kortix in Chrome) on 2026-11-24.
+    for (const feature of ['apps', 'llm_gateway', 'session_log', 'session_log_restore', 'connectors_v2', 'connectors_api_discover', 'workspace_volume', 'chrome']) {
       for (const enabled of [true, false, null]) {
         const res = await patch(`/v1/projects/${PROJECT}/features`, JSON.stringify({ feature, enabled }));
         expect(res.status).toBe(400);
@@ -260,53 +263,16 @@ describe('PATCH /v1/projects/:projectId/features', () => {
     expect(keys).not.toContain('llm_gateway');
     expect(keys).not.toContain('session_log');
     expect(keys).not.toContain('session_log_restore');
+    expect(keys).not.toContain('workspace_volume');
+    expect(keys).not.toContain('chrome');
+    // `chrome` stays on the row for older web, SDK and CLI builds: whether this API serves Kortix in Chrome.
+    expect(body.experimental.chrome).toBe(config.KORTIX_CHROME_ENABLED);
   });
 });
 
-// `workspace_volume` (stateless sandboxes) is internal-only (catalogHidden): it
-// changes what the platform stores, so only a platform operator writes it (D10).
-// It needs Platinum (`available`), so these tests give the API a key.
-const PLATINUM_KEY = config.PLATINUM_API_KEY;
-beforeAll(() => {
-  config.PLATINUM_API_KEY = PLATINUM_KEY || 'platinum-test-key';
-});
-afterAll(() => {
-  config.PLATINUM_API_KEY = PLATINUM_KEY;
-});
-
-describe('operator-only flags', () => {
-  test('a project manager gets 403 feature_operator_only for enable, disable and clear; nothing is stored', async () => {
-    for (const enabled of [true, false, null]) {
-      const res = await patch(`/v1/projects/${PROJECT}/features`, JSON.stringify({ feature: 'workspace_volume', enabled }));
-      expect(res.status).toBe(403);
-      const body = await res.json();
-      expect(body.code).toBe('feature_operator_only');
-      expect(body.feature).toBe('workspace_volume');
-      expect(body.error).toContain('Contact Kortix');
-    }
-    expect(await storedOverrides(PROJECT)).toBeUndefined();
-  });
-
-  test('off by default and unlisted; a platform operator who is a project member turns it on (listed read-only) and clears it (off and unlisted again)', async () => {
-    const res = await app.request(`/v1/projects/${PROJECT}`, { headers: { Authorization: `Bearer ${secret}` } });
-    const before = await res.json();
-    expect(before.experimental.workspace_volume).toBe(false);
-    expect(before.experimental_features.map((f: { key: string }) => f.key)).not.toContain('workspace_volume');
-    const on = await patch(`/v1/projects/${PROJECT}/features`, JSON.stringify({ feature: 'workspace_volume', enabled: true }), operatorSecret);
-    expect(on.status).toBe(200);
-    const body = await on.json();
-    expect(body.experimental.workspace_volume).toBe(true);
-    expect(body.experimental_features.find((f: { key: string }) => f.key === 'workspace_volume')).toMatchObject({ name: 'Stateless sandboxes', enabled: true, overridden: true, operator_only: true });
-    expect(await storedOverrides(PROJECT)).toEqual({ workspace_volume: true });
-    const cleared = await patch(`/v1/projects/${PROJECT}/features`, JSON.stringify({ feature: 'workspace_volume', enabled: null }), operatorSecret);
-    expect(cleared.status).toBe(200);
-    const after = await cleared.json();
-    expect(after.experimental.workspace_volume).toBe(false);
-    expect(after.experimental_features.map((f: { key: string }) => f.key)).not.toContain('workspace_volume');
-    expect(await storedOverrides(PROJECT)).toBeUndefined();
-  });
-});
-
+// No flag is internal-only (catalogHidden) since `workspace_volume` graduated
+// (2026-11-23), so the PATCH `feature_operator_only` refusal has no subject. The
+// operator route below writes any registered flag.
 describe('PUT /v1/admin/api/projects/:id/features', () => {
   function put(projectId: string, body: unknown, bearer: string) {
     return app.request(`/v1/admin/api/projects/${projectId}/features`, {
@@ -317,19 +283,19 @@ describe('PUT /v1/admin/api/projects/:id/features', () => {
   }
 
   test('a non-operator gets 403 and nothing is stored', async () => {
-    const res = await put(PROJECT, { feature: 'workspace_volume', enabled: true }, secret);
+    const res = await put(PROJECT, { feature: 'calendar', enabled: true }, secret);
     expect(res.status).toBe(403);
     expect(await storedOverrides(PROJECT)).toBeUndefined();
   });
 
-  test('an operator sets and clears a hidden flag; unknown flag 400; unknown or archived project 404', async () => {
-    const on = await put(PROJECT, { feature: 'workspace_volume', enabled: true }, operatorSecret);
+  test('an operator sets and clears a flag; unknown or graduated flag 400; unknown or archived project 404', async () => {
+    const on = await put(PROJECT, { feature: 'calendar', enabled: true }, operatorSecret);
     expect(on.status).toBe(200);
-    expect(await on.json()).toMatchObject({ project_id: PROJECT, feature: 'workspace_volume', override: true, enabled: true });
-    expect(await storedOverrides(PROJECT)).toEqual({ workspace_volume: true });
+    expect(await on.json()).toMatchObject({ project_id: PROJECT, feature: 'calendar', override: true, enabled: true });
+    expect(await storedOverrides(PROJECT)).toEqual({ calendar: true });
 
     // Cleared: the platform default, off.
-    const cleared = await put(PROJECT, { feature: 'workspace_volume', enabled: null }, operatorSecret);
+    const cleared = await put(PROJECT, { feature: 'calendar', enabled: null }, operatorSecret);
     expect(cleared.status).toBe(200);
     expect(await cleared.json()).toMatchObject({ override: null, enabled: false });
     expect(await storedOverrides(PROJECT)).toBeUndefined();
@@ -339,8 +305,10 @@ describe('PUT /v1/admin/api/projects/:id/features', () => {
     expect((await put(PROJECT, { feature: 'llm_gateway', enabled: true }, operatorSecret)).status).toBe(400);
     expect((await put(PROJECT, { feature: 'session_log', enabled: true }, operatorSecret)).status).toBe(400);
     expect((await put(PROJECT, { feature: 'session_log_restore', enabled: true }, operatorSecret)).status).toBe(400);
-    expect((await put(crypto.randomUUID(), { feature: 'workspace_volume', enabled: true }, operatorSecret)).status).toBe(404);
-    expect((await put(ARCHIVED, { feature: 'workspace_volume', enabled: false }, operatorSecret)).status).toBe(404);
+    expect((await put(PROJECT, { feature: 'workspace_volume', enabled: true }, operatorSecret)).status).toBe(400);
+    expect((await put(PROJECT, { feature: 'chrome', enabled: false }, operatorSecret)).status).toBe(400);
+    expect((await put(crypto.randomUUID(), { feature: 'calendar', enabled: true }, operatorSecret)).status).toBe(404);
+    expect((await put(ARCHIVED, { feature: 'calendar', enabled: false }, operatorSecret)).status).toBe(404);
     expect(await storedOverrides(ARCHIVED)).toEqual({ apps: true });
   });
 });

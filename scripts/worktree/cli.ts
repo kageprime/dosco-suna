@@ -30,8 +30,8 @@ import {
   pickSlot, sh, run, which, portInUse, repoRoot, defaultWorktreePath, branchExists, freshBase, worktreeAddArgs, removeWorktree,
   renderSupabaseProject, runMigrate, supa, supaStatusEnv, slotCredsFromStatus, apiLaunchEnv, webLaunchEnv, gatewayLaunchEnv,
   writeMarker, ensureDeps, checkDeps, supaWorkdir, slotDir, startTunnel, tunnelAnswers, startStripeListen, WT_HOME, REGISTRY_PATH,
-  startSupabaseDb, startSupabaseFullStack, hasKortixSchema, ensureRuntimeArtifacts, dbModeOf,
-  ensurePrimarySupabase, primaryCredsFromStatus, primarySupabaseStatusEnv, SHARED_SUPABASE_PORTS, supabaseBin,
+  startSupabaseDb, startSupabaseFullStack, hasKortixSchema, ensureRuntimeArtifacts, startDocsBuild, dbModeOf,
+  ensurePrimarySupabase, prewarmPrimarySupabase, PREWARM_LOG, primaryCredsFromStatus, primarySupabaseStatusEnv, SHARED_SUPABASE_PORTS, supabaseBin,
   branchDbName, primaryDb, branchDbExists, createBranchDb, syncBranchUsers, dropBranchDb, withDatabase,
   killTree, stackRoots, stackPids, listenersOn, psTable, cwdTable,
   listenPorts, buildRows, sortRows, filterRows, renderRail, renderDetail, toJsonRows,
@@ -518,6 +518,9 @@ async function cmdCreate(a: Args) {
     }
   }
   step(`Slot ${entry.slot} — ${portsLine(entry.ports)} — ${dbLabel(dbMode, name)}`);
+  // Shared mode runs against the primary checkout's Supabase, which `start` would otherwise bring up after this
+  // finishes (28 s, mostly waiting on containers). Started now, it comes up while this checks out and installs.
+  if (dbMode === 'shared' && prewarmPrimarySupabase(root)) sub(`starting the primary Supabase in the background (log: ${PREWARM_LOG})`);
 
   const failCreate = async (msg: string): Promise<never> => {
     if (isNew) await withLock(() => { const r = loadRegistry(); delete r.slots[name]; saveRegistry(r); });
@@ -544,6 +547,9 @@ async function cmdCreate(a: Args) {
   // a full ~2.8GB copy per worktree (91 of them once leaked 244GB into ~/.kortix).
   step('Installing dependencies (shared pnpm store)');
   if (await run(['pnpm', 'install'], { cwd: wtPath }) !== 0) die(`pnpm install failed — fix and re-run \`pnpm worktree create --name ${name}\``);
+  // The web app's first `next dev` builds /docs when public/docs/ is missing, which it is here, and that build slows
+  // the first page's compile. It needs the install above; started now it is done before `start` serves a page.
+  if (!a.flags['no-web'] && startDocsBuild(wtPath, joinPath(slotDir(name), 'docs-build.log'))) sub('building /docs in the background');
 
   if (dbMode === 'isolated') {
     step(`Rendering isolated Supabase project ${pc.dim('('+entry.projectId+')')}`);
@@ -608,6 +614,9 @@ async function cmdStart(a: Args) {
   const e = entry!;
   const dbMode = dbModeOf(e);
   warnOnStackPressure(name, reg);
+  // A worktree with no public/docs/ (create started its build; this covers one made before that) would build
+  // /docs beside the first page's compile. A build already running holds the lock, and this one waits on it.
+  if (!a.flags['no-web'] && startDocsBuild(e.path, joinPath(slotDir(name), 'docs-build.log'))) sub(`building /docs in the background (log: ${joinPath(slotDir(name), 'docs-build.log')})`);
 
   // Heal a stale ports cache. The registry stores a denormalized copy of
   // computePorts(slot), so a worktree created before a port was added to BASE
@@ -651,7 +660,16 @@ async function cmdStart(a: Args) {
       die('primary Supabase credentials are unavailable. Start the primary local stack once with `pnpm dev`, or recreate this worktree with `--db` for an isolated database.');
     }
     if (!hasKortixSchema(creds.dbUrl)) {
-      die('the shared primary Supabase DB does not have the kortix schema. Run the primary stack once to initialize it, or recreate this worktree with `--db` for an isolated database.');
+      // A primary database with no kortix schema holds no Kortix data yet: it is
+      // the fresh Supabase of a new cloud session (nothing ever ran `pnpm dev`
+      // there) or of a new laptop. Initialize it from the PRIMARY checkout, the
+      // same migrations `pnpm dev` would apply (4.3 s, 679 migrations, measured
+      // 2026-11-26), instead of stopping every agent that follows the documented
+      // `worktree create` + `worktree start`. A database that has the schema is
+      // never migrated from here.
+      step('Initializing the empty shared primary database (pnpm migrate from the primary checkout)');
+      if (await runMigrate(repoRoot(), creds.dbUrl) !== 0) die('migrate of the empty shared primary database failed. Run the primary stack once with `pnpm dev`, or recreate this worktree with `--db` for an isolated database.');
+      if (!hasKortixSchema(creds.dbUrl)) die('the shared primary Supabase DB still has no kortix schema after migrate. Run the primary stack once with `pnpm dev`, or recreate this worktree with `--db` for an isolated database.');
     }
     sub(`${creds.supabaseUrl} · ${creds.dbUrl}`);
     warnOnSharedDbCrosstalk(name, reg);

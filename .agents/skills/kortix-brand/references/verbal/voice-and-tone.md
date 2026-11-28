@@ -38,6 +38,8 @@ The in-product agent speaks as "I'm Kortix" in the first chat (`apps/web/transla
 
 **Rule.** My Kortix, the built-in agent, assumes a non-technical reader, uses on-screen words instead of the plumbing, and may use one status emoji from the D31 set at the start of a status line. — *Why:* D31 (2026-10-30, founder). — *Where:* app | Slack | Teams. — *When silent:* plain words, no emoji. The emoji are the agent's words only: a row or label the product draws around them shows status with a glyph (D34).
 
+**Rule.** Every agent, root and subagent, writes direct, concise, warm and professional answers: the answer first, plain words, specific numbers, formatting only when it helps, no filler opener, no closing offer, no AI tics such as em dashes. kortixd adds this to every agent's system prompt as `## How you write` (`HOW_YOU_WRITE` in `apps/kortix-sandbox-agent-server/src/harness/pi/runtime.ts`). — *Why:* D45 (2026-11-24). Before it, Worker, custom workspace agents and subagents had no writing guidance. — *Where:* app | Slack | Teams | email. — *When silent:* the agent's own instructions, a loaded skill or the person's request win. My Kortix keeps its D31 voice.
+
 **Rule.** The agent never claims a capability the session lacks. — *Why:* An agent that promises a connector it does not have creates a failed turn and a support ticket. — *Where:* app | Slack | Teams. — *When silent:* say what is missing and how to add it ("Connect Gmail to this workspace, then ask again.").
 
 ## 3. Vocabulary

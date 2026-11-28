@@ -48,14 +48,17 @@ export async function writeProjectFeatureFlag(
   // Convergence work (connector materialization, sandbox env fan-out) runs
   // behind the response; runFeatureFlagToggleEffects retries once and logs
   // failures at error level. See ./toggle-effects.ts.
-  void runFeatureFlagToggleEffects({
-    key: feature,
-    projectId,
-    accountId: row.accountId,
-    metadata: row.metadata,
-    previousMetadata,
-    writtenAt: row.updatedAt,
-  });
+  // `chat` is withdrawn into `channels` (registry.ts): its effects (#general, filing sessions) run on that switch too.
+  for (const key of feature === 'channels' ? [feature, 'chat' as const] : [feature]) {
+    void runFeatureFlagToggleEffects({
+      key,
+      projectId,
+      accountId: row.accountId,
+      metadata: row.metadata,
+      previousMetadata,
+      writtenAt: row.updatedAt,
+    });
+  }
   return row;
 }
 

@@ -32,7 +32,7 @@ import {
   REVIEW_CONTROL_ACTIONS,
   reviewVerdictAllowed,
 } from '@kortix/sdk';
-import { clearStartStash, contract, qk, reviewItemsOf, useSessionAsks } from '@kortix/sdk/react';
+import { clearStartStash, contract, qk, reviewItemsOf, useFeatureFlag, useSessionAsks } from '@kortix/sdk/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUiRouter, useUiSearchParams } from '../../../providers/ui-provider';
 import { useEffect, useMemo, useState } from 'react';
@@ -77,6 +77,7 @@ export function ReviewCenterConnected({ projectName }: { projectName: string }) 
   // role still sees the inbox, with no verdict control. The inbox stays live
   // for every viewer: an unresolved probe offers no verdict.
   const cans = useProjectCans(projectId, REVIEW_CONTROL_ACTIONS);
+  const deckEnabled = useFeatureFlag(projectId, 'review_swipe').enabled;
   // The deck claims the inbox's empty pane only while an agent asks something
   // (or the asks still load). With none, its own "Nothing waits on you" would
   // sit beside rows that do wait, so the pane shows "Select an item" instead.
@@ -221,25 +222,27 @@ export function ReviewCenterConnected({ projectName }: { projectName: string }) 
     accepted: () => void,
     refused: (error: unknown) => void,
   ) {
+    // Each call awaits its own promise: per-call `mutate` callbacks fire only
+    // for an observer's latest call, so two verdicts flushed together (the
+    // swipe deck's Undo windows) would drop the first one's result.
     // The shared parameter-review component calls this for one exact action.
     const executionId = connectorCallId(id);
     if (executionId) {
-      resolve.mutate(
-        { executionId, decision: verdict === 'approve' ? 'approve' : 'deny', note: feedback },
-        {
-          onSuccess: () => {
+      resolve
+        .mutateAsync({ executionId, decision: verdict === 'approve' ? 'approve' : 'deny', note: feedback })
+        .then(
+          () => {
             if (verdict === 'approve') successToast(tI18nComplete.raw('text2b2b0a697042'));
             else infoToast(tI18nComplete.raw('textda404deb110f'));
             announced();
           },
-          onError: (e) => {
+          (e: Error) => {
             refused(e);
             if (!isApprovalExpiredError(e)) return errorToast(e.message);
             errorToast(tHardcodedUi('approvalPage.expiredHint'));
             refreshInbox();
           },
-        },
-      );
+        );
       return;
     }
     // Change Requests ship/close through their own flow — the review `/act`
@@ -247,13 +250,13 @@ export function ReviewCenterConnected({ projectName }: { projectName: string }) 
     const crId = crChangeRequestId(id);
     if (crId) {
       if (verdict === 'approve') {
-        merge.mutate(crId, {
-          onSuccess: () => {
+        merge.mutateAsync(crId).then(
+          () => {
             successToast(tI18nComplete.raw('text0cad31cba248'));
             refreshInbox();
             announced();
           },
-          onError: (e) => {
+          (e: Error) => {
             refused(e);
             if ((e as { code?: string }).code === 'MERGE_CONFLICT') {
               const item = items.find((candidate) => candidate.id === id);
@@ -275,19 +278,19 @@ export function ReviewCenterConnected({ projectName }: { projectName: string }) 
             }
             errorToast(e.message);
           },
-        });
+        );
       } else if (verdict === 'reject') {
-        close.mutate(crId, {
-          onSuccess: () => {
+        close.mutateAsync(crId).then(
+          () => {
             infoToast(tI18nComplete.raw('text67382c89fdde'));
             refreshInbox();
             announced();
           },
-          onError: (e) => {
+          (e: Error) => {
             refused(e);
             errorToast(e.message);
           },
-        });
+        );
       } else {
         // "Request changes" → persist the note on the change AND deliver it to the
         // agent that opened it (backend boots the sandbox + sends the prompt). No
@@ -298,37 +301,28 @@ export function ReviewCenterConnected({ projectName }: { projectName: string }) 
           refused(new Error('A change request needs a note.'));
           return;
         }
-        requestChanges.mutate(
-          { crId, feedback: note },
-          {
-            onSuccess: (res) => {
-              successToast(
-                res.delivering
-                  ? tI18nComplete.raw('text99764404a562')
-                  : tI18nComplete.raw('text871f77182091'),
-              );
-              refreshInbox();
-              announced();
-            },
-            onError: (e) => {
-              refused(e);
-              errorToast(e.message);
-            },
+        requestChanges.mutateAsync({ crId, feedback: note }).then(
+          (res) => {
+            successToast(
+              res.delivering
+                ? tI18nComplete.raw('text99764404a562')
+                : tI18nComplete.raw('text871f77182091'),
+            );
+            refreshInbox();
+            announced();
+          },
+          (e: Error) => {
+            refused(e);
+            errorToast(e.message);
           },
         );
       }
       return;
     }
-    act.mutate(
-      { id, verdict, feedback },
-      {
-        onSuccess: accepted,
-        onError: (e) => {
-          refused(e);
-          errorToast(e.message);
-        },
-      },
-    );
+    act.mutateAsync({ id, verdict, feedback }).then(accepted, (e: Error) => {
+      refused(e);
+      errorToast(e.message);
+    });
   }
 
   // Bulk verdicts send every id the inbox chose: native, and `call:` for
@@ -378,6 +372,9 @@ export function ReviewCenterConnected({ projectName }: { projectName: string }) 
           : undefined
       }
       initialItems={items}
+      // Behind `review_swipe`: the Review page opens on the swipe deck.
+      deckEnabled={deckEnabled}
+      defaultView={deckEnabled ? 'cards' : 'list'}
       segment={segment}
       onSegmentChange={setSegment}
       loadMore={

@@ -18,7 +18,12 @@ afterEach(() => {
 });
 
 const boundary = await import('./host-boundary');
-import type { OAuthConsentRequest, SecretSetupLinkInfo, SecretSetupLinkSubmitResult } from './host-boundary';
+import type {
+  OAuthConsentRequest,
+  SecretSetupLinkInfo,
+  SecretSetupLinkLogin,
+  SecretSetupLinkSubmitResult,
+} from './host-boundary';
 
 describe('host boundary transport', () => {
   test('consent request carries whether the client registered itself and where approval redirects', async () => {
@@ -68,6 +73,42 @@ describe('host boundary transport', () => {
       { only_requester: true },
     );
     expect(JSON.parse(String(requests[1]?.init?.body))).toEqual({ values: { API_KEY: 'value' }, only_requester: true });
+  });
+
+  test('a website login link names its sites, and submit sends the login, not values', async () => {
+    responseFactory = () =>
+      Response.json({
+        kind: 'secret',
+        scope: 'browser',
+        project_name: 'P',
+        requester: { label: 'Requester' },
+        fields: [{ name: 'CRM_LOGIN', label: null, description: null, sites: ['app.example.test'] }],
+        expires_at: '2026-12-01T00:00:00.000Z',
+      });
+    const info: SecretSetupLinkInfo = await boundary.getSecretSetupLink('login-token', { backendUrl: 'https://api.example.test/v1' });
+    expect(info.scope).toBe('browser');
+    expect(info.fields[0]?.sites).toEqual(['app.example.test']);
+
+    responseFactory = () => Response.json({ ok: true, saved: ['CRM_LOGIN'] });
+    const login: SecretSetupLinkLogin = { username: 'ada@example.test', password: 'p"w' };
+    const result = await boundary.submitBrowserLoginSetupLink(
+      'login-token',
+      { CRM_LOGIN: login },
+      { backendUrl: 'https://api.example.test/v1' },
+      { only_requester: true },
+    );
+    expect(requests[1]?.url).toBe('https://api.example.test/v1/setup-links/secret/login-token');
+    expect(requests[1]?.init?.method).toBe('POST');
+    expect(JSON.parse(String(requests[1]?.init?.body))).toEqual({
+      logins: { CRM_LOGIN: { username: 'ada@example.test', password: 'p"w' } },
+      only_requester: true,
+    });
+    expect(result.saved).toEqual(['CRM_LOGIN']);
+
+    await boundary.submitBrowserLoginSetupLink('login-token', { CRM_LOGIN: login }, { backendUrl: 'https://api.example.test/v1' });
+    expect(JSON.parse(String(requests[2]?.init?.body))).toEqual({
+      logins: { CRM_LOGIN: { username: 'ada@example.test', password: 'p"w' } },
+    });
   });
 
   test('secret submit from an older server carries no withheld names', async () => {

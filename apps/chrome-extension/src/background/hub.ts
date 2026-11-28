@@ -26,11 +26,15 @@ export class Hub {
       this.send({ type: 'detached', attachmentId: a.rec.attachmentId, reason });
       void this.persist();
     },
-    overlay: (tabId, a) => {
-      const msg = { kortix: 'overlay', on: !a.isEnded, paused: a.paused, title: a.title, cursor: a.cursorAt.get(tabId) };
+    overlay: async (tabId, a) => {
+      const on = !a.isEnded && a.activeTab === tabId;
+      const msg = { kortix: 'overlay', on, paused: a.paused, title: a.title, cursor: a.cursorAt.get(tabId) };
       const send = () => chrome.tabs.sendMessage(tabId, msg).catch(() => {});
-      if (a.isEnded) return void send();
-      chrome.scripting.executeScript({ target: { tabId }, files: ['overlay.js'] }).then(send, () => {});
+      if (!on) return void await send();
+      await chrome.scripting.executeScript({ target: { tabId }, files: ['overlay.js'] }).then(() => {
+        msg.on = !a.isEnded && a.activeTab === tabId;
+        return send();
+      }, () => {});
     },
   };
 

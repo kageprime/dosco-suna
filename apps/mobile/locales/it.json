@@ -1397,6 +1397,12 @@
     "saving": "Salvataggio…",
     "openError": "Impossibile aprire questo artefatto",
     "more": "Azioni dell’artefatto",
-    "unavailable": "Gli artefatti non sono disponibili in questo workspace"
+    "unavailable": "Gli artefatti non sono disponibili in questo workspace",
+    "moveToFolder": "Sposta nella cartella",
+    "folderRoot": "Nessuna cartella",
+    "movedToFolder": "Spostato in {{name}}",
+    "moveFailed": "Impossibile spostare l’artefatto",
+    "emptyFolder": "Nessun artefatto in questa cartella",
+    "emptyUnfiled": "Nessun artefatto senza cartella"
   }
 }

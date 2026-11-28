@@ -11,6 +11,13 @@ import {
   useNativeButton,
 } from '../lib/base-ui-compat';
 import { usePortalContainer } from '../lib/portal-container';
+import {
+  DialogDepthProvider,
+  dialogContentZ,
+  dialogOverlayZ,
+  useDialogDepth,
+  useDialogRootLayer,
+} from '../lib/z-stack';
 import { cn } from '../lib/utils';
 
 type DrawerDirection = 'top' | 'bottom' | 'left' | 'right';
@@ -42,19 +49,24 @@ function Drawer({
   modal,
   children,
 }: DrawerProps) {
+  // On the dialogs' layer stack (`lib/z-stack`): a drawer opens above any open
+  // dialog, sheet or drawer, and above the sidebar and its rail. A fixed z-50
+  // put it under an open dialog and under the sidebar's edge strip (z-60).
+  const layer = useDialogRootLayer({ open, defaultOpen, onOpenChange });
   return (
-    <DrawerDirectionContext.Provider value={direction}>
-      <DrawerPrimitive.Root
-        data-slot="drawer"
-        open={open}
-        defaultOpen={defaultOpen}
-        onOpenChange={onOpenChange ? (next) => onOpenChange(next) : undefined}
-        swipeDirection={SWIPE[direction]}
-        modal={modal}
-      >
-        {children}
-      </DrawerPrimitive.Root>
-    </DrawerDirectionContext.Provider>
+    <DialogDepthProvider depth={layer.depth}>
+      <DrawerDirectionContext.Provider value={direction}>
+        <DrawerPrimitive.Root
+          data-slot="drawer"
+          open={layer.open}
+          onOpenChange={(next) => layer.onOpenChange(next)}
+          swipeDirection={SWIPE[direction]}
+          modal={modal}
+        >
+          {children}
+        </DrawerPrimitive.Root>
+      </DrawerDirectionContext.Provider>
+    </DialogDepthProvider>
   );
 }
 
@@ -107,16 +119,18 @@ function DrawerClose({ asChild, children, ...props }: ButtonLikeProps) {
   );
 }
 
-function DrawerOverlay({ className, ...props }: React.ComponentProps<'div'>) {
+function DrawerOverlay({ className, style, ...props }: React.ComponentProps<'div'>) {
+  const depth = useDialogDepth();
   return (
     <DrawerPrimitive.Backdrop
       forceRender
       data-slot="drawer-overlay"
       className={cn(
-        'duration-moderate fixed inset-0 z-50 bg-black/50 opacity-[calc(1-var(--drawer-swipe-progress,0))] transition-opacity ease-out data-ending-style:opacity-0 data-starting-style:opacity-0 data-swiping:duration-0',
+        'duration-moderate fixed inset-0 bg-black/50 opacity-[calc(1-var(--drawer-swipe-progress,0))] transition-opacity ease-out data-ending-style:opacity-0 data-starting-style:opacity-0 data-swiping:duration-0',
         className,
       )}
       render={stateRender('div', openState)}
+      style={{ zIndex: dialogOverlayZ(depth), ...style }}
       {...props}
     />
   );
@@ -144,17 +158,18 @@ function DrawerContent({
   bar?: boolean;
 }) {
   const direction = React.useContext(DrawerDirectionContext);
+  const depth = useDialogDepth();
   return (
     <DrawerPortal>
       <DrawerOverlay />
       {/* Base UI handles swipe-to-dismiss and touch scroll locking in the viewport. */}
-      <DrawerPrimitive.Viewport className="fixed inset-0 z-50">
+      <DrawerPrimitive.Viewport className="fixed inset-0" style={{ zIndex: dialogContentZ(depth) }}>
         <DrawerPrimitive.Popup
           data-slot="drawer-content"
           // The vaul attribute, kept: callers and the classes below style by it.
           data-vaul-drawer-direction={direction}
           className={cn(
-            'group/drawer-content bg-background duration-moderate fixed z-50 flex h-auto flex-col transition-transform ease-out outline-none data-swiping:duration-0 data-swiping:select-none',
+            'group/drawer-content bg-background duration-moderate fixed flex h-auto flex-col transition-transform ease-out outline-none data-swiping:duration-0 data-swiping:select-none',
             DRAWER_MOTION[direction],
             'data-[vaul-drawer-direction=top]:inset-x-0 data-[vaul-drawer-direction=top]:top-0 data-[vaul-drawer-direction=top]:mb-24 data-[vaul-drawer-direction=top]:max-h-[80vh] data-[vaul-drawer-direction=top]:rounded-b-lg data-[vaul-drawer-direction=top]:border-b',
             'data-[vaul-drawer-direction=bottom]:inset-x-0 data-[vaul-drawer-direction=bottom]:bottom-0 data-[vaul-drawer-direction=bottom]:mt-24 data-[vaul-drawer-direction=bottom]:max-h-[80vh] data-[vaul-drawer-direction=bottom]:rounded-t-lg data-[vaul-drawer-direction=bottom]:border-t',

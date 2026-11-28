@@ -81,7 +81,7 @@ export function AgentStatusTool({ call, defaultOpen, forceOpen }: ToolProps) {
                     }
                   }}
                   className={cn(
-                    'border-border/20 flex items-center gap-2.5 px-3 py-2',
+                    'border-border flex items-center gap-2.5 px-3 py-2',
                     i > 0 && 'border-t',
                     hasSession && 'hover:bg-accent/50 cursor-pointer transition-colors',
                   )}

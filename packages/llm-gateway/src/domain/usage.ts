@@ -26,8 +26,12 @@ export interface UsageEvent extends TokenCounts {
   billingMode: BillingMode;
   streaming: boolean;
   requestId: string;
-  /** The image or audio endpoint that served the request; absent on a chat request. */
-  operation?: 'images.generations' | 'images.edits' | 'audio.transcriptions' | 'audio.speech';
+  /**
+   * The image or audio endpoint that served the request; absent on a chat
+   * request. `audio.dictation` is the API's own composer dictation route, priced
+   * per minute instead of at the upstream's price.
+   */
+  operation?: 'images.generations' | 'images.edits' | 'audio.transcriptions' | 'audio.speech' | 'audio.dictation';
   // Present when the pre-dispatch billing gate took an atomic admission hold
   // against the wallet for this request (see AuthedPrincipal.billingHold).
   // The host's recordUsage hook reconciles this against `finalCost` (top up

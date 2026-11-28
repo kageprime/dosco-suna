@@ -22,6 +22,7 @@ import { qualifiedColumn } from '../../shared/sql-qualified-column';
 import { generateSessionTitleFromFirstPrompt } from '../session-title-generate';
 import { resolveProjectAutomationActor } from './actor';
 import { sessionIsTombstoned } from '../lib/session-visibility';
+import { promptAuthorName } from '../lib/prompt-author';
 import { awakeDeliveryTarget, deliverAfterWake, undoDeliveryWake, type SendOutcome } from './deliver';
 import { sandboxRuntimeEndpoint } from '../runtime-session-mapping';
 import { sessionTransitionLeaves, transitionSession } from './status-transitions';
@@ -140,6 +141,9 @@ export async function continueSession(
   // Observed here so a delivery that never reaches `sendPrompt` leaves no
   // unhandled rejection; `sendPrompt` awaits the original and throws.
   turnIdentity.catch(() => undefined);
+  // The name the model reads above a person's prompt (KRTX-5121), read
+  // alongside the wake. Never throws: no name sends the prompt without one.
+  const author = promptAuthorName(command.authorUserId ?? null);
   // The project's default reasoning effort, clamped to the model this prompt
   // runs on. Injected only when the prompt carries no variant of its own (the
   // composer's "Auto", a Slack message, a trigger fire): an explicit session
@@ -181,6 +185,7 @@ export async function continueSession(
         wireMessageId: command.wireMessageId,
         materializationKey: command.materializationKey,
         noReply: command.noReply,
+        author: await author,
         source: command.source,
         accountId: session.accountId,
         projectId: session.projectId,

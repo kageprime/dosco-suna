@@ -89,7 +89,7 @@ export async function syncLegacyStripeSubscription(
 
     const { getStripe } = await import('../../shared/stripe');
     const stripe = getStripe();
-    const { billingPeriodForSubscription, monthlyCreditsForSubscription, planForSubscription } = await import('./tiers');
+    const { billingPeriodForSubscription, monthlyUsdForSubscription, planForSubscription } = await import('./tiers');
     const { applyStripeSync } = await import('./account-write-owner');
     const { wallet } = await import('../wallet');
 
@@ -134,7 +134,7 @@ export async function syncLegacyStripeSubscription(
         if (await namesAnotherLiveAccount(subscription.metadata?.account_id, accountId)) continue;
         if (await subscriptionHeldElsewhere(subscription.id, accountId)) continue;
         const tierConfig = { name: 'credits' };
-        const monthlyUsd = monthlyCreditsForSubscription(subscription);
+        const monthlyUsd = monthlyUsdForSubscription(subscription);
 
         const billingPeriod = billingPeriodForSubscription(subscription);
         const planType = billingPeriod === 'yearly_commitment' ? 'yearly' : billingPeriod;

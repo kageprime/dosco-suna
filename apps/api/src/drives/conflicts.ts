@@ -14,7 +14,7 @@ import { conflictOriginal } from './access';
 import { createDriveBackoff } from './backoff';
 import { noteDriveIndexDue } from './search-index/due';
 import { DRIVE_MOUNTS_METADATA_KEY, type DriveRow, driveVolume, recordedDriveMounts, refreshDriveNotes } from './service';
-import { type DriveVolume, getDriveVolume, isMissingVolume, listVolumeFiles, readVolumeFile } from './volumes';
+import { type DriveVolume, getDriveVolume, isKortixInternalPath, isMissingVolume, listVolumeFiles, readVolumeFile } from './volumes';
 
 /** Drives written through the API lately: scanned even when no session mounts them. */
 // replica-local: a hint for the scanner on this replica. The scanner also
@@ -56,7 +56,16 @@ export async function scanDriveConflicts(drive: DriveRow): Promise<string[]> {
   if (!drive.platinumVolumeId) return [];
   let head: string | null;
   try {
-    head = (await getDriveVolume(driveVolume(drive), AbortSignal.timeout(5_000))).head_commit_id ?? null;
+    const info = await getDriveVolume(driveVolume(drive), AbortSignal.timeout(5_000));
+    // A shared volume is live: nothing merges, so storage makes no conflict
+    // copy to find, and a conflict found while it was a block volume can no
+    // longer be resolved by a merge. Close the open ones (their copies stay as
+    // ordinary files), or they would stay open forever.
+    if (info.type === 'sharedfs') {
+      await closeOpenConflicts(drive.driveId);
+      return [];
+    }
+    head = info.head_commit_id ?? null;
   } catch (err) {
     if (isMissingVolume(err)) return [];
     throw err;
@@ -65,6 +74,7 @@ export async function scanDriveConflicts(drive: DriveRow): Promise<string[]> {
   const entries = await listVolumeFiles(driveVolume(drive), '/', true, AbortSignal.timeout(30_000));
   const found = new Map<string, string>();
   for (const e of entries) {
+    if (isKortixInternalPath(e.path)) continue;
     const original = conflictOriginal(e.path);
     if (original) found.set(e.path, original);
   }
@@ -107,6 +117,14 @@ export async function scanDriveConflicts(drive: DriveRow): Promise<string[]> {
   }
   await db.update(drives).set({ conflictScanHead: head }).where(eq(drives.driveId, drive.driveId));
   return fresh;
+}
+
+/** Close every open conflict of a drive. One indexed UPDATE; nothing to do once they are closed. */
+async function closeOpenConflicts(driveId: string): Promise<void> {
+  await db
+    .update(driveConflicts)
+    .set({ resolvedAt: new Date() })
+    .where(and(eq(driveConflicts.driveId, driveId), isNull(driveConflicts.resolvedAt)));
 }
 
 const SAME_BYTES_LIMIT = 4 * 1024 * 1024;

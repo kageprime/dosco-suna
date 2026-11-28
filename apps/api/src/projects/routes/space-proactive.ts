@@ -17,7 +17,7 @@ import { isTimeZone } from '../lib/space-watch/policy';
 import { readWatcher, writeWatcher, type WatcherRow } from '../lib/space-watch/store';
 import { workspaceIdParam } from '../../shared/route-params';
 
-const SPACE_NOT_FOUND = { error: 'Space not found', code: 'space_not_found' } as const;
+const SPACE_NOT_FOUND = { error: 'Channel not found', code: 'space_not_found' } as const;
 
 const ProactiveSchema = z.object({
   space_id: z.string(),
@@ -74,10 +74,10 @@ export function registerSpaceProactiveRoutes(): void {
       method: 'get',
       path: '/{workspaceId}/spaces/{spaceId}/proactive',
       tags: ['spaces'],
-      summary: 'Read a space’s Proactive settings',
+      summary: 'Read a channel’s Proactive settings',
       description:
-        'Whether the space’s watcher is on and whether it sends a daily brief. Off until someone turns it on. ' +
-        'Anyone who sees the space may read it. Flags `chat` and `spaces_proactive`.',
+        'Whether the channel’s watcher is on and whether it sends a daily brief. Off until someone turns it on. ' +
+        'Anyone who sees the channel may read it. Flags `chat` and `spaces_proactive`.',
       ...auth,
       request: { params },
       responses: { 200: json(ProactiveSchema, 'The settings'), ...errors(403, 404) },
@@ -94,11 +94,11 @@ export function registerSpaceProactiveRoutes(): void {
       method: 'put',
       path: '/{workspaceId}/spaces/{spaceId}/proactive',
       tags: ['spaces'],
-      summary: 'Change a space’s Proactive settings',
+      summary: 'Change a channel’s Proactive settings',
       description:
-        'Turn the space’s watcher on or off, and its daily brief at 09:00 in `brief_timezone`. The watcher reads what happens in the space ' +
+        'Turn the channel’s watcher on or off, and its daily brief at 09:00 in `brief_timezone`. The watcher reads what happens in the channel ' +
         '(finished threads, asks open over 2 h, people and agents who join) and posts, starts a thread or asks only when it matters, ' +
-        'for the space’s creator (a DM: its owner), with that person’s rights. At most 24 wakes a day. ' +
+        'for the channel’s creator (a DM: its owner), with that person’s rights. At most 24 wakes a day. ' +
         'Only the channel’s creator, a project manager or the DM’s owner may change it, and never with a session token: 403 `forbidden`. ' +
         'An unknown zone is 400 `invalid_timezone`. Flags `chat` and `spaces_proactive`.',
       ...auth,
@@ -110,7 +110,7 @@ export function registerSpaceProactiveRoutes(): void {
       if (found instanceof Response) return found;
       const { loaded, space, canEdit } = found;
       if (!canEdit) {
-        return c.json({ error: 'Only the space’s creator, a workspace manager or the DM’s owner can change Proactive.', code: 'forbidden' }, 403);
+        return c.json({ error: 'Only the channel’s creator, a workspace manager or the DM’s owner can change Proactive.', code: 'forbidden' }, 403);
       }
       const input = c.req.valid('json');
       if (input.brief_timezone !== undefined && !isTimeZone(input.brief_timezone)) {

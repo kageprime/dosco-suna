@@ -108,6 +108,34 @@ export function useBillingReturnUrl(): (param: BillingReturnParam) => string {
 }
 
 /**
+ * The Stripe customer portal returns with this marker. Its one plan change is
+ * a switch to the $0 Free price, so the return re-syncs the subscription
+ * (KRTX-1510): the plan moves without waiting for Stripe's webhook. No toast:
+ * most portal visits change a card or an address, not the plan.
+ *
+ * Its value is the account the portal managed (empty: the caller's own). Never
+ * `accountId`: that is the account hub's key, and `AccountHubRouter` would
+ * route the return away from the page it came back to.
+ */
+const PORTAL_RETURN_PARAM = 'billing_portal';
+
+/** The portal's `return_url`: `returnUrl` plus the marker naming the account it manages. */
+export function portalReturnUrl(returnUrl: string, accountId: string | undefined): string {
+  const url = new URL(returnUrl, window.location.origin);
+  url.searchParams.set(PORTAL_RETURN_PARAM, accountId ?? '');
+  return url.toString();
+}
+
+/** Pull the subscription across, then re-read the account state, failed sync or not. */
+export async function settlePortalReturn(queryClient: QueryClient, accountId?: string): Promise<void> {
+  try {
+    await syncSubscription(accountId);
+  } finally {
+    invalidateAccountState(queryClient, true, true, accountId);
+  }
+}
+
+/**
  * Re-read every model list the plan decides.
  *
  * `/model-picker` and `/model-defaults` are filtered by plan on the server: a
@@ -155,6 +183,13 @@ function stripParam(param: string) {
   window.history.replaceState(null, '', url.toString());
 }
 
+/** After a return moved the plan: the model lists, again past the API's plan cache, and the marker. */
+function finishReturn(queryClient: QueryClient, param: string) {
+  void refreshModelAvailability(queryClient);
+  setTimeout(() => void refreshModelAvailability(queryClient), API_BILLING_CACHE_TTL_MS);
+  stripParam(param);
+}
+
 /**
  * Runs the matching billing return, once, then strips the param so a refresh
  * cannot replay the celebration.
@@ -200,12 +235,20 @@ export function useBillingReturn(): void {
       } catch {
         invalidateAccountState(queryClient, true, true, accountId);
       } finally {
-        void refreshModelAvailability(queryClient);
-        setTimeout(() => void refreshModelAvailability(queryClient), API_BILLING_CACHE_TTL_MS);
-        stripParam(match.param);
+        finishReturn(queryClient, match.param);
       }
     })();
   }, [billingReturns, searchParams, queryClient, showCreditsAdded]);
+
+  const portalHandled = useRef(false);
+  useEffect(() => {
+    const portalAccountId = searchParams.get(PORTAL_RETURN_PARAM);
+    if (portalAccountId === null || portalHandled.current) return;
+    portalHandled.current = true;
+    void settlePortalReturn(queryClient, portalAccountId || undefined)
+      .catch(() => {})
+      .finally(() => finishReturn(queryClient, PORTAL_RETURN_PARAM));
+  }, [searchParams, queryClient]);
 }
 
 /** Mount once, app-wide. Renders only the top-up receipt, when it is open. */

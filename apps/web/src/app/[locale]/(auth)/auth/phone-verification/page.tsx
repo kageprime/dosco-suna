@@ -31,7 +31,6 @@ export default function PhoneVerificationPage() {
   const [challengeId, setChallengeId] = useState('');
   const [success, setSuccess] = useState<string | null>(null);
   const [isSubmittingPhone, setIsSubmittingPhone] = useState(false);
-  const [hasExistingFactor, setHasExistingFactor] = useState(false);
   const router = useRouter();
   const queryClient = useQueryClient();
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -69,7 +68,6 @@ export default function PhoneVerificationPage() {
     setStep('otp');
     factorId.current = factor.id;
     setPhoneNumber(factor.phone || '');
-    setHasExistingFactor(true);
     // Don't set challengeId yet - let user choose to send code
   }, [factors, isSubmittingPhone]);
 
@@ -98,7 +96,6 @@ export default function PhoneVerificationPage() {
       factorId.current = '';
       setPhoneNumber('');
       setChallengeId('');
-      setHasExistingFactor(false);
       setSuccess(t('phoneNumberRemoved'));
     } catch (err) {
       console.error('❌ Failed to unenroll factor:', err);
@@ -120,7 +117,6 @@ export default function PhoneVerificationPage() {
       setPhoneNumber(phone);
       factorId.current = enrollResponse.id;
       setStep('otp');
-      setHasExistingFactor(false);
     } catch (err) {
       console.error('❌ Phone submission failed:', err);
 

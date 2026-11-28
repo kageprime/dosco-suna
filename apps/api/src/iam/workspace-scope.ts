@@ -100,24 +100,5 @@ export const projectScopedNoJoin = (): SQL => projectScopeSql(unjoined());
  */
 export const objectGrantScoped = (): SQL => sql`${roleAssignments.scopeType} IN ('project', 'workspace')`;
 
-/**
- * Raw SQL with table aliases: `ra` is the `role_assignments` alias, `role` the
- * joined `roles` alias (or omitted: a correlated subquery reads it).
- */
-export function rawScopeColumns(ra: string, role?: string): GrantScopeColumns {
-  const alias = (name: string) => {
-    if (!/^[a-z_][a-z0-9_]*$/.test(name)) throw new Error(`invalid SQL alias: ${name}`);
-    return sql.raw(name);
-  };
-  const r = alias(ra);
-  return {
-    scopeType: sql`${r}.scope_type`,
-    objectType: sql`${r}.object_type`,
-    roleScopeType: role
-      ? sql`${alias(role)}.scope_type`
-      : sql`(SELECT wsr.scope_type FROM kortix.roles wsr WHERE wsr.role_id = ${r}.role_id)`,
-  };
-}
-
 /** A stored action string (`role_permissions.action`, `permissions.action`, `implies`), as the engine compares it. */
 export const storedAction = (action: string): string => toLegacyAction(action);

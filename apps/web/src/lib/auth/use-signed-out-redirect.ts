@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/features/providers/auth-provider';
+import { SESSION_ENDED_REASON } from '@/lib/auth/session-expiry';
 import { isSigningOut } from '@/lib/auth/sign-out-sequence';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -37,7 +38,9 @@ export function useSignedOutRedirect(): void {
     if (isSigningOut()) return;
     if (!isLoading && !user) {
       const returnPath = window.location.pathname + window.location.search;
-      router.replace(`/auth?redirect=${encodeURIComponent(returnPath)}`);
+      router.replace(
+        `/auth?redirect=${encodeURIComponent(returnPath)}&reason=${SESSION_ENDED_REASON}`,
+      );
     }
   }, [isLoading, user, router]);
 }

@@ -28,6 +28,8 @@ export interface ArtifactPerson {
 
 export interface Artifact {
   artifact_id: string;
+  /** Gallery folder only; does not change Files paths or access. */
+  folder_id?: string | null;
   project_id: string;
   title: string;
   description: string | null;
@@ -62,6 +64,7 @@ export interface Artifact {
 
 /** Where an artifact is grouped. Grouping only: it grants nothing. Null clears a field. */
 export interface ArtifactBindingInput {
+  folder_id?: string | null;
   /** A space slug. */
   space?: string | null;
   /** An agent name. Default on publish/share from a session: that session's agent. */
@@ -69,6 +72,8 @@ export interface ArtifactBindingInput {
 }
 
 export interface ListArtifactsOptions {
+  /** Omit for all folders; use root for unfiled artifacts. */
+  folder_id?: string;
   scope?: ArtifactListScope;
   type?: ArtifactType;
   q?: string;
@@ -277,4 +282,38 @@ export function parseArtifactUrl(url: string): { projectId: string | null; artif
   if (inProject) return { projectId: inProject[1]!.toLowerCase(), artifactId: inProject[2]!.toLowerCase() };
   const shared = ARTIFACT_PUBLIC.exec(path);
   return shared ? { projectId: null, artifactId: shared[1]!.toLowerCase() } : null;
+}
+
+/** A workspace-visible gallery folder. Membership never grants artifact access. */
+export interface ArtifactFolder {
+  folder_id: string;
+  project_id: string;
+  /** The folder this one sits in; null at the gallery root. */
+  parent_folder_id: string | null;
+  name: string;
+  icon: string | null;
+  icon_glyph: { name: string; color: string } | null;
+  can_manage: boolean;
+}
+
+export interface ArtifactFolderInput {
+  name: string;
+  /** Create inside, or move into, this folder; null moves it to the gallery root. */
+  parent_folder_id?: string | null;
+  icon?: string | null;
+  icon_glyph?: { name: string; color: string } | null;
+}
+
+export async function listArtifactFolders(projectId: string): Promise<ArtifactFolder[]> {
+  return unwrap(await backendApi.get<{ folders: ArtifactFolder[] }>(`${base(projectId)}/folders`)).folders;
+}
+export async function createArtifactFolder(projectId: string, input: ArtifactFolderInput): Promise<ArtifactFolder> {
+  return unwrap(await backendApi.post<ArtifactFolder>(`${base(projectId)}/folders`, input));
+}
+export async function updateArtifactFolder(projectId: string, folderId: string, input: Partial<ArtifactFolderInput>): Promise<ArtifactFolder> {
+  return unwrap(await backendApi.patch<ArtifactFolder>(`${base(projectId)}/folders/${encodeURIComponent(folderId)}`, input));
+}
+/** Removes the folder; its subfolders and artifacts move up one level. */
+export async function deleteArtifactFolder(projectId: string, folderId: string): Promise<void> {
+  unwrap(await backendApi.delete(`${base(projectId)}/folders/${encodeURIComponent(folderId)}`));
 }

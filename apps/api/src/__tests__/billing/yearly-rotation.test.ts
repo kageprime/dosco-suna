@@ -98,7 +98,7 @@ describe('processYearlyCreditRotation', () => {
     expect(walletResets[0].amount).toBe(50); // credits plan at $50/mo
 
     expect(walletResets[1].accountId).toBe('acc_yearly_2');
-    expect(walletResets[1].amount).toBe(200); // tier_25_200 = $200 monthly credits
+    expect(walletResets[1].amount).toBe(220); // tier_25_200 = $200 a month, +10% volume bonus
   });
 
   test('updates nextCreditGrant to 1 month later', async () => {

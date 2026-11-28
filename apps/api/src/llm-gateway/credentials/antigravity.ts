@@ -103,6 +103,118 @@ export async function refreshAntigravityToken(
 }
 
 /**
+ * Turn a stored auth blob into a usable credential. The caller owns the
+ * write-back: a project secret is written by name, a named account by its
+ * secret id (guarded against a refresh token another replica already used).
+ */
+async function credentialFromAuth(
+  auth: StoredAntigravityAuth | null,
+  persistAuth: (updatedAuth: StoredAntigravityAuth, usedRefresh?: string) => Promise<void>,
+): Promise<AntigravityCredential | null> {
+  if (!auth || (!auth.access && !auth.refresh)) return null;
+
+  if ((!auth.access || isTokenExpired(auth)) && auth.refresh) {
+    try {
+      const refreshed = await refreshAntigravityToken(auth.refresh, {
+        clientId: auth.client_id,
+        clientSecret: auth.client_secret,
+      });
+      const updatedAuth: StoredAntigravityAuth = {
+        ...auth,
+        access: refreshed.access_token,
+        expires: Date.now() + refreshed.expires_in * 1000,
+      };
+      await persistAuth(updatedAuth, auth.refresh);
+
+      let project = updatedAuth.project;
+      if (!project && updatedAuth.access) {
+        const access = updatedAuth.access;
+        project = (await discoverAntigravityProject(access).catch(() => null)) ?? undefined;
+        if (project) {
+          updatedAuth.project = project;
+          await persistAuth(updatedAuth, auth.refresh);
+        }
+      }
+
+      return {
+        access: updatedAuth.access!,
+        email: updatedAuth.email,
+        plan: updatedAuth.plan,
+        project,
+        refresh: updatedAuth.refresh,
+      };
+    } catch {
+      // Only fall back to the existing access token when it exists and is still
+      // genuinely unexpired (e.g. preemptive refresh hit a transient network hiccup).
+      if (!auth.access || !auth.expires || Date.now() >= auth.expires) return null;
+      let project = auth.project;
+      if (!project && auth.access) {
+        project = (await discoverAntigravityProject(auth.access).catch(() => null)) ?? undefined;
+        if (project) {
+          await persistAuth({ ...auth, project }, auth.refresh);
+        }
+      }
+      return {
+        access: auth.access,
+        email: auth.email,
+        plan: auth.plan,
+        project,
+        refresh: auth.refresh,
+      };
+    }
+  }
+
+  // An expired credential with no refresh token is a dead paste (a raw `ya29…`
+  // bearer): report it as unavailable instead of sending Google a rejected call.
+  if (!auth.access || isTokenExpired(auth)) return null;
+
+  let project = auth.project;
+  if (!project && auth.access) {
+    project = (await discoverAntigravityProject(auth.access).catch(() => null)) ?? undefined;
+    if (project) {
+      await persistAuth({ ...auth, project }, auth.refresh);
+    }
+  }
+
+  return {
+    access: auth.access,
+    email: auth.email,
+    plan: auth.plan,
+    project,
+    refresh: auth.refresh,
+  };
+}
+
+/**
+ * One named Antigravity account from an account secret resource. The caller
+ * attaches the secret id as `poolSecretId`, so a 429 rests this account and
+ * moves the same request to the next one (resolve-candidates.ts).
+ */
+export async function resolveAntigravityAccountCredential(input: {
+  projectId: string;
+  accountId: string;
+  userId: string;
+  sessionId?: string | null;
+  secretId: string;
+  value: string | null;
+  updatedAt: Date;
+  probe?: boolean;
+}): Promise<AntigravityCredential | null> {
+  const auth = parseAntigravityAuth(input.value);
+  if (!auth) return null;
+  const persistAuth = async (updatedAuth: StoredAntigravityAuth, usedRefresh?: string): Promise<void> => {
+    if (!usedRefresh) return;
+    await writeRotatedAccountLogin({
+      secretId: input.secretId,
+      usedRefresh,
+      refreshOf: (plaintext) => parseAntigravityAuth(plaintext)?.refresh,
+      value: JSON.stringify({ antigravity: updatedAuth }, null, 2),
+    }).catch(() => {});
+  };
+  return credentialFromAuth(auth, persistAuth);
+}
+
+/**
  * Resolves a valid Google Antigravity credential for a project/session, auto-refreshing if expired.
  */
 export async function resolveAntigravityCredential(
@@ -199,8 +311,6 @@ export async function resolveAntigravityCredential(
   if (!rawSecret) return null;
 
   const auth = parseAntigravityAuth(rawSecret);
-  if (!auth || (!auth.access && !auth.refresh)) return null;
-
   const persistAuth = async (updatedAuth: StoredAntigravityAuth, usedRefresh?: string): Promise<void> => {
     const updatedJson = JSON.stringify({ antigravity: updatedAuth }, null, 2);
     if (sourceIsAccountResource && sourceSecretId) {
@@ -221,77 +331,5 @@ export async function resolveAntigravityCredential(
     }
   };
 
-  if ((!auth.access || isTokenExpired(auth)) && auth.refresh) {
-    try {
-      const refreshed = await refreshAntigravityToken(auth.refresh, {
-        clientId: auth.client_id,
-        clientSecret: auth.client_secret,
-      });
-      const updatedAuth: StoredAntigravityAuth = {
-        ...auth,
-        access: refreshed.access_token,
-        expires: Date.now() + refreshed.expires_in * 1000,
-      };
-
-      await persistAuth(updatedAuth, auth.refresh);
-
-      let project = updatedAuth.project;
-      if (!project && updatedAuth.access) {
-        const access = updatedAuth.access;
-        project = (await discoverAntigravityProject(access).catch(() => null)) ?? undefined;
-        if (project) {
-          updatedAuth.project = project;
-          await persistAuth(updatedAuth, auth.refresh);
-        }
-      }
-
-      return {
-        access: updatedAuth.access!,
-        email: updatedAuth.email,
-        plan: updatedAuth.plan,
-        project,
-        refresh: updatedAuth.refresh,
-      };
-    } catch {
-      // Only fall back to the existing access token when it exists and is still
-      // genuinely unexpired (e.g. preemptive refresh hit a transient network hiccup).
-      if (!auth.access || !auth.expires || Date.now() >= auth.expires) {
-        return null;
-      }
-      let project = auth.project;
-      if (!project && auth.access) {
-        project = (await discoverAntigravityProject(auth.access).catch(() => null)) ?? undefined;
-        if (project) {
-          await persistAuth({ ...auth, project }, auth.refresh);
-        }
-      }
-      return {
-        access: auth.access,
-        email: auth.email,
-        plan: auth.plan,
-        project,
-        refresh: auth.refresh,
-      };
-    }
-  }
-
-  // An expired credential with no refresh token is a dead paste (a raw `ya29…`
-  // bearer): report it as unavailable instead of sending Google a rejected call.
-  if (!auth.access || isTokenExpired(auth)) return null;
-
-  let project = auth.project;
-  if (!project && auth.access) {
-    project = (await discoverAntigravityProject(auth.access).catch(() => null)) ?? undefined;
-    if (project) {
-      await persistAuth({ ...auth, project }, auth.refresh);
-    }
-  }
-
-  return {
-    access: auth.access,
-    email: auth.email,
-    plan: auth.plan,
-    project,
-    refresh: auth.refresh,
-  };
+  return credentialFromAuth(auth, persistAuth);
 }

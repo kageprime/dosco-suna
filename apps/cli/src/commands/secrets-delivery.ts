@@ -57,9 +57,11 @@ const BROKER_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTION
 type BrokerMethod = (typeof BROKER_METHODS)[number];
 
 /**
- * True when the error is the `secrets_egress` feature-flag gate — the 403
- * `{ error, code: 'feature_disabled', feature: 'secrets_egress' }` the API
- * returns when enforced exposure is entered with the flag off. Read the body
+ * True when the error is the retired `secrets_egress` feature-flag gate — the
+ * 403 `{ error, code: 'feature_disabled', feature: 'secrets_egress' }` that an
+ * API older than 2026-11-23 (a self-hosted install that has not upgraded)
+ * returns when enforced exposure is entered with the flag off. The flag
+ * graduated; a current API never sends it. Read the body
  * structurally (CLI `ApiError` keeps it in `.body`; an SDK `ApiError` in
  * `.details`/`.data` and lifts `code`), so a good hint rides alongside the
  * server's own verbatim message.
@@ -355,8 +357,8 @@ export async function secretsDelivery(
     }
     return 0;
   } catch (err) {
-    // Entering enforced exposure with the `secrets_egress` flag off returns the
-    // gate 403. `surfaceApiError` prints the server's verbatim message
+    // An API older than 2026-11-23, with the `secrets_egress` flag off, returns
+    // the gate 403. `surfaceApiError` prints the server's verbatim message
     // ("Network-Enforced Secrets is not enabled for this project. Enable it in
     // Settings → Feature flags."); add the actionable alternative so the user
     // does not have to enable the flag to make progress.

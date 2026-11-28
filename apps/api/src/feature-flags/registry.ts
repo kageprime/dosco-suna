@@ -104,10 +104,11 @@
  * that makes it the default, delete it in the next one. The comment on the
  * entry names the release and the spec section that ends it.
  *
- * The same state also serves INTERNAL-ONLY surfaces (`workspace_volume`):
- * not offered in Settings, on by the operator default or per project by a
- * Kortix operator on request. Their 403 says "contact Kortix" instead of
- * naming a toggle the caller cannot see (gate.ts).
+ * The same state also serves INTERNAL-ONLY surfaces: not offered in Settings,
+ * on by the operator default or per project by a Kortix operator on request.
+ * Their 403 says "contact Kortix" instead of naming a toggle the caller cannot
+ * see (gate.ts). No flag is hidden today: the last one, `workspace_volume`
+ * (stateless sandboxes), graduated on 2026-11-23.
  */
 import { config } from '../config';
 import { platinumUsRegion } from '../shared/platinum-region';
@@ -154,6 +155,13 @@ export interface FeatureFlagDef {
    * this file's header.
    */
   catalogHidden?: true;
+  /**
+   * Removed from the product as a switch: the catalog never lists it and no
+   * project can turn it on. `off`: it always resolves false (its code stays
+   * dormant). `channels`: it resolves exactly as the `channels` flag (merged
+   * into it); its own stored override is ignored.
+   */
+  withdrawn?: 'off' | 'channels';
   /**
    * IAM actions that exist only with this flag. The account permission catalog
    * (`GET /accounts/:id/iam/permissions`) leaves them out until a project of the
@@ -212,27 +220,13 @@ const FLAGS: readonly FeatureFlagDef[] = [
     // a project with the flag off (trigger-execution-store claimDueScheduleSlots).
     enforcement: 'routes',
   },
-  {
-    key: 'secrets_egress',
-    name: 'Network-Enforced Secrets',
-    description:
-      'Let a secret be enforced at the network instead of loaded into the sandbox: the sandbox holds a handle and Kortix substitutes the real value only on requests to approved hosts. Off ⇒ every secret loads into the sandbox environment and the "Enforce at the network" option is hidden.',
-    stability: 'experimental',
-    available: () => true,
-    // On by default (Marko, 2026-09-03). The OPTION is available; a new secret
-    // still defaults to an environment variable — enforcing at the network is
-    // a per-secret choice. A project that turns the flag off hides the option
-    // and the write routes refuse to move a secret into egress delivery.
-    platformDefault: () => true,
-    enforcement: 'behavioral',
-    enforcementNote:
-      'No dedicated routes. The secret write paths (POST /secrets in ' +
-      'projects/routes/secrets.ts, PUT /secrets/:id/strategy in ' +
-      'projects/routes/secret-delivery.ts) reject a request that ' +
-      'moves a secret INTO egress delivery when the flag is off. A secret that ' +
-      'is already egress keeps serving and stays editable, so turning the flag ' +
-      'off never strands an existing enforced secret.',
-  },
+  // `secrets_egress` graduated (2026-11-23): Network-Enforced Secrets is on for
+  // every project. Any secret's exposure can be set to enforced: the sandbox
+  // holds a handle and Kortix substitutes the value only on the approved hosts.
+  // A new secret still defaults to the environment. On by default since
+  // 2026-09-03; one prod project stored `false`. A stored
+  // `experimental.secrets_egress` override is inert. The project detail still
+  // sends the key as `true` for older SDKs, hosts and CLIs.
   // `pooled_provider_secrets` graduated (2026-11-12, Marko: "remove this as a
   // feature flag … 1 common across the board default"): every project has
   // named provider accounts with sharing, per-session key selection and named
@@ -361,10 +355,34 @@ const FLAGS: readonly FeatureFlagDef[] = [
   // account are the only connectors path. A stored override is inert; the
   // serializer keeps sending `true` for older clients.
   {
-    key: 'chat',
+    key: 'channels',
     name: 'Channels',
     description:
-      "Channels with Kortix, the way Slack works: every message is a thread, Kortix's newest reply shows under it, Kortix can start threads, and you share channels with people. Replaces the session list in the sidebar.",
+      "Slack-style channels and a chat with each of the workspace's agents, in one sidebar: Agents and Channels. Every message in a channel starts a thread. Replaces the session list; existing sessions move into #general.",
+    stability: 'experimental',
+    wip: true,
+    available: () => true,
+    platformDefault: () => false,
+    enforcement: 'routes',
+    enforcementNote:
+      'The one switch for channels, DMs and agent chats (product owner, 2026-11-26). `chat` is withdrawn into it: `chat` resolves exactly as `channels`, ' +
+      'so every `chat` gate below (spaces routes, chat threads, session filing, thread files, memory) follows this flag. A stored `experimental.chat` ' +
+      'override no longer counts: a project that had `chat` on turns `channels` on. PATCH /features with `chat` or `project_channels` writes `channels` ' +
+      '(released clients). Turning it on runs `chat`\'s toggle effects too: #general, and every session without a space filed into it ' +
+      '(feature-flags/write.ts, toggle-effects.ts). API: GET /agent-directory and POST /agent-directory/:name/pause answer 403 feature_disabled ' +
+      'while off (routes/agent-directory.ts); a paused agent starts no automatic trigger run only while on (lib/agent-directory.ts agentPauseReason). ' +
+      'BOX: a person\'s thread in their chat with an agent gets `kortix.agent_chat` in runtime_context (lib/session-create.ts), and pi adds the ' +
+      'reply note (harness/pi/agent-chat.ts). WEB: the chat sidebar shows Agents and Channels; /dm/:agent is the agent chat and is 404 while off. ' +
+      'The flag adds no table of its own (project_space_activity belongs to channels); turning it off loses no data.',
+  },
+  {
+    key: 'chat',
+    // Withdrawn into `channels` (product owner, 2026-11-26): one switch. `chat` stays the code's name
+    // for the channels and DMs and resolves exactly as `channels`. Its stored override no longer counts.
+    withdrawn: 'channels',
+    name: 'Slack-style Channels',
+    description:
+      "Use Slack-style channels and direct messages, where every message starts a thread. Switches the sidebar to the chat layout. Separate from Spaces, which groups sessions, files and tabs.",
     stability: 'experimental',
     wip: true,
     available: () => true,
@@ -378,7 +396,7 @@ const FLAGS: readonly FeatureFlagDef[] = [
       '(drives/service.ts sessionSpaceFolder; a private channel\'s as before). The conversation is never copied into files: ' +
       'each turn\'s system text names the thread\'s root session (read with `kortix sessions log <id>`), the thread folder ' +
       '(<space folder>/threads/<slug>-<id>/ with work/ and results/) and context.md. ' +
-      'STORED OVERRIDE: experimental.chat, else the legacy experimental.project_channels, else experimental.infinichat (explicitOverride). ' +
+      'RESOLUTION: exactly `channels` (withdrawn); experimental.chat, experimental.project_channels and experimental.infinichat are inert. ' +
       'BOX: absent from KORTIX_FEATURE_FLAGS (projects/lib/feature-flag-env.ts), so kortixd withholds the kortix-channel-memory skill; a change reaches the next new box. ' +
       'WEB: a Chat row (/projects/:id/chat) and the spaces list replace New session and the session list; /projects/:id/chat renders FeatureGateScreen while off. ' +
       'PRIVATE CHANNELS (shared/space-access.ts) are enforced whatever this flag says, and created only with KORTIX_PRIVATE_CHANNELS_ENABLED. ' +
@@ -404,34 +422,13 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'Grants made while on stay stored and count again when it is turned on; a change reaches running sessions at their next mount enforcement or boot. ' +
       'WEB: the Drive tree shows only My files while off (no Drives section, no All files, no Share).',
   },
-  {
-    key: 'workspace_volume',
-    // The key keeps its name: it is in the SDK's FeatureFlagKey and stored on projects.
-    name: 'Stateless sandboxes',
-    description:
-      "Every new Platinum session keeps only /workspace, on its own Platinum volume, so the sandbox is disposable: one stopped for an hour (KORTIX_SANDBOX_IDLE_DELETE_MINUTES) is deleted, and the next open boots a new sandbox on the same files and conversation. Programs that ran in the old sandbox are not running, and the agent is told so. Not a Settings toggle: Kortix turns it on.",
-    stability: 'experimental',
-    // Every workspace volume is a Platinum volume.
-    available: () => Boolean(config.PLATINUM_API_KEY),
-    // Off unless the operator sets KORTIX_WORKSPACE_VOLUMES=on (dev and prod
-    // do: deploy-dev.yml, deploy-prod.yml). Staging and self-host leave it unset.
-    platformDefault: () => workspaceVolumesSwitch() === 'on',
-    // Internal-only, never a Settings toggle. A Kortix operator sets one
-    // project's choice (PUT /v1/admin/api/projects/:id/features); `false` keeps
-    // that project off while the default is on.
-    catalogHidden: true,
-    enforcement: 'behavioral',
-    enforcementNote:
-      'BEHAVIORAL only. Read once per session, at POST /sessions (platform/services/workspace-volume.ts): on, a ' +
-      'Platinum session is inserted with `metadata.workspace_volume` and every box it ever gets mounts volume ' +
-      'kws-<session_id> at /workspace, in the region the volume was created in, with KORTIX_WORKSPACE_VOLUME=1 and ' +
-      'the session-log restore on. Turning the flag off changes no session that has a volume. ' +
-      'KORTIX_WORKSPACE_VOLUMES=on makes it the default for every project without its own choice; ' +
-      'KORTIX_WORKSPACE_VOLUMES=off stops new volumes everywhere. A box stopped longer than ' +
-      'KORTIX_SANDBOX_IDLE_DELETE_MINUTES (default 60) is deleted (projects/reaping/idle-volume-retire.ts). The ' +
-      'volume is deleted with the session content: by the retention purge after the trash window ' +
-      '(projects/session-log-purge.ts) or by account erasure.',
-  },
+  // `workspace_volume` graduated (2026-11-23): stateless sandboxes are the
+  // default. Every new Platinum session keeps /workspace on its own volume
+  // (platform/services/workspace-volume.ts), and a box stopped for
+  // KORTIX_SANDBOX_IDLE_DELETE_MINUTES is replaced on the next open. The only
+  // off switch is the deployment's KORTIX_WORKSPACE_VOLUMES=off. A stored
+  // `experimental.workspace_volume` override is inert; the serializer sends
+  // whether new sessions get a volume, for older SDKs, hosts and CLIs.
   {
     key: 'session_groups',
     // Product word "Spaces" since 2026-11-17; the key keeps its name (stored on projects).
@@ -451,25 +448,15 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'SESSIONS: session create ignores `group_id` while off. On, every session of a space (a child: its parent\'s) gets the "## This space" ' +
       'turn text (projects/lib/session-where.ts: name, description, mounted folder) and mounts /Spaces/<group_id> read-write at /drives/space (drives/service.ts sessionGroupFolder). SHARING: a group is private to its creator by default; sharing it (people or the whole project) shares every session in it and its folder (shared/session-group-access.ts).',
   },
-  {
-    key: 'chrome',
-    name: 'Kortix in Chrome',
-    description:
-      "Let a session drive your own Chrome, with your logins, through the Kortix in Chrome extension: it opens its tabs in a group named after the session, and you can take over or stop it at any time.",
-    stability: 'experimental',
-    // Where the API serves /v1/chrome (KORTIX_CHROME_ENABLED: local, dev, staging, prod).
-    available: () => config.KORTIX_CHROME_ENABLED,
-    // Launched 2026-11-21: the extension is public in the Chrome Web Store, so
-    // every project gets it where the API serves the routes.
-    platformDefault: () => true,
-    enforcement: 'routes',
-    enforcementNote:
-      'ROUTES: POST /v1/chrome/attach answers 403 `feature_disabled` when the calling session\'s project has it ' +
-      'off (chrome/routes.ts); release stays open so a session can always let go. The browsers a person ' +
-      'connected are account-level and gated only by KORTIX_CHROME_ENABLED (404 when off). BOX: off, the ' +
-      'session has no kortix-chrome skill and its CLI hides and refuses `kortix chrome` (KORTIX_FEATURE_FLAGS). ' +
-      'WEB: no Chrome card in Apps and extensions and no Chrome promo card. Settings → Kortix in Chrome is account-level and stays.',
-  },
+  // `chrome` graduated (2026-11-24): Kortix in Chrome is on for every project
+  // wherever the API serves /v1/chrome. The deployment's KORTIX_CHROME_ENABLED
+  // is the only off switch (dev, staging and prod set it; self-host does not).
+  // Each person still decides per browser: the extension, its Access mode and
+  // Stop. A stored `experimental.chrome` override is inert. The box keeps
+  // listing `chrome` in KORTIX_FEATURE_FLAGS where the API serves it
+  // (projects/lib/feature-flag-env.ts): kortixd withholds the kortix-chrome
+  // skill without it, and CLIs built before then hide `kortix chrome`.
+  // The serializer sends `experimental.chrome` = KORTIX_CHROME_ENABLED.
   {
     key: 'agent_teams',
     name: 'Agent teams',
@@ -507,7 +494,9 @@ const FLAGS: readonly FeatureFlagDef[] = [
   },
   {
     key: 'chat_input',
-    name: 'Spaces-ChatInput',
+    // Withdrawn (product owner, 2026-11-25): not part of Channels. Always off, not listed; its code stays dormant.
+    withdrawn: 'off',
+    name: 'Channels-ChatInput',
     description:
       'One control under the composer for who answers and how: pick the agent, and every other setting stays on Auto, inherited from that agent. Open a row to override the model, thinking effort, secrets, provider keys or sandbox for this session, and reset it to Auto in one click.',
     stability: 'experimental',
@@ -523,9 +512,11 @@ const FLAGS: readonly FeatureFlagDef[] = [
   },
   {
     key: 'chat_front',
-    name: 'Spaces-Router',
+    // Withdrawn (product owner, 2026-11-25): not part of Channels. Always off, not listed; its code stays dormant.
+    withdrawn: 'off',
+    name: 'Channels-Router',
     description:
-      'With Spaces on, the agent you chat with in a thread is a router: it does quick work itself (an answer, a short text, a look at the thread files) and hands longer work to the Space\'s agents. It writes back like a person, in short messages. An agent saves its full result as a file in the thread, and the router links that file instead of retyping it. Show work under a message opens the work behind it. Needs My Kortix on in kortix.yaml.',
+      'With Slack-style Channels on, the agent you chat with in a thread is a router: it does quick work itself (an answer, a short text, a look at the thread files) and hands longer work to the channel\'s agents. It writes back like a person, in short messages. An agent saves its full result as a file in the thread, and the router links that file instead of retyping it. Show work under a message opens the work behind it. Needs My Kortix on in kortix.yaml.',
     stability: 'experimental',
     wip: true,
     available: () => true,
@@ -547,9 +538,11 @@ const FLAGS: readonly FeatureFlagDef[] = [
   },
   {
     key: 'spaces_proactive',
-    name: 'Spaces-Proactive',
+    // Withdrawn (product owner, 2026-11-25): not part of Channels. Always off, not listed; its code stays dormant.
+    withdrawn: 'off',
+    name: 'Channels-Proactive',
     description:
-      'With Spaces on, a space can watch itself: turn on Proactive in its details, and an agent reads what happens there (finished threads, questions left open, people who join) and writes in the chat only when it matters: a result worth sharing, a decision you need to make, or something overdue. It can also start a thread that does the work. Optional daily brief at 9:00.',
+      'With Slack-style Channels on, a channel can watch itself: turn on Proactive in its details, and an agent reads what happens there (finished threads, questions left open, people who join) and writes in the chat only when it matters: a result worth sharing, a decision you need to make, or something overdue. It can also start a thread that does the work. Optional daily brief at 9:00.',
     stability: 'experimental',
     wip: true,
     available: () => true,
@@ -610,6 +603,20 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'Off, the desktop title bar is the one it was before, and the tabs saved in the window\'s local storage stay until the flag is on again.',
   },
   {
+    key: 'review_swipe',
+    name: 'Review cards',
+    description:
+      "The Review page's Needs you opens as a swipe deck: one item per card. Swipe right to approve or merge, left to send it back to the agent with what should change.",
+    stability: 'experimental',
+    available: () => true,
+    platformDefault: () => false,
+    enforcement: 'ui-only',
+    enforcementNote:
+      'UI-ONLY: the deck is another view of the same review items (packages/ui/src/workspace/review/review-swipe-deck.tsx, ' +
+      'apps/mobile/components/review/ReviewSwipeDeck.tsx). Every verdict goes through the routes the list already uses, ' +
+      'so the server has nothing to refuse. Off, Needs you is the list.',
+  },
+  {
     key: 'calendar',
     name: 'Calendar',
     description:
@@ -627,6 +634,38 @@ const FLAGS: readonly FeatureFlagDef[] = [
       'of a workspace where the flag is on, from the /detail it already reads. SIDEBAR: off, the Calendar row and its query never mount. DOCS: the audit action reference leaves project.calendar.* out. BOX: off, a session box has no kortix-calendar skill and its CLI hides `kortix calendar` ' +
       '(KORTIX_FEATURE_FLAGS → kortixd). WEB: no Calendar row and no palette entry; /workspaces/:id/calendar renders FeatureGateScreen. ' +
       'The calendar_items and calendar_comments rows stay.',
+  },
+  {
+    key: 'platinum_cache',
+    name: 'Workspace cache',
+    description:
+      'New sessions start with /workspace restored from this project\'s saved workspace cache on Platinum: a prepared checkout with its node_modules and pnpm store, in about a second instead of minutes of setup. A project admin saves a prepared session as the cache. Off, every session starts with an empty /workspace.',
+    stability: 'experimental',
+    // The cache is a Platinum volume feature: no Platinum, no cache.
+    available: () => Boolean(config.PLATINUM_API_KEY),
+    platformDefault: () => false,
+    enforcement: 'behavioral',
+    enforcementNote:
+      'Decided once, at POST /sessions (projects/lib/session-create.ts): with the flag on, the session\'s kws-<session_id> volume is restored from ' +
+      'the Platinum cache namespace `proj:<project_id>:ws` (newest key starting `ws-`) instead of created empty, and the session record keeps ' +
+      '`workspace_volume.cache`. A failed restore falls back to an empty volume, so the flag can never fail a session. BOX: a recorded cache gives ' +
+      'the box KORTIX_WORKSPACE_CACHE and npm_config_store_dir=/workspace/.pnpm-store (platform/services/workspace-volume.ts). API: ' +
+      'POST and GET /v1/projects/:id/workspace-cache (project admins) answer 403 feature_disabled while it is off. Turning it off changes the next ' +
+      'new session only; saved entries stay in Platinum until their idle TTL.',
+  },
+  {
+    key: 'sidebar_rail',
+    name: 'Sidebar rail',
+    description:
+      'On desktop, a fixed icon rail sits beside the sidebar: Home, Search and More at the top, Help, Customize and the panel toggle at the bottom. More lists every other page, and a pin on a row puts that page on the rail. With the panel collapsed, hovering Home, Spaces or Customize shows the panel on that list.',
+    stability: 'experimental',
+    wip: true,
+    available: () => true,
+    platformDefault: () => false,
+    enforcement: 'ui-only',
+    enforcementNote:
+      'UI-ONLY: the web project sidebar (packages/ui/src/workspace/sidebar/project-sidebar.tsx) mounts ProjectRail on desktop while this is on. ' +
+      'Off, the sidebar is unchanged. Mobile never shows the rail. No route reads it. BOX: listed in KORTIX_FEATURE_FLAGS like every enabled flag; nothing in the box reads it.',
   },
 ];
 
@@ -656,10 +695,8 @@ function overridesOf(metadata: unknown): Record<string, unknown> {
 /** Read a single project's explicit override for a flag. Non-boolean garbage
  *  in the stored map is treated as "no override". */
 function explicitOverride(metadata: unknown, key: FeatureFlagKey): boolean | undefined {
-  const map = overridesOf(metadata);
-  // `chat` merged Channels (`project_channels`) and One chat (`infinichat`), 2026-11: a project keeps its old choice.
-  const stored = key === 'chat' ? [map.chat, map.project_channels, map.infinichat] : [map[key]];
-  return stored.find((value): value is boolean => typeof value === 'boolean');
+  const value = overridesOf(metadata)[key];
+  return typeof value === 'boolean' ? value : undefined;
 }
 
 /**
@@ -670,6 +707,9 @@ function explicitOverride(metadata: unknown, key: FeatureFlagKey): boolean | und
 export function resolveFeatureFlag(metadata: unknown, key: FeatureFlagKey): boolean {
   const def = FLAG_BY_KEY[key];
   if (!def || !def.available()) return false;
+  if (def.withdrawn === 'off') return false;
+  // Withdrawn into `channels`: exactly its value. The flag's own stored override no longer counts.
+  if (def.withdrawn === 'channels') return resolveFeatureFlag(metadata, 'channels');
   return explicitOverride(metadata, key) ?? def.platformDefault();
 }
 
@@ -725,6 +765,8 @@ export interface FeatureFlagView {
  */
 export function buildFeatureFlagCatalog(metadata: unknown): FeatureFlagView[] {
   return FLAGS.flatMap((f) => {
+    // A withdrawn flag is no switch: never listed.
+    if (f.withdrawn) return [];
     const enabled = resolveFeatureFlag(metadata, f.key);
     if (f.catalogHidden && !enabled) return [];
     return [{
@@ -741,18 +783,6 @@ export function buildFeatureFlagCatalog(metadata: unknown): FeatureFlagView[] {
       scope: 'project' as const,
     }];
   });
-}
-
-/**
- * KORTIX_WORKSPACE_VOLUMES: `on` (or 1/true/yes) makes `workspace_volume` the
- * default for a project without its own choice; `off` (or 0/false/no) gives
- * no new session a volume; unset or anything else leaves it to each project.
- */
-export function workspaceVolumesSwitch(): 'on' | 'off' | null {
-  const value = (config.KORTIX_WORKSPACE_VOLUMES ?? '').trim().toLowerCase();
-  if (/^(1|on|true|yes)$/.test(value)) return 'on';
-  if (/^(0|off|false|no)$/.test(value)) return 'off';
-  return null;
 }
 
 /** True when only a platform operator may write this flag. */

@@ -96,6 +96,25 @@ test('a restore that outlives the inline wait gets its second /start when it lan
   ]);
 }, 15_000);
 
+// KRTX-1642: the wake records an archive-restore phase from these reports.
+test('a restore that lands before the first poll is still reported as a restore', async () => {
+  starts = [restoring, ok('starting')];
+  gets = [ok('stopped')];
+  const renewals: string[] = [];
+  await (await provider()).start('sbx_1', { onProgress: async (kind) => void renewals.push(kind) });
+  expect(events).toEqual(['POST 202', 'GET stopped', 'POST 200']);
+  expect(renewals).toEqual(['archive']);
+}, 15_000);
+
+test('a joined start that turns out to be a restore reports the restore at once', async () => {
+  starts = [conflict, ok('starting')];
+  gets = [ok('starting'), ok('unarchiving'), ok('stopped')];
+  const renewals: string[] = [];
+  await (await provider()).start('sbx_1', { onProgress: async (kind) => void renewals.push(kind) });
+  expect(events).toEqual(['POST 409', 'GET starting', 'GET unarchiving', 'GET stopped', 'POST 200']);
+  expect(renewals).toEqual(['wait', 'archive']);
+}, 15_000);
+
 test('a /start the client gave up on is followed through, not failed', async () => {
   // Platinum was still inside its inline wait when the call timed out; the
   // restore carries on server-side and needs its /start when it lands.
@@ -153,19 +172,20 @@ test('losing the race to the post-restore /start still sees the box up', async (
 }, 15_000);
 
 test("a long restore renews the caller's lease as it goes, and a failed renewal is not fatal", async () => {
-  // Each poll costs 20 fake seconds: renewals land on the first in-progress
-  // read and then once per 30 s, at t = 20, 60 and 100 s.
+  // Each poll costs 20 fake seconds: renewals land on the 202 (t = 0) and
+  // then once per 30 s, at t = 40 and 80 s.
   getAdvancesMs = 20_000;
   starts = [restoring, ok('starting')];
   gets = [...Array(5).fill(ok('unarchiving')), ok('stopped')];
-  let renewals = 0;
+  const renewals: string[] = [];
   await (await provider()).start('sbx_1', {
-    onProgress: async () => {
-      renewals += 1;
-      if (renewals === 1) throw new Error('lease write failed');
+    onProgress: async (kind) => {
+      renewals.push(kind);
+      if (renewals.length === 1) throw new Error('lease write failed');
     },
   });
-  expect(renewals).toBe(3);
+  // Each renewal says it waited on the archive (KRTX-1642: the wake's phase).
+  expect(renewals).toEqual(['archive', 'archive', 'archive']);
   expect(events).toEqual([
     'POST 202',
     ...Array(5).fill('GET unarchiving'),
@@ -204,12 +224,12 @@ test('a start another caller is running past the stop grace is joined, not faile
   getAdvancesMs = 20_000;
   starts = [conflict];
   gets = [...Array(4).fill(ok('starting')), ok('running')];
-  let renewals = 0;
-  await (await provider()).start('sbx_1', { onProgress: async () => void (renewals += 1) });
+  const renewals: string[] = [];
+  await (await provider()).start('sbx_1', { onProgress: async (kind) => void renewals.push(kind) });
   expect(events).toEqual(['POST 409', ...Array(4).fill('GET starting'), 'GET running']);
   // The waiting caller keeps its lease: on the first read (t = 20 s), then
-  // per 30 s (t = 60 s).
-  expect(renewals).toBe(2);
+  // per 30 s (t = 60 s). Joining a start is a wait, not an archive restore.
+  expect(renewals).toEqual(['wait', 'wait']);
 }, 15_000);
 
 test('a 202 for a start in flight (or a relocation in progress) is waited on inside start()', async () => {
@@ -237,8 +257,12 @@ test('a host-saturated 503 is retried until the host has room', async () => {
     { status: 503, state: 'stopped', code: 'capacity' },
     ok('starting'),
   ];
-  await (await provider()).start('sbx_1');
+  const renewals: string[] = [];
+  await (await provider()).start('sbx_1', { onProgress: async (kind) => void renewals.push(kind) });
   expect(events).toEqual(['POST 503', 'POST 503', 'POST 200']);
+  // The caller's lease is kept, and the wait is not reported as an archive
+  // restore (KRTX-1642).
+  expect(renewals).toEqual(['wait']);
 }, 15_000);
 
 test('a 503 that is not a retry-later relocation fails the start at once', async () => {

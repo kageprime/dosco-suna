@@ -47,11 +47,12 @@ import { qualifiedColumn } from '../../shared/sql-qualified-column';
 import { hasAccountSessionOversight } from '../../iam/session-oversight';
 import { sharedGroupIdsWhileOn } from './session-group-viewer';
 
-import { accountGroupMembers, projectSessionGrants, projectSessions, projectSpaces, sessionSandboxes } from '@kortix/db';
+import { accountGroupMembers, projectSessionGrants, projectSessions, projectSpaces, serviceAccounts, sessionSandboxes } from '@kortix/db';
 import { and, desc, eq, getTableColumns, gte, inArray, isNull, lt, notInArray, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { SessionStartedByFilter } from './session-initiator';
 import { hiddenSpaceIds } from '../../shared/space-access';
+import { foreignDmSpaceIds, myKortixPersonId } from './my-kortix-person';
 import { resolveSessionOwnerIdentities, viewerManagerStanding } from './access';
 import { SESSION_DELETE_ROWS_DAYS } from '../session-log-purge';
 import { RUNNING_SANDBOX_STATUSES } from '../session-turn-ledger';
@@ -270,6 +271,14 @@ const triggerCreatedSql = sql`(jsonb_typeof(${projectSessions.metadata} -> 'sour
   and ${projectSessions.metadata} ->> 'trigger_kind' = 'git'
   and jsonb_typeof(${projectSessions.metadata} -> 'trigger_slug') = 'string'
   and ${projectSessions.metadata} ->> 'trigger_slug' <> '')`;
+/**
+ * No person owns the row: `created_by` is empty or names a service account of
+ * the row's account. The SQL twin of `sessionOwnerIsMachine`.
+ */
+const machineOwnedSql = sql`(${qualifiedColumn(projectSessions.createdBy)} is null or exists (
+  select 1 from ${serviceAccounts} as owner_sa
+   where owner_sa.service_account_id = ${qualifiedColumn(projectSessions.createdBy)}
+     and owner_sa.account_id = ${qualifiedColumn(projectSessions.accountId)}))`;
 
 /** Who reads the list, with the verdicts the page needs before its first row. */
 export interface SessionListViewer {
@@ -281,8 +290,16 @@ export interface SessionListViewer {
   canManageProject: boolean;
   /** `hasAccountSessionOversight`. Applied to the `project` scope only. */
   accountSessionOversight: boolean;
+  /**
+   * A My Kortix token whose person has manager standing
+   * (`my-kortix-person.ts`): it lists the trigger runs its person lists, when
+   * no person owns them and they are not in another member's DM. Absent: false.
+   */
+  myKortixTriggerRuns?: boolean;
   /** Recently deleted: `SessionListFilter.deleted`. */
   deleted?: boolean;
+  /** Content read authorization keeps tombstones; session lists never opt in. */
+  allowDeleted?: boolean;
   /** The private channels the viewer may not see (`hiddenSpaceIds`). REQUIRED: their sessions never list. */
   hiddenSpaceIds: ReadonlySet<string>;
   /**
@@ -333,9 +350,7 @@ export function sessionListViewerSql(viewer: SessionListViewer): SQL {
       sql`(${t.metadata} ? 'deletedAt') is true
         and ${t.metadata} ->> 'deletedAt' > ${restorableSinceIso()}
         ${viewer.canManageProject ? sql`` : sql`and ${t.createdBy} = ${viewer.viewerId}`}`
-    : viewer.scope === 'visible'
-      ? liveSessionSql
-      : undefined;
+    : viewer.allowDeleted ? undefined : liveSessionSql;
   // A session-bound credential reaches its own session and the ones it spawned.
   const own = bound === null
     ? undefined
@@ -374,6 +389,13 @@ export function sessionListViewerSql(viewer: SessionListViewer): SQL {
             bound === null && viewer.canManageProject
               ? sql`(${t.initiatorType} = 'trigger' or ${triggerCreatedSql})`
               : undefined,
+            // My Kortix lists them with its person's standing, when no person owns them.
+            bound !== null && viewer.myKortixTriggerRuns
+              ? sql`((${t.initiatorType} = 'trigger' or ${triggerCreatedSql}) and ${machineOwnedSql}
+                  and not exists (select 1 from ${projectSpaces} as mk_dm
+                     where mk_dm.space_id = ${qualifiedColumn(t.spaceId)} and mk_dm.kind = 'dm'
+                       and mk_dm.dm_user_id is distinct from ${viewer.viewerId}::uuid))`
+              : undefined,
             byRules,
           ),
         );
@@ -388,10 +410,6 @@ export function sessionListViewerSql(viewer: SessionListViewer): SQL {
     : canAccess === undefined
       ? undefined
       : and(spaceVisible, canAccess);
-  // The `project` scope has no tombstone rule: it lists soft-deleted rows too,
-  // so it never detoasts `metadata` (~6 KB a row) for one. The `visible` scope
-  // keeps the AND, which the partial index `idx_project_sessions_project_live`
-  // and the keyset pages need.
   return and(tombstone, access) ?? sql`true`;
 }
 
@@ -486,6 +504,8 @@ async function foldSessionRows(
     hiddenSpaceIds: ReadonlySet<string>;
     readerPrincipal: TriggerReaderPrincipal;
     sharedGroupIds: ReadonlySet<string>;
+    myKortixTriggerRuns: boolean;
+    myKortixForeignDms: ReadonlySet<string>;
   },
 ) {
   const { input, canManageProject, subject, accountSessionOversight, grantsBySession, ownerIdentities, runtimeStatusBySession, userStates } = ctx;
@@ -548,6 +568,9 @@ async function foldSessionRows(
     hiddenSpaceIds: ctx.hiddenSpaceIds,
     sharedGroupIds: ctx.sharedGroupIds,
     parentGroupIds,
+    myKortixTriggerRuns: ctx.myKortixTriggerRuns,
+    myKortixForeignDms: ctx.myKortixForeignDms,
+    machineOwnerIds: new Set([...rowOwners].flatMap(([ownerId, owner]) => (owner.type === 'service_account' ? [ownerId] : []))),
   });
 }
 
@@ -785,11 +808,22 @@ export async function loadProjectSessionInventory(input: {
   // The private channels this viewer may not see: the page WHERE and the fold both drop their sessions.
   const hiddenRead = hiddenSpaceIds(input.projectId, input.userId, input.boundCredentialSessionId);
   hiddenRead.catch(() => undefined);
+  // A My Kortix token lists the trigger runs its person lists (`my-kortix-person.ts`):
+  // the same manager probe, evaluated as the person. Every other bound token: false.
+  const myKortixTriggerRunsRead = (input.boundCredentialSessionId !== null
+    ? myKortixPersonId(input.actor, input.boundCredentialSessionId)
+    : Promise.resolve(null)
+  ).then((person) => (person === input.userId ? input.probeManageCapability() : false));
+  myKortixTriggerRunsRead.catch(() => undefined);
+  const myKortixForeignDmsRead = myKortixTriggerRunsRead.then((on) =>
+    on ? foreignDmSpaceIds(input.projectId, input.userId) : new Set<string>(),
+  );
+  myKortixForeignDmsRead.catch(() => undefined);
   // The Spaces this viewer sees: the page WHERE and the fold both list their sessions. An agent principal never widens.
   const sharedRead = input.agentPrincipal === true ? Promise.resolve(new Set<string>()) : sharedGroupIdsWhileOn(input.projectId, input.userId);
   sharedRead.catch(() => undefined);
   const sharedGroupIds = await sharedRead;
-  const viewerSql = (canManageProject: boolean, accountSessionOversight: boolean, hidden: ReadonlySet<string>) =>
+  const viewerSql = (canManageProject: boolean, accountSessionOversight: boolean, hidden: ReadonlySet<string>, myKortixTriggerRuns: boolean) =>
     sessionListViewerSql({
       scope: input.scope,
       readerPrincipal,
@@ -798,6 +832,7 @@ export async function loadProjectSessionInventory(input: {
       agentPrincipal: input.agentPrincipal === true,
       canManageProject,
       accountSessionOversight,
+      myKortixTriggerRuns,
       deleted: filter.deleted === true,
       hiddenSpaceIds: hidden,
       sharedGroupIds,
@@ -806,8 +841,8 @@ export async function loadProjectSessionInventory(input: {
   // the first chunk starts once both are in. It does not wait for the share
   // subject: the WHERE reads the viewer's groups itself, and the subject feeds
   // only the fold that re-checks each row.
-  const firstChunkRead = Promise.all([standingRead, oversightRead, hiddenRead]).then(([allowed, oversight, hidden]) =>
-    managerInventory && !allowed ? [] : readChunk(cursor, viewerSql(allowed, oversight, hidden)),
+  const firstChunkRead = Promise.all([standingRead, oversightRead, hiddenRead, myKortixTriggerRunsRead]).then(([allowed, oversight, hidden, myKortix]) =>
+    managerInventory && !allowed ? [] : readChunk(cursor, viewerSql(allowed, oversight, hidden, myKortix)),
   );
   // Both are awaited after the caller reads. A rejection surfaces there, in
   // the original order, and must not be unhandled before.
@@ -837,7 +872,9 @@ export async function loadProjectSessionInventory(input: {
 
   const accountSessionOversight = await oversightRead;
   const hidden = await hiddenRead;
-  const pageSql = viewerSql(canManageProject, accountSessionOversight, hidden);
+  const myKortixTriggerRuns = await myKortixTriggerRunsRead;
+  const myKortixForeignDms = await myKortixForeignDmsRead;
+  const pageSql = viewerSql(canManageProject, accountSessionOversight, hidden, myKortixTriggerRuns);
 
   const items: SessionInventoryItem[] = [];
   const scannedRows: ProjectSessionRow[] = [];
@@ -866,6 +903,8 @@ export async function loadProjectSessionInventory(input: {
       hiddenSpaceIds: hidden,
       readerPrincipal,
       sharedGroupIds,
+      myKortixTriggerRuns,
+      myKortixForeignDms,
     });
 
   for (let pass = 0; pass < MAX_CHUNKS && items.length < limit; pass += 1) {

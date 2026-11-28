@@ -223,6 +223,25 @@ async function processByoEventCallback(envelope: SlackEnvelope, inbound: Project
   await dispatchSlackEvent(inbound.projectId, envelope, { ownThreadsOnly: true });
 }
 
+// The 200 body is `{ok:true}` Slack never reads — ack fast
+// (EVENT_ACK_WAIT_MS) and let the work finish detached. A failure that
+// lands after the ack is enqueued for durable redelivery (Slack will not
+// retry a 2xx, and releasing the claim alone schedules nothing).
+async function acknowledgeSlackEvent(
+  c: { json(object: unknown, status?: 200 | 500): Response },
+  envelope: SlackEnvelope,
+  inbound?: ProjectSlackInbound,
+): Promise<Response> {
+  const outcome = await runWebhookWork(inbound ? 'slack-byo-event' : 'slack-oauth-event', () =>
+    inbound ? processByoEventCallback(envelope, inbound) : processOauthEventCallback(envelope), {
+    ackWaitMs: EVENT_ACK_WAIT_MS,
+    onFailure: (info) =>
+      info.acked ? enqueueSlackEventRedelivery(envelope, inbound, { claimsReleased: info.claimsReleased }) : undefined,
+  });
+  if (outcome === 'failed') return c.json({ error: 'processing failed' }, 500);
+  return c.json({ ok: true });
+}
+
 /** The redelivery job's ack-budget warn point, and the claim visibility that must exceed the work's worst run. */
 const SLACK_REDELIVERY_WAIT_MS = 5 * 60_000;
 const SLACK_REDELIVERY_VISIBILITY_MS = 10 * 60_000;
@@ -357,19 +376,7 @@ export function registerSlackWebhookRoutes(): void {
       if (!envelope) return c.json({ error: 'Invalid JSON' }, 400);
       if (envelope.type === 'url_verification') return c.json({ challenge: envelope.challenge });
       if (envelope.type !== 'event_callback' || !envelope.event) return c.json({ ok: true });
-      // The 200 body is `{ok:true}` Slack never reads — ack fast
-      // (EVENT_ACK_WAIT_MS) and let the work finish detached. A failure that
-      // lands after the ack is enqueued for durable redelivery (Slack will not
-      // retry a 2xx, and releasing the claim alone schedules nothing).
-      const outcome = await runWebhookWork('slack-oauth-event', () => processOauthEventCallback(envelope), {
-        ackWaitMs: EVENT_ACK_WAIT_MS,
-        onFailure: (info) =>
-          info.acked ? enqueueSlackEventRedelivery(envelope, undefined, { claimsReleased: info.claimsReleased }) : undefined,
-
-      });
-      if (outcome === 'failed') return c.json({ error: 'processing failed' }, 500);
-
-      return c.json({ ok: true });
+      return acknowledgeSlackEvent(c, envelope);
     },
   );
 
@@ -478,13 +485,7 @@ export function registerSlackWebhookRoutes(): void {
       // The 200 body is `{ok:true}` Slack never reads — ack fast
       // (EVENT_ACK_WAIT_MS) and let the work finish detached; a post-ack
       // failure is enqueued for durable redelivery (see the canonical route).
-      const outcome = await runWebhookWork('slack-byo-event', () => processByoEventCallback(envelope, inbound), {
-        ackWaitMs: EVENT_ACK_WAIT_MS,
-        onFailure: (info) =>
-          info.acked ? enqueueSlackEventRedelivery(envelope, inbound, { claimsReleased: info.claimsReleased }) : undefined,
-      });
-      if (outcome === 'failed') return c.json({ error: 'processing failed' }, 500);
-      return c.json({ ok: true });
+      return acknowledgeSlackEvent(c, envelope, inbound);
     },
   );
 

@@ -34,6 +34,9 @@ export interface AuthVariables {
   apiKeyType?: 'user' | 'sandbox';
   /** Sign in with Kortix: the OAuth client the `kortix_oat_` token was minted for. */
   oauthClientId?: string;
+  /** Sign in with Kortix: the App whose viewer token this is. Unset for a
+   *  token a person granted on the consent screen. */
+  oauthAppId?: string;
   /** Sign in with Kortix: scopes granted to the token (`profile`, `email`, `kortix`). */
   oauthScopes?: string[];
   /** Sign in with Kortix: the `oauth_access_tokens` row id of the token. */

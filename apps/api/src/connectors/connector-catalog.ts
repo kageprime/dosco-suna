@@ -112,6 +112,8 @@ export interface ConnectorCatalogItem {
   /** Connects with nothing to set up: a public or self-registering MCP server
    *  (`one-click-mcp.json`), a Dosco catalogue app, or a managed toolkit. */
   oneClick?: boolean;
+  /** What a sign-in lets agents do, in plain words (Kortix catalogue apps with known scopes). */
+  access?: string;
   /** The toolkit a `composio` record installs. */
   composio?: ComposioCatalogCard;
   /** The Dosco integration a `kortix` record sets up. */

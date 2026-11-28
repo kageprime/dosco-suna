@@ -175,7 +175,7 @@ export function MaintenanceBanner({ config }: MaintenanceBannerProps) {
         >
           <div
             className={cn(
-              'bg-background relative flex items-start gap-3 rounded-[0.64rem] border p-4 shadow-lg',
+              'bg-background relative flex items-start gap-3 rounded-[0.64rem] border p-4 shadow-md',
               lc.border,
             )}
           >

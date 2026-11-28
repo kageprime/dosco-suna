@@ -110,7 +110,7 @@ export function GitHubSetupView({
         ) : state === 'loading' ? (
           // The shape of the account list that is coming.
           <Rise delay={0.06}>
-            <ul aria-hidden className="border-border divide-border/60 divide-y rounded-md border">
+            <ul aria-hidden className="border-border divide-border divide-y rounded-md border">
               {[0, 1, 2].map((row) => (
                 <li key={row} className="flex items-center gap-3 px-3.5 py-2.5">
                   <Skeleton className="size-9 shrink-0 rounded-sm py-0" />
@@ -129,7 +129,7 @@ export function GitHubSetupView({
           // the other consent screens: the mark, the account and what it
           // covers, then the one action.
           <Rise delay={0.06}>
-            <ul className="border-border divide-border/60 divide-y rounded-md border">
+            <ul className="border-border divide-border divide-y rounded-md border">
               {installations.map((installation) => (
                 <li
                   key={installation.installation_id}

@@ -58,6 +58,7 @@ mock.module('../git', () => ({
 
 const {
   CompileAgentConfigError,
+  PromptFilesTooLargeError,
   AgentBehaviorConfigSchema,
   compileAgentConfig,
   compileSelectedAgentConfig,
@@ -204,6 +205,24 @@ describe('resolveCompiledAgentConfigForSession', () => {
     } finally {
       transientFailurePaths = new Set();
     }
+  });
+});
+
+describe('maxPromptChars: the prompt text one compile reads in all', () => {
+  const agents = Array.from({ length: 40 }, (_, at) => `a${at}`);
+  const manifest = `default_agent: a0\nagents:\n${agents.map((name) => `  ${name}:\n    prompt_file: agents/${name}.md\n    tools: all\n`).join('')}`;
+
+  test('past the bound the compile fails and stops reading; at the bound every prompt compiles', async () => {
+    manifestFile = { path: 'kortix.yaml', content: manifest };
+    mdFileContent = Object.fromEntries(agents.map((name) => [`agents/${name}.md`, 'x'.repeat(100)]));
+    readRepoFileCalls = [];
+    await expect(resolveCompiledAgentConfigForSession(PROJECT, 'main', { maxPromptChars: 450 })).rejects.toBeInstanceOf(PromptFilesTooLargeError);
+    // The 5th file passes 450 characters: 8 reads run at once, and the 4 that ended first took one more each. No other starts.
+    expect(readRepoFileCalls.length).toBe(12);
+    await expect(resolveSelectedAgentConfigForSession(PROJECT, 'a0', 'main', { maxPromptChars: 450 })).rejects.toBeInstanceOf(PromptFilesTooLargeError);
+
+    const parsed = JSON.parse((await resolveCompiledAgentConfigForSession(PROJECT, 'main', { maxPromptChars: 4_000 }))!) as CompiledAgents;
+    expect(agents.every((name) => parsed.agent[name]!.prompt === 'x'.repeat(100))).toBe(true);
   });
 });
 

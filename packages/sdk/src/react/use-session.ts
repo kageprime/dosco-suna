@@ -39,7 +39,6 @@ import {
 } from '../browser/stores/sandbox-connection-store';
 import { getSandboxUrlForExternalId } from '../browser/stores/server-store';
 import { authenticatedFetch } from '../core/http/auth';
-import { readRuntimeLogPage } from '../core/session/runtime-actions';
 import { getBackendUrl } from '../core/session/server-store/url-helpers';
 import { ascendingId, useSyncStore } from '../browser/stores/sync-store';
 import { BillingError, parseBillingError } from '../core/http/api/errors';
@@ -1408,22 +1407,13 @@ export function useSession(projectId: string, sessionId: string, options: UseSes
   // render: the open asks the snapshot for no transcript window, no saved copy is read
   // (`useSessionSync` `sessionLog`), and older pages come from `GET …/log`. No project flag is
   // read, and no v1 transcript (`GET …/transcript`, P8.3) is read, whatever the log answers.
-  // The box's own page, while `/start` says the box is ready: ahead of the API's copy (the reply
-  // it streams, a prompt waiting on it), and a new session's log before the API holds one. Every
-  // box `/start` answers ready serves it (`runtime.log.v1`, the runtime floor).
-  const liveLogBoxId = startData?.stage === 'ready' ? (startData.sandbox?.external_id ?? null) : null;
-  const livePage = useMemo(
-    () =>
-      liveLogBoxId
-        ? (query: { limit: number }) =>
-            readRuntimeLogPage(getSandboxUrlForExternalId(liveLogBoxId), authenticatedFetch as typeof globalThis.fetch, query)
-        : null,
-    [liveLogBoxId],
-  );
+  // `/start` says the box is ready: the log is read live at once (`GET …/log?live=1`). The API
+  // reads the box's page, ahead of its stored log, and a new session's log before it stores one.
+  const boxReady = startData?.stage === 'ready' && !!startData.sandbox?.external_id;
   // The session log is the only transcript read. No v1 transcript, session record, status,
   // permission, question or diagnostics read goes to the box.
   const logReloadRef = useRef<(() => void) | null>(null);
-  const logDialect = useSessionLogSync(projectId, sessionId, { enabled: startEnabled, livePage, reloadRef: logReloadRef });
+  const logDialect = useSessionLogSync(projectId, sessionId, { enabled: startEnabled, boxReady, reloadRef: logReloadRef });
   // `'missing'`: no page yet (a new session, an unconverted mirror, a failed read). Nothing saved
   // is on its way; the runtime's rows are the history.
   const logOwned = chatEngine && logDialect !== 'v1';

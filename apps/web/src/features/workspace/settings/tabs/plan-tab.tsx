@@ -21,9 +21,9 @@
  *   tab. A member without it sees who to ask instead of a pane of buttons that
  *   would each fail.
  *
- * The Stripe portal's `return_url` must be absolute; `/settings/plan` is the
- * route that reopens this overlay on this very tab, so a person who leaves for
- * the portal lands back here.
+ * The Stripe portal's `return_url` is this page itself, so a person who leaves
+ * for the portal lands back on Plan. (`/settings/plan` redirected to the
+ * workspace's General tab and dropped the query, KRTX-1510.)
  */
 
 import { HubLink } from '@kortix/ui/internal/account-hub/account-hub-location';
@@ -38,12 +38,6 @@ import { BillingAccountProvider } from '@kortix/ui/internal/stores/billing-accou
 import { useTranslations } from '@/i18n/use-translations';
 import Link from 'next/link';
 import { SettingsTabHeader } from '@kortix/ui/customize/settings/settings-tab-header';
-
-function planReturnUrl(): string {
-  return typeof window !== 'undefined'
-    ? `${window.location.origin}/settings/plan`
-    : '/settings/plan';
-}
 
 export function PlanTab({ accountId }: { accountId: string | undefined }) {
   const t = useTranslations('settings.plan');
@@ -67,7 +61,7 @@ export function PlanTab({ accountId }: { accountId: string | undefined }) {
               pane's subject (`tabs/credits-tab.tsx`), one row above this one
               in the rail. The hub's Billing pane passes nothing and keeps the
               wallet-first layout. */}
-          <BillingTab returnUrl={planReturnUrl()} isActive showWallet={false} />
+          <BillingTab returnUrl={typeof window !== 'undefined' ? window.location.href : '/settings/plan'} isActive showWallet={false} />
           <GlobalUpgradeModal />
         </BillingAccountProvider>
       ) : (

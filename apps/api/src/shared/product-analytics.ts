@@ -58,6 +58,8 @@ export type ProductEvent =
   | 'prompt_sent'
   /** An agent turn ended. `status`: ok | error | aborted, `end_reason`, `duration_ms`. */
   | 'turn_completed'
+  /** A composer dictation was transcribed. `seconds`, `latency_ms`, `bytes`, `surface`: web | desktop | mobile | other, `heard`: words came back. Never the text. */
+  | 'dictation_transcribed'
   // Setup and adoption
   /** A project secret was saved. `name_kind`: provider | other. Never the name or value. */
   | 'secret_created'

@@ -25,18 +25,18 @@ export const DEFAULT_COMPUTE_HOURLY_PRICE_USD =
 
 /**
  * The credits plan: one paid plan, sold as a tier ladder of monthly amounts.
- * 1 credit = $0.01 at every tier, so a bigger tier buys more credits, never a
- * cheaper credit. The bounds mirror `PLAN_MIN_MONTHLY_USD` /
- * `PLAN_MAX_MONTHLY_USD` in apps/api (`GET /v1/billing/tier-configurations`
- * returns the same ladder); `POST /v1/billing/plan` answers 400 outside them.
+ * A bigger tier buys more credits per dollar (`PLAN_BONUS_STEPS`). The bounds
+ * mirror `PLAN_MIN_MONTHLY_USD` / `PLAN_MAX_MONTHLY_USD` in apps/api
+ * (`GET /v1/billing/tier-configurations` returns the same ladder);
+ * `POST /v1/billing/plan` answers 400 outside them. Sales above the top.
  */
 export const CREDITS_PLAN_MIN_USD = 50;
-export const CREDITS_PLAN_MAX_USD = 50_000;
+export const CREDITS_PLAN_MAX_USD = 10_000;
 
 /** The Free plan's monthly grant, in credits. */
 export const FREE_MONTHLY_CREDITS = 500;
 
-export type CreditTierGroup = 'small' | 'growing' | 'scale' | 'large';
+export type CreditTierGroup = 'small' | 'growing' | 'scale';
 
 export interface CreditTier {
   monthlyUsd: number;
@@ -63,18 +63,29 @@ export const CREDIT_TIERS: readonly CreditTier[] = [
   { monthlyUsd: 5_000, group: 'scale' },
   { monthlyUsd: 7_500, group: 'scale' },
   { monthlyUsd: 10_000, group: 'scale' },
-  { monthlyUsd: 12_500, group: 'large' },
-  { monthlyUsd: 15_000, group: 'large' },
-  { monthlyUsd: 20_000, group: 'large' },
-  { monthlyUsd: 25_000, group: 'large' },
-  { monthlyUsd: 30_000, group: 'large' },
-  { monthlyUsd: 35_000, group: 'large' },
-  { monthlyUsd: 40_000, group: 'large' },
-  { monthlyUsd: 45_000, group: 'large' },
-  { monthlyUsd: 50_000, group: 'large' },
 ];
 
-export const CREDIT_TIER_GROUPS: readonly CreditTierGroup[] = ['small', 'growing', 'scale', 'large'];
+export const CREDIT_TIER_GROUPS: readonly CreditTierGroup[] = ['small', 'growing', 'scale'];
+
+/**
+ * Plan volume bonus: a monthly plan of at least `minUsd` grants `percent` more
+ * credits than it bills. Largest step first. Mirrors `PLAN_BONUS_STEPS` in
+ * apps/api (`billing/services/tiers.ts`), which grants it. Top-ups carry no
+ * bonus: the plan is the volume discount.
+ */
+export const PLAN_BONUS_STEPS = [
+  { minUsd: 7_500, percent: 30 },
+  { minUsd: 3_000, percent: 25 },
+  { minUsd: 1_000, percent: 20 },
+  { minUsd: 500, percent: 15 },
+  { minUsd: 200, percent: 10 },
+  { minUsd: 100, percent: 5 },
+] as const;
+
+/** Bonus percent a monthly plan of `monthlyUsd` earns. 0 below $100. */
+export function planBonusPercent(monthlyUsd: number): number {
+  return PLAN_BONUS_STEPS.find((s) => monthlyUsd >= s.minUsd)?.percent ?? 0;
+}
 
 /** The tier the marketing /pricing page opens on: the most popular one. */
 export const DEFAULT_TIER_USD = CREDIT_TIERS.find((tier) => tier.popular)!.monthlyUsd;
@@ -101,9 +112,15 @@ export function isValidMonthlyUsd(monthlyUsd: number | null | undefined): monthl
   );
 }
 
-/** Credits a monthly dollar amount buys. */
+/** Credits a one-time dollar amount (a top-up) buys: the flat rate, no bonus. */
+export function creditsForUsd(amountUsd: number): number {
+  return Math.round(amountUsd * CREDITS_PER_USD);
+}
+
+/** Credits a monthly plan of `monthlyUsd` grants: the amount plus its volume bonus. */
 export function monthlyCreditsForUsd(monthlyUsd: number): number {
-  return Math.round(monthlyUsd * CREDITS_PER_USD);
+  if (!(monthlyUsd > 0)) return 0;
+  return Math.round(monthlyUsd * (100 + planBonusPercent(monthlyUsd)));
 }
 
 /** Credits the default agent computer uses per running hour. */
@@ -128,25 +145,6 @@ export const PLATFORM_FEE_PERCENT = 5.5;
 export function agentHoursForCredits(credits: number): number {
   const hours = credits / (DEFAULT_COMPUTE_HOURLY_PRICE_USD * CREDITS_PER_USD);
   return hours >= 100 ? Math.round(hours / 10) * 10 : Math.round(hours);
-}
-
-/**
- * Top-up bonus ladder: a one-time or auto top-up adds a few percent of extra
- * credits, flat from $1,000. Mirrors `TOP_UP_BONUS_STEPS` in apps/api
- * (`billing/services/tiers.ts`), which grants it.
- */
-export const TOP_UP_BONUS_STEPS = [
-  { minUsd: 1_000, percent: 5 },
-  { minUsd: 500, percent: 4 },
-  { minUsd: 250, percent: 3 },
-  { minUsd: 100, percent: 2 },
-  { minUsd: 50, percent: 1 },
-] as const;
-
-/** Bonus credits a top-up of `amountUsd` adds. 0 below $50. */
-export function topUpBonusCredits(amountUsd: number): number {
-  const step = TOP_UP_BONUS_STEPS.find((s) => amountUsd >= s.minUsd);
-  return step ? Math.round(amountUsd * step.percent) : 0;
 }
 
 /** `$100` — whole dollars, no decimals, in the reader's locale. */
