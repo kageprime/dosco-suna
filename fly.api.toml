@@ -1,5 +1,9 @@
 app = "dosco-api"
-primary_region = "iad"
+# Supabase is in eu-west-1. From iad a round trip cost 91 ms; from lhr it costs
+# 11-12 ms. Every browser request pays that RTT once for Supabase Auth and once
+# per SQL statement, so a US API against this database saturates the DB
+# admission gate and answers 503 db_pool_busy.
+primary_region = "lhr"
 kill_signal = "SIGTERM"
 kill_timeout = "2m"
 
@@ -24,6 +28,11 @@ kill_timeout = "2m"
   PORT = "8008"
   KORTIX_WORKERS_ENABLED = "false"
   KORTIX_PROCESS_ROLE = "web"
+  # Pool of 14 gives the admission gate a ceiling of 12. The values are also
+  # set as Fly secrets; keep both in sync so a new machine gets them even if
+  # `secrets set` is rerun only for the machines that already exist.
+  DB_POOL_MAX = "14"
+  DB_ADMISSION_WAIT_MS = "4000"
 
 [processes]
   web = "/app/apps/api/start.sh"

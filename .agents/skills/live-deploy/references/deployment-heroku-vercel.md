@@ -18,9 +18,9 @@ until mobile clients ship new binaries (see 13.2).
 
 | Thing | Value |
 |---|---|
-| API app | `dosco-api`, region `iad`, machine `d891d170a44e58`, shared-cpu-1x / 1 GB |
+| API app | `dosco-api`, region `lhr`, machine `8577945a4d04d8`, shared-cpu-1x / 1 GB |
 | API process | `web = /app/apps/api/start.sh` on port 8008 |
-| API flags | `KORTIX_WORKERS_ENABLED=false`, `KORTIX_PROCESS_ROLE=web` |
+| API flags | `KORTIX_WORKERS_ENABLED=false`, `KORTIX_PROCESS_ROLE=web`, `DB_POOL_MAX=14`, `DB_ADMISSION_WAIT_MS=4000` |
 | Worker app | `dosco-worker`, region `lhr`, machine `e829456a133948`, shared-cpu-1x / 1 GB |
 | Worker process | `worker = /app/apps/api/start-worker.sh` on port 8008 |
 | Worker flags | `KORTIX_WORKERS_ENABLED=true`, `WORKER_DB_POOL_MAX=5`, `KORTIX_PROJECT_MAINTENANCE_ENABLED=false` |
@@ -34,6 +34,17 @@ on the existing account (`hoekage`); the API uses a separate account with org
 `KAKASHINOV SZN`. Default `flyctl` auth points at the worker account, so **every
 `dosco-api` command needs `--access-token`** read from
 `$env:TEMP\fly-api-token.txt`. Do not move the API onto the worker account.
+
+**Keep the API in the database's region.** Supabase is in `eu-west-1`. From
+`iad` a `select 1` took 91 ms and connection setup 670 ms; from `lhr` they take
+11-12 ms and 118 ms. Every browser request pays one RTT for
+`supabase.auth.getUser` plus one per SQL statement. The old `iad` machine
+saturated the 5-slot DB admission gate on a ~20-request workspace page and
+answered `503 db_pool_busy`. Move with
+`flyctl machine clone <id> --region lhr -a dosco-api`, wait for `1/1` checks,
+then destroy the old machine. After a clone, **rerun `flyctl secrets set`**:
+secrets added after the source machine was created are not copied to the clone,
+and the first run only patched the machine that existed at that time.
 
 Both machines connect to the same Supabase project. The worker uses the
 **direct** connection `postgres@db.<ref>.supabase.co:5432/…?sslmode=require`;

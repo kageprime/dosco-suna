@@ -568,6 +568,28 @@
         "path": "fly.api.toml",
         "text": "release_command = \"cd /app && NODE_TLS_REJECT_UNAUTHORIZED=0 bun packages/db/scripts/migrate.ts up\""
       }
+    },
+    {
+      "id": "OPS-04",
+      "name": "Fly API runs in the database region",
+      "status": "behavior-locked",
+      "surface": "fly.api.toml",
+      "check": {
+        "type": "contains",
+        "path": "fly.api.toml",
+        "text": "primary_region = \"lhr\""
+      }
+    },
+    {
+      "id": "OPS-05",
+      "name": "Fly API carries the measured DB admission ceiling",
+      "status": "behavior-locked",
+      "surface": "fly.api.toml",
+      "check": {
+        "type": "contains",
+        "path": "fly.api.toml",
+        "text": "DB_POOL_MAX = \"14\""
+      }
     }
   ],
   "frozenTrees": {
