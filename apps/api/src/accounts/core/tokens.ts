@@ -20,7 +20,8 @@ import {
   type CreateAccountTokenResult,
 } from '../../repositories/account-tokens';
 import { ACCOUNT_ACTIONS, assertAuthorized, authorize } from '../../iam';
-import { actorOf, type Actor } from '../../iam/actor';
+import { actorOf } from '../../iam/actor';
+import { actsAsFullIdentity } from '../../iam/person-credential';
 import { isUuid } from '../../shared/validate';
 import { loadProjectForUser } from '../../projects/lib/access';
 import {
@@ -102,21 +103,10 @@ export function isTruthyFlag(raw: string | undefined): boolean {
   return raw === '' || raw === 'true' || raw === '1';
 }
 
-/**
- * Whether the caller holds the person's full identity: a browser session, or an
- * unscoped personal access token. Only such a caller may mint or revoke a
- * personal token on the `token.personal.*` leaves. Every other credential — a
- * project-scoped PAT, an agent session, a service account, a third-party
- * `kortix_oat_` OAuth token, a sandbox API key — keeps needing the admin
- * `token.create` / `token.revoke` leaves, so it can never turn itself into a
- * wider or longer-lived bearer than the one it holds.
- */
-export function actsAsFullIdentity(authType: string | undefined, actor: Actor): boolean {
-  const credential = actor.credential;
-  if (authType === 'supabase') return credential.kind === 'jwt';
-  if (authType === 'pat') return credential.kind === 'pat' && credential.projectId === null;
-  return false;
-}
+// Only a caller with the person's full identity may mint or revoke a personal
+// token on the `token.personal.*` leaves; every other credential keeps needing
+// the admin `token.create` / `token.revoke` leaves (iam/person-credential.ts).
+export { actsAsFullIdentity } from '../../iam/person-credential';
 
 /** A browser session, or a personal key bound to no workspace and no session. */
 export function isPersonCaller(c: Context): boolean {

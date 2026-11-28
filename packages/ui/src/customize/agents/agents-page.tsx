@@ -58,6 +58,7 @@ import {
   InputGroupSearchInput,
 } from '../../primitives/input-group';
 import { useUiPathname, useUiRouter, useUiSearchParams } from '../../providers/ui-provider';
+import { AGENT_MODE_LABEL, AGENT_MODES } from '../sections/view/agent-editor-catalog';
 import { CatalogNoMatch } from '../shared/catalog/catalog-empty-state';
 import { CatalogGridSkeleton } from '../shared/catalog/catalog-grid';
 import { GRID_CLASSNAME } from '../shared/catalog/catalog-grid-tokens';
@@ -342,23 +343,25 @@ function AgentCardFacts({
 }
 
 /**
- * Card badges — "also a subagent", disabled. The default agent is marked on
+ * Card badges — the agent's role, disabled. The default agent is marked on
  * the cover instead.
  *
- * The section already says primary or subagent, so a mode chip only marks the
- * both-ways `all` agent: it sits with the primaries but other agents call it
- * too.
+ * Every card names its role (KRTX-4810) with the same labels the properties
+ * panel's "Who can start it" select shows, so a helper My Kortix created reads
+ * as a subagent at a glance and a promoted one shows as primary. An undeclared
+ * mode reads as primary — the runtime's own assumption (`agent-filter.ts`).
  */
 function AgentCardBadges({ agent }: { agent: Agent }) {
   const tI18nComplete = useI18nTranslations('hardcodedUi.i18nComplete');
-  const mode = agent.mode?.toLowerCase();
+  const declared = agent.mode?.toLowerCase();
+  const role = declared && (AGENT_MODES as readonly string[]).includes(declared)
+    ? (declared as (typeof AGENT_MODES)[number])
+    : 'primary';
   return (
     <>
-      {mode === 'all' ? (
-        <Badge variant="muted" size="xs">
-          {tI18nComplete.raw('agentsListAlsoSubagent')}
-        </Badge>
-      ) : null}
+      <Badge variant="muted" size="xs">
+        {AGENT_MODE_LABEL[role]}
+      </Badge>
       {agent.enabled === false ? (
         <Badge variant="muted" size="xs">
           {tI18nComplete.raw('text75081b593d15')}

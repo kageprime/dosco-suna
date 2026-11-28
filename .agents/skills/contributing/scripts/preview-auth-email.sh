@@ -7,7 +7,8 @@
 # <origin>/_mailpit. A local stack (localhost / 127.0.0.1) delivers it to local
 # Supabase's Mailpit on 127.0.0.1:54324; an isolated-DB (`--db`) worktree sets
 # KORTIX_MAILPIT_API to its own Mailpit (`supabase status` → MAILPIT_URL + /api/v1).
-# This prints the Supabase verify link, or the 6-digit
+# This prints the Supabase verify link (or the signup confirmation's
+# token-hash link to /auth/callback), or the 6-digit
 # code when the email carries no link. Polls for up to 60 s.
 # Exit codes: 0 printed, 1 usage, 2 no email arrived.
 set -euo pipefail
@@ -32,7 +33,7 @@ for _ in $(seq 1 60); do
   if [ -n "$id" ]; then
     body="$(curl -fsS "${mailpit}/message/${id}" | jq -r '(.Text // "") + "\n" + (.HTML // "")' |
       sed 's/&amp;/\&/g')"
-    link="$(printf '%s' "$body" | grep -oE 'https?://[^[:space:]<>"'"'"')]+' | grep -m1 '/auth/v1/verify?' || true)"
+    link="$(printf '%s' "$body" | grep -oE 'https?://[^[:space:]<>"'"'"')]+' | grep -m1 -E '/auth/v1/verify\?|[?&]token_hash=' || true)"
     if [ -n "$link" ]; then
       echo "$link"
       exit 0

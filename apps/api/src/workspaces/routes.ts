@@ -146,7 +146,7 @@ export function registerWorkspaceRootRoutes(): void {
       tags: ['workspaces'],
       summary: 'Create a workspace',
       description:
-        'Creates a new workspace with a new managed repository. Always a new workspace: an `account_id` answers 400. Send `Accept: text/event-stream` to stream the provision phases (`data: {type:"phase"}` frames, then one `done` frame with `project` and `workspace`, or one `error` frame). 403 `new_workspace_requires_person` for an API key, a service account or a workspace-bound key; 403 `account_creation_restricted` where the deployment restricts it; 403 `impersonation_invalid`; 409 `provision_in_flight`.',
+        'Creates a new workspace with a new managed repository. Always a new workspace: an `account_id` answers 400. Send `Accept: text/event-stream` to stream the provision phases (`data: {type:"phase"}` frames, then one `done` frame with `project` and `workspace`, or one `error` frame). 403 `new_workspace_requires_person` for an API key, a service account, a workspace-bound key, an OAuth token bound to one workspace or an App viewer token (an OAuth token whose consent chose All my workspaces may create one); 403 `account_creation_restricted` where the deployment restricts it; 403 `impersonation_invalid`; 409 `provision_in_flight`.',
       ...auth,
       middleware: [supabaseAuth] as const,
       request: { body: { content: { 'application/json': { schema: lenientBody(CREATE_FIELDS) } } } },

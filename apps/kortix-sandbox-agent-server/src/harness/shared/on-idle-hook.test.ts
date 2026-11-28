@@ -8,7 +8,7 @@ async function waitFor(path: string, contains = ''): Promise<string> {
   for (let i = 0; i < 100; i++) {
     if (existsSync(path)) {
       const text = readFileSync(path, 'utf8')
-      if (text.includes(contains)) return text
+      if (text.length > 0 && text.includes(contains)) return text
     }
     await Bun.sleep(20)
   }

@@ -4,9 +4,7 @@ import {
   isEmptyConversation,
   readSavedSessionCopy,
   resolveSavedTranscript,
-  savedCopyEmptyRoot,
 } from './saved-transcript';
-import type { SessionTranscriptSyncEnvelope } from '../rest/projects-client/sessions';
 import { configureKortix } from '../http/config';
 import { resetSessionOpenBundles } from '../session/open-bundle';
 import { readFileSync } from 'node:fs';
@@ -139,53 +137,14 @@ describe('isEmptyConversation', () => {
   });
 });
 
-describe('savedCopyEmptyRoot', () => {
-  // The server's proof that a conversation is empty: a complete, available
-  // saved window that counts zero messages, named by the root it was read from.
-  const window = (fields: Partial<SessionTranscriptSyncEnvelope> = {}) =>
-    ({
-      available: true,
-      reason: null,
-      source: 'mirror',
-      complete: true,
-      captured_at: '2026-09-28T00:00:00Z',
-      runtime_session_id: 'ses_root',
-      message_count: 0,
-      total: 0,
-      messages: [],
-      ...fields,
-    }) as SessionTranscriptSyncEnvelope;
-
-  test('a complete, available window that counts zero names its root', () => {
-    expect(savedCopyEmptyRoot(window())).toBe('ses_root');
-  });
-
-  test('anything short of that proves nothing', () => {
-    expect(savedCopyEmptyRoot(null)).toBeNull();
-    expect(savedCopyEmptyRoot(undefined)).toBeNull();
-    expect(savedCopyEmptyRoot(window({ complete: false }))).toBeNull();
-    expect(savedCopyEmptyRoot(window({ available: false, source: 'none' }))).toBeNull();
-    // An older API sends no total, and never an available empty window.
-    expect(savedCopyEmptyRoot(window({ total: undefined }))).toBeNull();
-    expect(savedCopyEmptyRoot(window({ total: 1 }))).toBeNull();
-    expect(savedCopyEmptyRoot(window({ runtime_session_id: null }))).toBeNull();
-    expect(
-      savedCopyEmptyRoot(
-        window({ messages: [{ info: { id: 'msg_1' }, parts: [] }] as SessionTranscriptSyncEnvelope['messages'] }),
-      ),
-    ).toBeNull();
-  });
-
-  test('both rules are public, so every host decides an empty conversation the same way', async () => {
-    const sdk = await import('../../index');
-    expect(sdk.savedCopyEmptyRoot).toBe(savedCopyEmptyRoot);
-    expect(sdk.isEmptyConversation).toBe(isEmptyConversation);
-  });
+test('isEmptyConversation is public, so every host decides an empty conversation the same way', async () => {
+  const sdk = await import('../../index');
+  expect(sdk.isEmptyConversation).toBe(isEmptyConversation);
 });
 
 describe('readSavedSessionCopy reads the session log first (P8)', () => {
   // The session log is the saved copy: the connecting view paints its newest page, and no v1
-  // window (`GET …/transcript`) is read. The project flag is not read; `sessionLog` is ignored.
+  // window (`GET …/transcript`) is read. The project flag is not read.
   const originalFetch = globalThis.fetch;
   const golden: SessionLog = JSON.parse(
     readFileSync(join(import.meta.dir, '../../../../api-contract/src/__tests__/fixtures/session-log/golden21.v2.json'), 'utf8'),
@@ -206,7 +165,7 @@ describe('readSavedSessionCopy reads the session log first (P8)', () => {
   const emptyPage = page({ messages: [], has_more: false });
   const rootRuntimeId = sessionLogRoot(applySessionLogPage(EMPTY_SESSION_LOG_STATE, emptyPage as never))!.runtimeSessionId!;
   const read = () =>
-    readSavedSessionCopy({ projectId: 'p1', sessionId: 's1', runtimeSessionId: rootRuntimeId, sessionLog: true });
+    readSavedSessionCopy({ projectId: 'p1', sessionId: 's1', runtimeSessionId: rootRuntimeId });
 
   function serve(route: (url: string) => Response): string[] {
     const urls: string[] = [];
@@ -233,7 +192,6 @@ describe('readSavedSessionCopy reads the session log first (P8)', () => {
     const answer = await read();
     expect(answer.log?.thread_id).toBe(root.thread_id);
     expect(answer.log?.messages).toHaveLength(root.messages.length);
-    expect(answer.envelope).toBeNull();
     expect(answer.empty).toBe(false);
     expect(urls).toEqual(['http://test.local/v1/workspaces/p1/sessions/s1/log?limit=40']);
   });
@@ -253,24 +211,14 @@ describe('readSavedSessionCopy reads the session log first (P8)', () => {
 
   test('an empty page of another root proves nothing about this one', async () => {
     const urls = serve(() => Response.json(emptyPage));
-    const answer = await readSavedSessionCopy({ projectId: 'p1', sessionId: 's1', runtimeSessionId: 'ses_child', sessionLog: true });
+    const answer = await readSavedSessionCopy({ projectId: 'p1', sessionId: 's1', runtimeSessionId: 'ses_child' });
     expect(answer.empty).toBe(false);
     expect(urls.some((url) => url.includes('/turn'))).toBe(false);
   });
 
-  test('without `sessionLog` (the flag unknown or off) the log is still read first, and no v1 window', async () => {
-    for (const sessionLog of [undefined, false]) {
-      const urls = serve(() => Response.json(page()));
-      const answer = await readSavedSessionCopy({ projectId: 'p1', sessionId: 's1', runtimeSessionId: rootRuntimeId, sessionLog });
-      expect(answer.log?.thread_id).toBe(root.thread_id);
-      expect(answer.envelope).toBeNull();
-      expect(urls).toEqual(['http://test.local/v1/workspaces/p1/sessions/s1/log?limit=40']);
-    }
-  });
-
   test('a new session on an API that serves the log (404 session_log_missing): no copy, and no v1 window', async () => {
     const urls = serve(() => Response.json({ error: 'No session log for this session', code: 'session_log_missing' }, { status: 404 }));
-    expect(await read()).toEqual({ envelope: null, empty: false, log: null });
+    expect(await read()).toEqual({ empty: false, log: null });
     expect(urls).toEqual(['http://test.local/v1/workspaces/p1/sessions/s1/log?limit=40']);
   });
 
@@ -280,7 +228,7 @@ describe('readSavedSessionCopy reads the session log first (P8)', () => {
     ['an invalid page', () => Response.json(page({ messages: [{ seq: 'x' }] }))],
   ] as const)('GET …/log answers %s: no copy, and no v1 window (P8.3)', async (_name, answer) => {
     const urls = serve((url) => (url.includes('/log?') ? answer() : Response.json({ available: true, source: 'mirror', messages: [] })));
-    expect(await read()).toEqual({ envelope: null, empty: false, log: null });
+    expect(await read()).toEqual({ empty: false, log: null });
     expect(urls).toEqual(['http://test.local/v1/workspaces/p1/sessions/s1/log?limit=40']);
   });
 });

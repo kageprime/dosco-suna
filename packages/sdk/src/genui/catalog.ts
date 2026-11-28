@@ -2,9 +2,10 @@ import { createLibrary, defineComponent, type DefinedComponent, type Library } f
 import { z } from 'zod/v4';
 
 import type { GenuiNode } from './types';
+import { osmLink } from './urls';
 
 /** A prop that holds child components. Validated by Kortix, because lang-core does not enforce `.min()`/`.max()`. */
-export interface GenuiSlot {
+interface GenuiSlot {
   accepts: readonly string[];
   min: number;
   max: number;
@@ -13,9 +14,9 @@ export interface GenuiSlot {
   lazy?: boolean;
 }
 
-export type GenuiChildToMarkdown = (node: GenuiNode) => string;
+type GenuiChildToMarkdown = (node: GenuiNode) => string;
 
-export interface GenuiComponentSpec {
+interface GenuiComponentSpec {
   name: string;
   /** May appear directly inside a Stack, Tab, or AccordionItem. */
   block: boolean;
@@ -145,9 +146,6 @@ function seriesTable(labels: string[], series: GenuiNode[], unit: unknown): stri
   ]);
   return mdTable(head, rows);
 }
-
-const osmLink = (lat: number, lng: number): string =>
-  `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=15/${lat}/${lng}`;
 
 // ── Field shorthands ────────────────────────────────────────────────────────
 

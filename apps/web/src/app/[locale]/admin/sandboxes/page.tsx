@@ -554,7 +554,7 @@ export default function AdminSandboxesPage() {
               <StatGridSkeleton />
               <Skeleton className="h-72 w-full rounded-md" />
             </>
-          ) : !an || an.totals.provisions === 0 ? (
+          ) : !an || an.totals.provisions + an.totals.wakes === 0 ? (
             <AdminEmptyFrame>
               <EmptyState
                 icon={IconInbox}
@@ -666,6 +666,59 @@ export default function AdminSandboxesPage() {
                   </TableBody>
                 </Table>
               </AdminSection>
+
+              {an.wakes.length > 0 && (
+                <AdminSection
+                  title={tI18nComplete.raw('textf14554abf742')}
+                  description={tI18nComplete.raw('text9b166fdc8348')}
+                >
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead>{tI18nComplete.raw('text472590ae974d')}</TableHead>
+                        <TableHead className="text-right">
+                          {tI18nComplete.raw('text2c501fc3ba5b')}
+                        </TableHead>
+                        <TableHead className="text-right">
+                          {tI18nComplete.raw('textc88a0b907419')}
+                        </TableHead>
+                        <TableHead className="text-right">
+                          {tI18nComplete.raw('text875636a511da')}
+                        </TableHead>
+                        <TableHead className="text-right">
+                          {tI18nComplete.raw('textf771f4d32eee')}
+                        </TableHead>
+                        <TableHead>{tI18nComplete.raw('text421f441370b1')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {an.wakes.map((w) => (
+                        <TableRow key={w.provider}>
+                          <TableCell className="font-medium capitalize">{w.provider}</TableCell>
+                          <TableCell className="text-right tabular-nums">{w.wakes}</TableCell>
+                          <TableCell
+                            className={cn(
+                              'text-right tabular-nums',
+                              w.successRate != null && w.successRate < 90 && 'text-kortix-orange',
+                            )}
+                          >
+                            {w.successRate == null ? '—' : `${w.successRate}%`}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {fmtMs(w.resumeP50Ms)}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-right tabular-nums">
+                            {fmtMs(w.resumeP95Ms)}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground font-mono text-xs whitespace-normal">
+                            {w.phases.map((ph) => `${ph.label} ${fmtMs(ph.avgMs)}`).join(' · ')}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </AdminSection>
+              )}
 
               <div className="grid gap-5 lg:grid-cols-2">
                 <AdminSection

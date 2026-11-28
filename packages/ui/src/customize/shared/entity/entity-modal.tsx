@@ -189,7 +189,7 @@ function EntityModalSkeleton({ kind }: { kind: EntityKind }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
   return (
     <>
-      <ModalHeader className="border-border/60 space-y-1 border-b pb-4">
+      <ModalHeader className="border-border space-y-1 border-b pb-4">
         <ModalTitle className="sr-only">
           {tI18nComplete.raw('textdc380888c4e2')} {kind}
         </ModalTitle>
@@ -201,7 +201,7 @@ function EntityModalSkeleton({ kind }: { kind: EntityKind }) {
           {/* Same rail rule as the settled body — a placeholder file tree for a
               kind that never gets one is a column that vanishes on handover. */}
           {OWNS_ITS_DIRECTORY[kind] ? (
-            <div className="border-border/60 shrink-0 space-y-1.5 border-b p-2 lg:h-full lg:w-64 lg:border-r lg:border-b-0">
+            <div className="border-border shrink-0 space-y-1.5 border-b p-2 lg:h-full lg:w-64 lg:border-r lg:border-b-0">
               {[0, 1, 2].map((i) => (
                 <Skeleton key={i} className="h-7 w-full rounded-md" />
               ))}
@@ -305,7 +305,7 @@ function EntityModalBody({
   const showAside = Boolean(aside) || (!hasFileRail && editButton !== null);
 
   const fileRail = (
-    <div className="border-border/60 flex shrink-0 flex-col border-b p-2 lg:h-full lg:w-64 lg:overflow-hidden lg:border-r lg:border-b-0">
+    <div className="border-border flex shrink-0 flex-col border-b p-2 lg:h-full lg:w-64 lg:overflow-hidden lg:border-r lg:border-b-0">
       {/* The tree scrolls INSIDE the rail, not the rail itself.
           `FadedScrollArea` is the scroller — do NOT wrap its children in
           another `overflow-y-auto` div, or the nested scroller wins and the
@@ -363,7 +363,7 @@ function EntityModalBody({
           under it as data rather than as a chip: a file path is a value, and
           putting one in a Badge was the "kortix.yaml" pill this replaces.
           `pr-10` clears the close button (absolute, top-3 right-3, size-8). */}
-      <ModalHeader className="border-border/60 space-y-1 border-b pr-10 pb-4">
+      <ModalHeader className="border-border space-y-1 border-b pr-10 pb-4">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <ModalTitle className="min-w-0 truncate">{entity.name}</ModalTitle>
           {meta}
@@ -379,7 +379,7 @@ function EntityModalBody({
               onto the modal. Ahead of the source: it is the thing you act on,
               and actions belong on the edge you read toward first. */}
           {showAside ? (
-            <aside className="border-border/60 flex h-full min-h-0 shrink-0 flex-col justify-between space-y-3 border-b p-4 lg:h-full lg:min-h-0 lg:w-80 lg:overflow-y-auto lg:border-r lg:border-b-0">
+            <aside className="border-border flex h-full min-h-0 shrink-0 flex-col justify-between space-y-3 border-b p-4 lg:h-full lg:min-h-0 lg:w-80 lg:overflow-y-auto lg:border-r lg:border-b-0">
               {aside}
               <div className="mt-auto pt-4">{hasFileRail ? null : editButton}</div>
             </aside>

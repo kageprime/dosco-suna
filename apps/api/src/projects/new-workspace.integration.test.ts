@@ -173,12 +173,22 @@ describe('new_workspace account choice', () => {
       { ...caller, authType: 'apiKey' },
       { ...caller, authType: 'service_account' },
       { ...caller, authType: 'pat', scopedCredential: true },
+      // An App viewer token is the App acting for its viewer, bound or not.
+      { ...caller, authType: 'oauth', oauthAppViewer: true },
     ]) {
       expect(await resolve(who)).toMatchObject({
         ok: false,
         result: { status: 403, body: { code: 'new_workspace_requires_person' } },
       });
     }
+  });
+
+  test('an OAuth token bound to one workspace is refused with the fix; an unbound consent token is a person', async () => {
+    const caller = await person();
+    const bound = await resolve({ ...caller, authType: 'oauth', scopedCredential: true });
+    expect(bound).toMatchObject({ ok: false, result: { status: 403, body: { code: 'new_workspace_requires_person' } } });
+    expect(bound.ok ? '' : String((bound.result.body as { error: string }).error)).toContain('choose All my workspaces');
+    expect(await resolve({ ...caller, authType: 'oauth' })).toMatchObject({ ok: true, created: true });
   });
 });
 

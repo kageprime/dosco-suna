@@ -24,6 +24,7 @@ import { db } from '../../shared/db';
 import { projectSessions, serviceAccounts } from '@kortix/db';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { ttlMemo } from '../../shared/ttl-memo';
+import { foreignDmSpaceIds, myKortixPersonId } from './my-kortix-person';
 import type { ProjectRow, ProjectSessionRow } from './serializers';
 import { hiddenSpaceIds, spaceVisibleFor } from '../../shared/space-access';
 
@@ -240,8 +241,10 @@ async function recordOversightSessionRead(input: {
   sessionId: string;
   ownerId: string | null;
   visibility: string;
+  /** The My Kortix session that read for its person (`personRead`). */
+  viaMyKortixSessionId?: string;
 }): Promise<void> {
-  const key = `${input.userId}|${input.sessionId}`;
+  const key = `${input.userId}|${input.sessionId}|${input.viaMyKortixSessionId ?? ''}`;
   const now = Date.now();
   const last = oversightAuditedAt.get(key);
   if (last !== undefined && now - last < OVERSIGHT_AUDIT_WINDOW_MS) return;
@@ -257,8 +260,55 @@ async function recordOversightSessionRead(input: {
       via: 'account_session_oversight',
       sessionOwnerId: input.ownerId,
       sessionVisibility: input.visibility,
+      ...(input.viaMyKortixSessionId ? { myKortixSessionId: input.viaMyKortixSessionId } : {}),
     },
   });
+}
+
+/**
+ * My Kortix reads what its person opens through the trigger-run manager
+ * override or account oversight, for a session no person owns
+ * (`my-kortix-person.ts`). The caller has already checked the private-channel
+ * and backend-sibling gates. A private session another member started stays
+ * closed. Oversight reads are audited like the person's own.
+ */
+async function myKortixPersonRead(
+  loaded: VisibleSessionRequest,
+  row: ProjectSessionRow,
+  ownership: SessionNarrowingContext,
+  boundCredentialSessionId: string | null,
+  person: MyKortixPerson | undefined,
+): Promise<boolean> {
+  const resolved = person ?? (await resolveMyKortixPerson(loaded, boundCredentialSessionId));
+  const personId = resolved.personId;
+  if (!personId || personId !== loaded.userId || !boundCredentialSessionId) return false;
+  if (row.spaceId && resolved.foreignDms.has(row.spaceId)) return false;
+  if (!(await sessionOwnerIsMachine(loaded.row.accountId, row.createdBy))) return false;
+  if (isTriggerRunSession(row) && (await sessionManagerStanding(loaded, ownership, row, null))) return true;
+  if (!(await hasAccountSessionOversight(personId, loaded.row.accountId))) return false;
+  await recordOversightSessionRead({
+    accountId: loaded.row.accountId,
+    userId: personId,
+    sessionId: row.sessionId,
+    ownerId: row.createdBy ?? null,
+    visibility: row.visibility,
+    viaMyKortixSessionId: boundCredentialSessionId,
+  });
+  return true;
+}
+
+/** Who My Kortix reads for, resolved once per request (`my-kortix-person.ts`). */
+type MyKortixPerson = { personId: string | null; foreignDms: ReadonlySet<string> };
+
+async function resolveMyKortixPerson(
+  loaded: VisibleSessionRequest,
+  boundCredentialSessionId: string | null,
+): Promise<MyKortixPerson> {
+  const personId = await myKortixPersonId(loaded.actor, boundCredentialSessionId);
+  return {
+    personId,
+    foreignDms: personId ? await foreignDmSpaceIds(loaded.row.projectId, personId) : new Set(),
+  };
 }
 
 /** The `loaded` shape `loadVisibleSession` and its helpers receive. */
@@ -331,6 +381,15 @@ export type SessionReadOptions = {
   spawnAncestorRead?: boolean;
   /** Audited content read only. Never set on mutation or writable proxy paths. */
   triggerReaderRead?: boolean;
+  /**
+   * A My Kortix token reads with its person's standing (`my-kortix-person.ts`):
+   * the trigger-run manager override and account oversight, for sessions no
+   * person owns. A read, never ownership or lifecycle. Content reads only, like
+   * `triggerReaderRead`: never on a route that changes the session.
+   */
+  personRead?: boolean;
+  /** `personRead` resolved once for a list: one token read, not one per row. */
+  myKortixPerson?: MyKortixPerson;
   readerPrincipal?: TriggerReaderPrincipal;
   readerSpaceKinds?: ReadonlyMap<string, string>;
 };
@@ -426,6 +485,12 @@ async function sessionReadAccess(
   const reader = opts.triggerReaderRead === true &&
     (!visible || (agentPrincipal && !agentSessionStanding(boundCredentialSessionId, row, visible, ancestor).visible)) && spaceVisible && isSessionTargetVisibleToCaller(ownership) &&
     await mayReadTriggerSession(row, opts.readerPrincipal ?? await triggerReaderPrincipal(loaded.actor, loaded.row.projectId, boundCredentialSessionId), opts.readerSpaceKinds);
+  // My Kortix reads with its person's standing, on a read route only. Asked
+  // only when every rule above refused, so no other caller pays for it.
+  const person = opts.personRead === true && !visible && !reader && spaceVisible &&
+    isSessionTargetVisibleToCaller(ownership) &&
+    await myKortixPersonRead(loaded, row, ownership, boundCredentialSessionId, opts.myKortixPerson);
+  if (person) return { canManageProject, isOwner: false };
   if (!visible && !reader) return null;
   let isOwner = row.createdBy === loaded.userId;
   if (agentPrincipal) {
@@ -575,11 +640,14 @@ export async function loadVisibleSessionsForList(
   const readerSpaceKinds = readerPrincipal && readerPrincipal.kind !== 'none'
     ? await triggerReaderSpaceKinds(loaded.row.projectId, rows.flatMap((row) => row.spaceId ? [row.spaceId] : []))
     : undefined;
+  const myKortixPerson = opts.personRead && boundCredentialSessionId
+    ? await resolveMyKortixPerson(loaded, boundCredentialSessionId)
+    : undefined;
   for (const sessionId of ids) {
     const row = byId.get(sessionId);
     if (!row) continue;
     const access = await sessionReadAccess(
-      loaded, row, sessionId, subject, grants.get(sessionId) ?? [], callerSessionId, boundCredentialSessionId, hidden, { ...opts, readerPrincipal, readerSpaceKinds },
+      loaded, row, sessionId, subject, grants.get(sessionId) ?? [], callerSessionId, boundCredentialSessionId, hidden, { ...opts, readerPrincipal, readerSpaceKinds, myKortixPerson },
     );
     if (!access) continue;
     out.set(sessionId, await finalizeVisibleAccess(loaded, row, subject, grants.get(sessionId) ?? [], access));

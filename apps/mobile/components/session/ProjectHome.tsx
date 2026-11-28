@@ -577,6 +577,7 @@ function HomeComposer({
       )}
       <Composer
         {...composer}
+        projectId={projectId}
         value={draft}
         onChangeText={handleChangeText}
         onSelectionChange={pasted.onSelectionChange}

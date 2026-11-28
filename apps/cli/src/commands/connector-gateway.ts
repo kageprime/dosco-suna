@@ -416,7 +416,8 @@ async function connect({ args, flags }: Invocation): Promise<void> {
   // `--owner` picks WHO the new account belongs to: `me` (the human who
   // opens the link — the default) or `project` (shared with every member).
   // An agent should leave it alone unless the human asked for a shared
-  // account; minting a shared one needs project.connector.write.
+  // account; minting a shared one needs project.connector.write and
+  // project.connector.connections.manage. Any member may mint their own.
   const ownerFlag = typeof flags.owner === 'string' ? fromWorkspaceAlias(flags.owner) : flags.owner;
   const owner: 'me' | 'project' | undefined =
     ownerFlag === 'me' || ownerFlag === 'project' ? ownerFlag : undefined;

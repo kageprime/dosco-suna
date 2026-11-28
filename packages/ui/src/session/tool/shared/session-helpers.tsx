@@ -170,7 +170,7 @@ export function InlineSessionMessagesList({ messages }: { messages: ParsedSessio
             // 8px one reads as a pill dropped into a panel. The conformance
             // sweep only scans `tool/tools/`, so this file never caught it.
             'overflow-hidden rounded-md border',
-            msg.role === 'user' ? 'border-border/60' : 'border-border/40',
+            msg.role === 'user' ? 'border-border' : 'border-border',
           )}
         >
           <div
@@ -221,7 +221,7 @@ export function InlineSessionMessagesList({ messages }: { messages: ParsedSessio
                         'rounded border px-1 py-0.5 text-xs',
                         toolStatus === 'completed'
                           ? cn(STATUS_BG.success, STATUS_BORDER.success, STATUS_TEXT.success)
-                          : 'bg-muted/50 border-border/50 text-muted-foreground',
+                          : 'bg-muted/50 border-border text-muted-foreground',
                       )}
                     >
                       {name}

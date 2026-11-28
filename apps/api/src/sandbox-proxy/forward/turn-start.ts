@@ -41,7 +41,7 @@ import {
 } from '../prompt-dedupe';
 import { recordSessionActivity } from '../../projects/session-activity';
 import { MEMORY_TURN_SYSTEM_MAX_CHARS } from '@kortix/api-contract';
-import { isMemoryTurnRoute, memoryChannelsOn, myKortixTurnMemory, turnSystemText, withMemoryTurn, withNoReply, withSpaceAgents, withThreadFiles, withoutClientSystem } from '../../memory/turn-body';
+import { isMemoryTurnRoute, memoryChannelsOn, myKortixTurnMemory, turnSystemText, withMemoryTurn, withNoReply, withPromptAuthor, withSpaceAgents, withThreadFiles, withoutClientSystem } from '../../memory/turn-body';
 import { isMyKortixAgentName } from '@kortix/shared';
 import { logger } from '../../lib/logger';
 import { isPlatinumConfigured } from '../../shared/platinum';
@@ -369,7 +369,8 @@ export async function syncEnvBeforeTurnStart(
  * included: that space's memory layers (`memoryTurnContext`); a My Kortix
  * channel thread also gets the board. The first turn records the list
  * ("Used memory"). A `system` the client sent is always dropped: only the API
- * sets it. The total stays under MEMORY_TURN_SYSTEM_MAX_CHARS, cut from the
+ * sets it. So is a client's `author`: the API's own delivery names the person
+ * who wrote the prompt (`promptAuthor`). The total stays under MEMORY_TURN_SYSTEM_MAX_CHARS, cut from the
  * memory list. Any failure: the body goes on with what was built.
  * `/steer` never passes here (the API posts it to the box directly).
  */
@@ -378,6 +379,8 @@ async function addMemoryTurnLayers(req: ForwardRequest, state: ForwardState): Pr
   if (state.memoryLayersChecked || !isMemoryTurnRoute(req.method, req.remainingPath)) return;
   state.memoryLayersChecked = true;
   state.requestBody = withoutClientSystem(state.requestBody);
+  // Who wrote the prompt, from the API's own delivery only (KRTX-5121).
+  if (req.promptAuthor) state.requestBody = withPromptAuthor(state.requestBody, req.promptAuthor);
   const sessionId = req.record.sessionId;
   const where = await sessionWhereTurn(req.record.projectId, sessionId).catch((error: unknown) => {
     logger.warn('[turn] turn start forwarded without its origin block', {

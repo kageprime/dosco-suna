@@ -396,6 +396,21 @@ await s.answerQuestion(questions[0].id, [["Yes"]]); // null dismisses it
 await s.compact(); // only when health() lists `session.compact`
 ```
 
+### Agent directory
+
+Experimental, behind the workspace flag `channels`. The agent directory lists the agents from `kortix.yaml` that a person can message, each in their own chat. An entry is not a new record. Every agent except `mode: subagent` ones is listed, and My Kortix is one when the workspace runs it. An agent's chat is the person's DM space with the agent.
+
+```ts
+const directory = kortix.workspace(workspaceId).agentDirectory;
+const agents = await directory.list(); // [{ name, display_name, model, status, is_default, builtin, chat_space_id }]
+const chat = await kortix.workspace(workspaceId).spaces.dm(agents[0].name); // the person's chat, created on first call
+const { agent, stopped_sessions } = await directory.setPaused('marketing', true);
+```
+
+`status` is `active`, `paused` or `off` (kortix.yaml disables the agent). A paused agent still gets messages. No schedule, webhook, event or monitor starts it, and pausing stops its running tasks for every person. A person firing a trigger by hand still runs it. Pausing needs the trigger-update permission. Both calls reject with 403 `feature_disabled` while `channels` is off. The REST functions are `listWorkspaceAgentDirectory(workspaceId)` and `setWorkspaceAgentPaused(workspaceId, name, paused)`; the types are `WorkspaceAgentEntry` and `WorkspaceAgentPauseResult`.
+
+React: `useWorkspaceAgentDirectory(workspaceId, { enabled })` and `useSetWorkspaceAgentPaused(workspaceId)`. Opening a chat with `useOpenWorkspaceDm` refreshes the list's `chat_space_id`.
+
 ### Apps
 
 `kortix.project(projectId).apps` deploys immutable App releases behind one stable URL: releases, machines per process group, persistent volumes. New Apps use `private` access. Apps is generally available: every project can create and deploy them.
@@ -458,6 +473,23 @@ returns `{ attachment_id, filename, mime, size, url }`. Use `url` in a file part
 the prompt inbox. The API copies those bytes into the sandbox after startup. Uploads and `session.attachments.read(attachment_id)` do not start a
 sandbox. Reads return a `Blob` and require access to the session. Retries of the same `File`
 reuse the successful upload; an explicit `attachmentId` supports caller-managed retries.
+
+### Dictation (speech-to-text)
+
+`kortix.project(id).dictation.transcribe(audio, { surface })` turns one recorded clip into
+text for a composer. `audio` is a `Blob` (WebM, Ogg, MP4/M4A, MP3, WAV or FLAC) or, on
+React Native, a device file `{ uri, name, type }`. It returns `{ text, seconds, credits }`.
+The workspace pays 1 credit per minute of audio, billed per second, on every plan, speech
+or not; a clip with no speech returns `text: ''`. `dictation.info()` returns
+`{ available, credits_per_minute, max_seconds, max_bytes }`: hide the microphone when
+`available` is false (a self-hosted server without managed models). Neither the audio nor
+the text is stored. A refusal throws `ApiError` with `code` `insufficient_credits` or
+`budget_exceeded` (402), `rate_limit_exceeded` (429), or `dictation_unavailable`,
+`dictation_busy` or `dictation_failed` (503).
+
+```ts
+const { text } = await kortix.project(projectId).dictation.transcribe(clip, { surface: 'web' });
+```
 
 ### Session labels and metadata
 
@@ -619,8 +651,8 @@ A live read that returns no messages keeps the saved messages on screen: it mean
 lost its state, not that the conversation is empty. The first live read with messages reconciles them.
 Missing or rejected history falls back to the existing runtime path.
 An open reads the session log (`GET …/log`), on every host, with no project flag:
-`useSession`, `readSavedSessionCopy` (returned as `log`), `useSessionSync` with no `mirror` or
-with `savedChild`, and `loadSessionExportMessages`. The host applies a page it reads itself to
+`useSession`, `readSavedSessionCopy` (returned as `log`), `useSessionSync` without
+`mirror: null` or with `savedChild`, and `loadSessionExportMessages`. The host applies a page it reads itself to
 the session store and renders `useSessionLogThread`. No hook and no SDK read sends
 `GET …/transcript`, whatever the log answers. A new session's 404 with
 `code: 'session_log_missing'` keeps the session on the log with nothing in it: the runtime's rows
@@ -629,9 +661,9 @@ the copy already on screen and reads the page again after 2 s, 10 s and 30 s, or
 `Retry-After` (at most 60 s). Either is read again at the next turn end and after a stream
 reconnect. Without a log in the store, `useSession().loadOlder` pages the runtime. An export
 with no page reads the runtime, and fails when the runtime has nothing. The session-open
-snapshot (`GET …/snapshot`) asks for no v1 window (`?transcript=0`). The v1 reads
-(`getSessionTranscript`, `getSessionTranscriptSync`, `transcript`, `transcriptSync`) are
-deprecated.
+snapshot (`GET …/snapshot`) asks for no v1 window (`?transcript=0`): its `transcript` leg is
+the pointer only. The v1 transcript reads were removed in the session-log major (see
+`CHANGELOG.md`); read the log with `getSessionLogPage` (`kortix.session(p, s).log(query)`).
 
 `useSession().savedTranscript` says whether that saved conversation can show before the
 computer wakes: `loading` while a saved copy may still arrive, `shown` once messages are in
@@ -648,7 +680,8 @@ phase, once ready, and against an API that does not send it.
 
 A host that registers a saved-copy store (`setSavedCopyStore(createSavedCopyStore({ storage,
 userId }))`) gets the kept copy painted before the first frame; the server's copy reconciles
-into it by message ID. `createPersistedQueryCache` does the same for accounts, projects and
+into it by message ID. The store keeps the newest session-log page of each session
+(`SessionLogPage`, under `<namespace>.log`) and deletes the v1 copies an older SDK kept. `createPersistedQueryCache` does the same for accounts, projects and
 the paged session list. Both are per user and bounded; clear both on sign-out. Session
 states have one set of words for every host: `sessionListStatus`, `SESSION_LIST_STATUS`,
 `sessionConnectionLabel`, `SESSION_NOTICE`, and `turnRetryLabel`.
@@ -946,8 +979,13 @@ loaded image across surfaces. See the
 `getSessionLogPage(projectId, sessionId, query?)`, or `kortix.session(p, s).log(query?)`,
 reads one page of the stored session log (`SessionLogPage`: the session record,
 every thread head, a thread's newest messages by `seq`, `has_more`). `query` is
-`{ thread?, before_seq?, limit? }` (`SessionLogPageQuery`). It answers while the
+`{ thread?, before_seq?, limit?, live? }` (`SessionLogPageQuery`). It answers while the
 sandbox is stopped, and is `null` when the session has no stored log yet.
+`live: true` asks for the newest page as the session's running sandbox holds it: the
+API reads the sandbox, and answers its stored log when the sandbox is not running or
+does not answer within 2 s. The page's `source` (`'box'` or `'store'`) says which. The
+stored log lags a running sandbox by its journal (5 s during a turn, longer when the
+journal retries). `useSession` reads the session log only this way.
 `findSessionAttachments` reads session-log records as well as v1 messages.
 
 `toToolView`, `getChildSessionId`, `partOutcome`, `contextToolTrigger` and
@@ -1309,7 +1347,7 @@ reason.
 | `workspace_setting_read_only` | 400 | `updateWorkspace` named a setting; `field` and `writer` (the route that writes it) are in the body | `WORKSPACE_SETTING_READ_ONLY_CODE` |
 | `workspace_ambiguous` | 409 | A legacy account key names several workspaces (not split yet): name the workspace id | — |
 | `no_workspace` | 409 | The caller belongs to no workspace | `NO_WORKSPACE_CODE` · `isNoWorkspaceError` |
-| `new_workspace_requires_person` | 403 | Only a person creates a workspace (not an API key, a service account or a workspace key) | — |
+| `new_workspace_requires_person` | 403 | Only a person creates a workspace (not an API key, a service account, a workspace key, an OAuth token bound to one workspace or an App viewer token) | — |
 | `account_creation_restricted` | 403 | The deployment lets only its admin create workspaces | — |
 | `project_limit_reached` | 403 | Deprecated: an older API's plan cap. Current APIs answer `workspace_has_project` | — |
 
@@ -1336,8 +1374,9 @@ const ws = await createWorkspace(
 ```
 
 Codes: `403 account_creation_restricted` (the deployment restricts account
-creation), `403 new_workspace_requires_person` (an API key, a service account
-or a workspace key), `403 impersonation_invalid`, `409 provision_in_flight`
+creation), `403 new_workspace_requires_person` (an API key, a service account,
+a workspace key, an OAuth token bound to one workspace or an App viewer token),
+`403 impersonation_invalid`, `409 provision_in_flight`
 (retry with the same key).
 
 The canonical server-side wrapper shape — catch a 402 and pass the payload
@@ -1932,3 +1971,19 @@ CLI: `kortix sessions model get [session-id]`, `set [session-id] <model>`,
 and `switch [session-id] <model> --prompt "Continue verification" --idempotency-key verification-model-1`.
 The new verbs default to `KORTIX_SESSION_ID`. The existing `sessions model <session-id> <model>` remains supported.
 Never send a peer message to yourself to continue a model switch.
+
+### Artifact gallery folders
+
+`listArtifactFolders`, `createArtifactFolder`, `updateArtifactFolder`, and
+`deleteArtifactFolder` organize a workspace's artifact gallery. Folder names
+are workspace-visible. Only the creator or a caller with artifact management
+permission can edit or delete a folder. Folder membership grants no access.
+
+Pass `folder_id` when publishing, sharing, or updating an artifact. Pass `null`
+to move it to the root. `listArtifacts(projectId, { folder_id: 'root' })` lists
+unfiled artifacts; omit the filter to search all folders. Folders nest: pass
+`parent_folder_id` to create a folder inside another or to move it (`null`:
+the root); a move into its own subtree returns `409`. Deleting a folder moves
+its subfolders and artifacts up one level. Artifact IDs, Files paths, and links stay
+unchanged. React consumers use `useArtifactFolders` and
+`useArtifactFolderMutations` from `@kortix/sdk/react`.

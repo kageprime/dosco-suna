@@ -16,6 +16,7 @@
     "e2e/specs/56-deleted-project-gone.spec.ts": 0,
     "e2e/specs/58-workspace-settings-panel.spec.ts": 0,
     "e2e/specs/60-marketing-native-scroll.spec.ts": 24.9,
+    "e2e/specs/61-native-history.spec.ts": 16.575,
     "e2e/specs/docs-home-link.spec.ts": 0,
     "e2e/specs/free-tier-pricing-onboarding.spec.ts": 1.9
   },
@@ -36,6 +37,7 @@
     "e2e/specs/56-deleted-project-gone.spec.ts": 78,
     "e2e/specs/58-workspace-settings-panel.spec.ts": 0,
     "e2e/specs/60-marketing-native-scroll.spec.ts": 24.9,
+    "e2e/specs/61-native-history.spec.ts": 22.1,
     "e2e/specs/docs-home-link.spec.ts": 0,
     "e2e/specs/free-tier-pricing-onboarding.spec.ts": 8.4
   }

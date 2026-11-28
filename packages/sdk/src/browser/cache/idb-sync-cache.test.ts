@@ -1,15 +1,11 @@
 import { afterEach, describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
-import type { SessionTranscriptSyncEnvelope } from '../../core/rest/projects-client/sessions';
+import type { SessionLogPage } from '../../core/session-log/source';
+import type { SessionLog } from '../../core/session-log/types';
 import { createSavedCopyStore, setSavedCopyStore } from '../../core/session-sync/saved-copy-store';
-import {
-  clearSessionIDBCache,
-  deleteSessionFromIDB,
-  indexedDBKeyValueStorage,
-  loadAllSessionIdsFromIDB,
-  loadSessionFromIDB,
-  saveSessionToIDB,
-} from './idb-sync-cache';
+import { clearSessionIDBCache, deleteSessionFromIDB, indexedDBKeyValueStorage } from './idb-sync-cache';
 
 /**
  * The web keeps each session's saved copy in IndexedDB, not localStorage:
@@ -127,22 +123,21 @@ afterEach(() => {
   else delete (globalThis as { indexedDB?: unknown }).indexedDB;
 });
 
-function envelope(): SessionTranscriptSyncEnvelope {
+const golden: SessionLog = JSON.parse(
+  readFileSync(join(import.meta.dir, '../../../../api-contract/src/__tests__/fixtures/session-log/golden21.v2.json'), 'utf8'),
+);
+
+/** The newest page of the golden log's root thread. */
+function page(): SessionLogPage {
+  const { threads, ...session } = structuredClone(golden);
   return {
-    available: true,
-    reason: null,
-    source: 'mirror',
-    complete: true,
-    captured_at: '2026-10-06T00:00:00.000Z',
-    runtime_session_id: 'ses_root',
-    message_count: 1,
-    messages: [
-      {
-        info: { id: 'msg_1', role: 'user', sessionID: 'ses_root', time: { created: 1 } },
-        parts: [{ id: 'prt_1', type: 'text', text: 'hello' }],
-      },
-    ],
-  } as unknown as SessionTranscriptSyncEnvelope;
+    session,
+    generation: 1,
+    threads: threads.map(({ messages: _messages, ...head }) => head),
+    thread_id: threads[0]!.thread_id,
+    messages: threads[0]!.messages,
+    has_more: false,
+  };
 }
 
 describe('indexedDBKeyValueStorage', () => {
@@ -208,9 +203,9 @@ describe('indexedDBKeyValueStorage', () => {
   test('backs a saved-copy store end to end', async () => {
     install(fakeIndexedDB().factory);
     const copies = createSavedCopyStore({ storage: indexedDBKeyValueStorage()!, userId: 'user-a' });
-    await copies.write('p1', 's1', envelope());
+    await copies.write('p1', 's1', page());
     const read = await copies.read('p1', 's1');
-    expect(read?.messages).toHaveLength(1);
+    expect(read?.messages).toHaveLength(page().messages.length);
   });
 });
 
@@ -219,31 +214,24 @@ describe('the deprecated mirror API', () => {
     install(fakeIndexedDB().factory);
     const storage = indexedDBKeyValueStorage()!;
     const copies = createSavedCopyStore({ storage, userId: 'user-a' });
-    await copies.write('p1', 's1', envelope());
+    await copies.write('p1', 's1', page());
 
     await clearSessionIDBCache();
 
     expect(await copies.read('p1', 's1')).toBeNull();
-    expect(await storage.getItem('kortix.saved-copy:user-a:index')).toBeNull();
+    expect(await storage.getItem('kortix.saved-copy.log:user-a:index')).toBeNull();
   });
 
   test("deleteSessionFromIDB with a Kortix session scope drops that session's saved copy", async () => {
     install(fakeIndexedDB().factory);
     const copies = createSavedCopyStore({ storage: indexedDBKeyValueStorage()!, userId: 'user-a' });
     setSavedCopyStore(copies);
-    await copies.write('p1', 's1', envelope());
-    await copies.write('p1', 's2', envelope());
+    await copies.write('p1', 's1', page());
+    await copies.write('p1', 's2', page());
 
     await deleteSessionFromIDB('ses_root', 'p1/s1');
 
     expect(await copies.read('p1', 's1')).toBeNull();
     expect(await copies.read('p1', 's2')).not.toBeNull();
-  });
-
-  test('the read/write half keeps its signatures and stores nothing', async () => {
-    install(fakeIndexedDB().factory);
-    await saveSessionToIDB('ses_1', [{ id: 'msg_1' }], {});
-    expect(await loadSessionFromIDB('ses_1')).toBeNull();
-    expect(await loadAllSessionIdsFromIDB()).toEqual([]);
   });
 });

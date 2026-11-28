@@ -32,7 +32,7 @@ import { logger } from '../lib/logger';
 import { db } from '../shared/db';
 import { qualifiedColumn } from '../shared/sql-qualified-column';
 import { resolveAppRuntimeEnvironment } from './environment';
-import { AppHostingProvider, type AppMachineSpec } from './hosting';
+import { AppHostingProvider, type AppMachineSpec, type StartAppRuntimeInput } from './hosting';
 import { teardownAppRuntimes } from './images';
 import { retryOnDeadlock } from '../shared/error-cause';
 import { groupAlwaysOn, groupScale, releaseConfigOf } from './release-config';
@@ -189,6 +189,26 @@ async function meterInstance(
   });
 }
 
+/** Create a provider box and register its identity; an insert failure removes only that new box. */
+async function registerRuntime(
+  hosting: AppHostingProvider,
+  input: StartAppRuntimeInput,
+  registration: () => Omit<typeof appRuntimes.$inferInsert, 'runtimeId' | 'accountId' | 'provider' | 'externalId' | 'controlTokenHash' | 'metadata'> & { metadata: Record<string, unknown> },
+): Promise<InstanceRow> {
+  const handle = await hosting.createRuntime(input);
+  const values = registration();
+  const [row] = await db.insert(appRuntimes).values({
+    ...values,
+    runtimeId: input.runtimeId, accountId: input.accountId, provider: input.provider,
+    externalId: handle.externalId, controlTokenHash: handle.controlTokenHash,
+    metadata: { ...handle.metadata, machine: input.machine, ...values.metadata },
+  }).returning().catch(async (error) => {
+    await hosting.remove(input.provider, handle.externalId).catch(() => {});
+    throw error;
+  });
+  return row!;
+}
+
 /** Create one instance of a release for a machine: its volume (locked first), its box, its row and its meter. */
 export async function createInstance(input: {
   hosting: AppHostingProvider;
@@ -210,9 +230,9 @@ export async function createInstance(input: {
   if (volume) await acquireVolume(volume.volumeId, runtimeId);
   const machine = machineSize(app, config, group, provider);
   const spec = machineAppSpec(config, group, deployment.runtimeSpec as Record<string, unknown>);
-  let handle;
+  let row: InstanceRow;
   try {
-    handle = await hosting.createRuntime({
+    row = await registerRuntime(hosting, {
       provider,
       runtimeId,
       accountId: app.accountId,
@@ -228,34 +248,26 @@ export async function createInstance(input: {
         ...(spec ? { KORTIX_APP_SPEC: JSON.stringify(spec) } : {}),
       },
       ...(volume && mount ? { volumes: { [mount.destination]: { volume: volume.externalId } } } : {}),
+    }, () => {
+      const now = new Date();
+      return {
+        deploymentId: deployment.deploymentId,
+        status: 'starting',
+        machineId,
+        processGroup: group,
+        volumeId: volume?.volumeId ?? null,
+        idleDeadlineAt: new Date(now.getTime() + app.idleTimeoutSeconds * 1000),
+        startedAt: now,
+        metadata: { secretIdentifiers: env.secretIdentifiers, environmentKeys: env.environmentKeys },
+      };
     });
   } catch (error) {
     if (volume) await releaseVolume(volume.volumeId, runtimeId);
     throw error;
   }
-  const now = new Date();
-  const [row] = await db.insert(appRuntimes).values({
-    runtimeId,
-    deploymentId: deployment.deploymentId,
-    accountId: app.accountId,
-    provider,
-    externalId: handle.externalId,
-    status: 'starting',
-    controlTokenHash: handle.controlTokenHash,
-    machineId,
-    processGroup: group,
-    volumeId: volume?.volumeId ?? null,
-    idleDeadlineAt: new Date(now.getTime() + app.idleTimeoutSeconds * 1000),
-    startedAt: now,
-    metadata: { ...handle.metadata, machine, secretIdentifiers: env.secretIdentifiers, environmentKeys: env.environmentKeys },
-  }).returning().catch(async (error) => {
-    await hosting.remove(provider, handle.externalId).catch(() => {});
-    if (volume) await releaseVolume(volume.volumeId, runtimeId);
-    throw error;
-  });
   await meterInstance(app, deployment, config, group, { runtimeId, accountId: app.accountId, provider, machineId });
   await event(deployment.deploymentId, 'runtime_created', `Machine ${machineId.slice(0, 8)} (${group}) created`, {
-    provider, externalId: handle.externalId, machineId, processGroup: group, volumeId: volume?.volumeId ?? null,
+    provider, externalId: row.externalId, machineId, processGroup: group, volumeId: volume?.volumeId ?? null,
   }, runtimeId);
   return row!;
 }
@@ -631,7 +643,7 @@ export async function runReleaseCommand(input: {
   const machine = machineSize(app, config, group, provider);
   // The supervisor runs a sleep, not the App: the temporary machine serves nothing.
   const spec = { ...runtimeSpec, command: ['sleep', 'infinity'], target_port: 0, mounts: [], checks: [] };
-  const handle = await hosting.createRuntime({
+  const row = await registerRuntime(hosting, {
     provider,
     runtimeId,
     accountId: app.accountId,
@@ -640,23 +652,14 @@ export async function runReleaseCommand(input: {
     snapshotName: deployment.providerBuildId!,
     machine,
     envVars: { ...env.env, KORTIX_APP_SPEC: JSON.stringify(spec) },
-  });
-  const [row] = await db.insert(appRuntimes).values({
-    runtimeId,
+  }, () => ({
     deploymentId: deployment.deploymentId,
-    accountId: app.accountId,
-    provider,
-    externalId: handle.externalId,
     status: 'running',
-    controlTokenHash: handle.controlTokenHash,
     machineId: runtimeId,
     processGroup: RELEASE_COMMAND_GROUP,
     startedAt: new Date(),
-    metadata: { ...handle.metadata, machine, role: 'release_command' },
-  }).returning().catch(async (error) => {
-    await hosting.remove(provider, handle.externalId).catch(() => {});
-    throw error;
-  });
+    metadata: { role: 'release_command' },
+  }));
   try {
     await startComputeSession({
       sandboxId: runtimeId, accountId: app.accountId, actorUserId: deployment.createdBy, provider,
@@ -666,7 +669,7 @@ export async function runReleaseCommand(input: {
     });
     const workdir = typeof runtimeSpec.workdir === 'string' ? runtimeSpec.workdir : null;
     const quoted = workdir ? `cd '${workdir.replace(/'/g, `'\\''`)}' && ` : '';
-    const result = await hosting.exec(provider, handle.externalId, ['sh', '-c', `${quoted}${input.command}`], input.timeoutMs ?? 300_000);
+    const result = await hosting.exec(provider, row.externalId, ['sh', '-c', `${quoted}${input.command}`], input.timeoutMs ?? 300_000);
     return { exitCode: result.exitCode, output: `${result.stdout}${result.stderr ? `\n${result.stderr}` : ''}`.trim() };
   } finally {
     await teardownAppRuntimes([row!]).catch((error) => {

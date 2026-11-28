@@ -4,13 +4,10 @@ import type {
   ChannelBinding,
   CreateProjectSessionInput,
   ProjectSession,
-  PublicSessionTranscript,
   SessionModelChangeResult,
   SessionOpenBundleRuntime,
   SessionReloadResult,
   SessionStartResult,
-  SessionTranscript,
-  SessionTranscriptSyncEnvelope,
   SessionTurn,
   UpdateChannelBindingInput,
 } from './index';
@@ -33,17 +30,14 @@ export type OpenCodeFieldChecks = [
   NoKey<OpenCodeKey<UpdateChannelBindingInput>>,
   NoKey<OpenCodeKey<CreateProjectSessionInput>>,
   NoKey<OpenCodeKey<ProjectSession>>,
-  NoKey<OpenCodeKey<PublicSessionTranscript>>,
   NoKey<OpenCodeKey<SessionModelChangeResult>>,
   NoKey<OpenCodeKey<RuntimeIdentity>>,
   NoKey<OpenCodeKey<SessionReloadResult>>,
   NoKey<OpenCodeKey<SessionStartResult>>,
-  NoKey<OpenCodeKey<SessionTranscript>>,
-  NoKey<OpenCodeKey<SessionTranscriptSyncEnvelope>>,
   NoKey<OpenCodeKey<SessionTurn>>,
 ];
 
-test('the runtime fields of sessions, turns, transcripts, audit and channel bindings have only neutral names', () => {
+test('the runtime fields of sessions, turns, audit and channel bindings have only neutral names', () => {
   const sample: Pick<ProjectSession, 'runtime_session_id' | 'runtime_sessions'> & Pick<ChannelBinding, 'model'> = {
     runtime_session_id: 'ses_pi_example',
     runtime_sessions: [],

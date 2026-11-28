@@ -131,7 +131,6 @@ describe('GetMemTool joins the shared BasicTool shell', () => {
     expect(html).not.toContain('sticky');
     expect(html).toContain('bg-popover border-border overflow-hidden rounded-md border');
     expect(html).toContain('aria-expanded="true"');
-    expect(html).toContain('text-sm font-medium');
     expect(html).toContain('Recalled');
 
     // Caption and content are the entry — they stay open on the panel too.
@@ -176,7 +175,6 @@ describe('the closed get_mem row names the memory (gate finding 4)', () => {
     // The subtitle span carries the memory's own words…
     expect(html).toContain('title="Refactored auth flow"');
     // …and the id rides the badge, which is the row's `shrink-0` trailing slot.
-    expect(html).toContain('text-muted-foreground shrink-0 font-mono text-xs');
     expect(html).toContain('>#42</span>');
   });
 

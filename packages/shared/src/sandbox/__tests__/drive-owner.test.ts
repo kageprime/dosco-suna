@@ -54,3 +54,40 @@ describe('drive-owner helper', () => {
     expect(wants([[CANONICAL, OLD, false], [CANONICAL, OLD, true], [OLD, CANONICAL, true]])).toEqual([false, false, false]);
   });
 });
+
+function mounts(text: string): Record<string, string[]> {
+  const run = Bun.spawnSync([
+    'python3',
+    '-I',
+    '-c',
+    'import json, sys; ns = {"__name__": "drive_owner"}; exec(sys.argv[1], ns); print(json.dumps(ns["parse_mountinfo"](sys.argv[2])))',
+    helper,
+    text,
+  ]);
+  if (run.exitCode !== 0) throw new Error(run.stderr.toString());
+  return JSON.parse(run.stdout.toString());
+}
+
+describe('drive-owner helper mounts', () => {
+  const block = '41 30 0:52 / /drives/Files rw,relatime shared:1 - fuse.nodefs nodefs rw,user_id=0';
+  const shared = '57 30 0:61 / /drives/Files rw,relatime shared:9 - fuse.sharedfs sfs rw,user_id=0';
+
+  test('only read-write mounts under /drives, keyed by path', () => {
+    const text = [
+      block,
+      '42 30 0:53 / /drives/Read\\040only ro,relatime - fuse.nodefs nodefs ro',
+      '43 1 259:1 / /workspace rw,relatime - ext4 /dev/vdb rw',
+      '44 30 0:54 / /drives/With\\040space rw,relatime - fuse.nodefs nodefs rw',
+    ].join('\n');
+    expect(Object.keys(mounts(text)).sort()).toEqual(['/drives/Files', '/drives/With space']);
+  });
+
+  test('a new volume at the same path (a live switch) is a new mount, so it is walked again', () => {
+    const before = mounts(block)['/drives/Files'];
+    const after = mounts(shared)['/drives/Files'];
+    expect(before).toBeDefined();
+    expect(after).not.toEqual(before);
+    // The same mount read twice is the same: no walk on every pass.
+    expect(mounts(block)['/drives/Files']).toEqual(before);
+  });
+});

@@ -224,11 +224,11 @@ export function InlineGrepResults({
               disabled={disabled}
             />
             {isExpanded && (
-              <div className="border-border/20 bg-muted/10 border-t">
+              <div className="border-border bg-muted/10 border-t">
                 {group.matches.map((match, j) => (
                   <div
                     key={j}
-                    className="border-border/10 flex items-start gap-0 border-b last:border-b-0"
+                    className="border-border flex items-start gap-0 border-b last:border-b-0"
                   >
                     <span className="text-muted-foreground w-10 shrink-0 py-1 pr-2 text-right font-mono text-xs select-none">
                       {match.line}

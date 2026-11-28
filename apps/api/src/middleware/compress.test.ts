@@ -123,6 +123,12 @@ describe('compressionCandidate', () => {
     ).toBe('gzip');
   });
 
+  test('Cache-Control: no-transform is refused — a streamed JSON body stays live', () => {
+    expect(compressionCandidate({ ...base, cacheControl: 'no-store, no-transform' })).toBeNull();
+    expect(compressionCandidate({ ...base, cacheControl: 'No-Transform' })).toBeNull();
+    expect(compressionCandidate({ ...base, cacheControl: 'no-store' })).toBe('gzip');
+  });
+
   test('an unknown type is refused — the allowlist fails closed', () => {
     expect(compressionCandidate({ ...base, contentType: 'application/x-tar' })).toBeNull();
     expect(compressionCandidate({ ...base, contentType: null })).toBeNull();

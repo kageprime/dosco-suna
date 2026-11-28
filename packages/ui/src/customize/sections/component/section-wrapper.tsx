@@ -114,7 +114,7 @@ const CustomizeSectionWrapper = ({
         {showSidebarToggleButton ? <SectionSidebarToggle /> : null}
         <header
           className={cn(
-            'border-border/60 shrink-0 border-b px-4 py-2',
+            'border-border shrink-0 border-b px-4 py-2',
             // Clear the absolute toggle so the title does not sit under it.
             showToggle && 'pl-12',
           )}

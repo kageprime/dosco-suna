@@ -40,7 +40,7 @@ import {
   modelProviderMode,
   useRuntimeProviders,
 } from '@kortix/sdk/react';
-import { AGENT_MODE_HELP, AGENT_MODE_LABEL, AGENT_MODES } from './agent-editor-catalog';
+import { AGENT_MODE_HELP, AGENT_MODE_LABEL, AGENT_MODES, agentPromotes } from './agent-editor-catalog';
 import { EditorSection, InlineAction, SettingBlock, SettingRow } from './agent-editor-primitives';
 
 /** Matches the access section's inherit sentinel — `Select` reads `""` as no value. */
@@ -114,9 +114,13 @@ export function BasicsSection({
       >
         <Select
           value={oc.mode ?? INHERIT}
-          onValueChange={(value) =>
-            setOc('mode', value === INHERIT ? undefined : (value as typeof oc.mode))
-          }
+          onValueChange={(value) => {
+            const next = value === INHERIT ? undefined : (value as typeof oc.mode);
+            setOc('mode', next);
+            // The select is the promote control: promoting a subagent (KRTX-4810) also
+            // clears "Show in pickers", so the promoted agent lands in the pickers.
+            if (agentPromotes(oc.mode, next)) setOc('hidden', undefined);
+          }}
         >
           <SelectTrigger aria-label={tI18nComplete.raw('text12f67f8539c4')} className="h-9 w-full">
             <SelectValue />

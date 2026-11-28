@@ -25,6 +25,7 @@
  * does not sign. With no secret configured it returns `null` — an App never
  * trusts an unverified identity.
  */
+import { b64url, fromB64url } from './b64url';
 import { createScopedKortix } from './scoped-client';
 import type { Kortix } from '../core/client/kortix';
 
@@ -64,20 +65,6 @@ export interface ReadAppViewerOptions {
 function envSecret(): string | undefined {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
   return env?.[APP_VIEWER_SECRET_ENV];
-}
-
-function fromB64url(value: string): Uint8Array {
-  const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (value.length % 4)) % 4);
-  const bin = atob(padded);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-function b64url(bytes: Uint8Array): string {
-  let s = '';
-  for (const b of bytes) s += String.fromCharCode(b);
-  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 /** Length-independent compare — never returns early on the first differing byte. */

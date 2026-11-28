@@ -458,6 +458,16 @@ export async function locateSessionAnywhere(
     process.stderr.write(`${status.err(`Session ${sessionId} not found in this workspace.`)}\n`);
     return null;
   }
+  // Inside a sandbox the ambient session token is bound to this one workspace.
+  // No other host holds the session, and a login hint for one is noise an
+  // agent reads as the error (KRTX-1486: one principal per sandbox). An
+  // in-sandbox `hosts use` selection (`markerActive`) still scans.
+  if (!opts.hostArg && hasEnvTokenHost() && !markerActive()) {
+    process.stderr.write(
+      `${status.err(`Session ${sessionId} not found in this workspace, or you may not open it.`)}\n`,
+    );
+    return null;
+  }
 
   process.stderr.write(
     `${C.dim}Not in the active workspace. Checking ` +

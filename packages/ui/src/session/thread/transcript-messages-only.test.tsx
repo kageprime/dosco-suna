@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { TooltipProvider } from '../../primitives/tooltip';
 import { IntlTestProvider } from '../../test-utils/intl';
 import '../tool/tools/register';
-import { messageWorkerIds, ShowWork } from './show-work';
+import { messageWorkerIds } from './show-work';
 import { messageOnlySegments, SessionTurn } from './transcript';
 import { TranscriptRowsContext, type TranscriptRows } from './transcript-rows';
 
@@ -78,7 +78,7 @@ describe('messages-only thread rows', () => {
     ], { reply_to: 'prompt' }),
   ]);
 
-  test('a settled turn shows the prompt, the deliverable and the final answer, and no work', () => {
+  test('a settled turn shows the prompt, the agent\'s words in order (its interim sentences too), the deliverable and the final answer, and no work', () => {
     const html = render(worked, { ...ROWS, messagesOnly: true });
     expect(html).toContain('Summarize the synthetic report');
     expect(html).toContain('Synthetic final answer');
@@ -86,7 +86,9 @@ describe('messages-only thread rows', () => {
     expect(html).not.toContain('group/work');
     expect(html).not.toContain('Worked');
     expect(html).not.toContain('cat synthetic-notes.txt');
-    expect(html).not.toContain('Synthetic interim narration');
+    // Its words stay after it finished, where it said them: before the deliverable and the final answer.
+    expect(html).toContain('Synthetic interim narration');
+    expect(html.indexOf('Synthetic interim narration')).toBeLessThan(html.indexOf('Synthetic final answer'));
     expect(html).not.toContain('Synthetic private reasoning');
     expect(rowCount(html)).toBe(2);
   });
@@ -125,57 +127,19 @@ describe('messages-only thread rows', () => {
     expect(html).toContain('Kortix is typing…');
     expect(html).not.toContain('Thinking');
     expect(html).not.toContain('session-busy-indicator');
-    // A working turn has no "Show work" yet.
-    expect(html).not.toContain('data-slot="show-work"');
-    // The control: without the mode the running call is a row.
+      // The control: without the mode the running call is a row.
     expect(render(live, ROWS, true)).toContain('make synthetic');
     expect(render(live, ROWS, true)).not.toContain('typing-indicator');
   });
 
-  test('a settled message with work behind it carries a closed "Show work"', () => {
+  test('a settled message never offers "Show work": the work stays out of the chat', () => {
     const html = render(worked, { ...ROWS, messagesOnly: true });
-    expect(html.match(/data-slot="show-work"/g)).toHaveLength(1);
-    expect(html).toContain('aria-expanded="false"');
-    expect(html).toContain('Show work');
-    // Closed, the work is not mounted.
-    expect(html).not.toContain('data-slot="show-work-content"');
-    expect(html).not.toContain('cat synthetic-notes.txt');
-    // The full session view has its own fold, no "Show work".
-    expect(render(worked, ROWS)).not.toContain('data-slot="show-work"');
-  });
-
-  test('a message with nothing behind it carries no "Show work"', () => {
-    const plain = turnOf([
-      message('prompt', 'user', [{ type: 'text', id: 'q', text: 'Say hi' }]),
-      message('reply', 'assistant', [{ type: 'text', id: 'answer', text: 'Synthetic hello' }], { reply_to: 'prompt' }),
-    ]);
-    const html = render(plain, { ...ROWS, messagesOnly: true });
-    expect(html).toContain('Synthetic hello');
     expect(html).not.toContain('data-slot="show-work"');
+    expect(html).not.toContain('Show work');
+    expect(html).not.toContain('cat synthetic-notes.txt');
   });
 
-  test('a talk-only thread\'s message opens the worker it started, not its own hand-off rows', () => {
-    const handoff = turnOf([
-      message('prompt', 'user', [{ type: 'text', id: 'q', text: 'Find a synthetic flight' }]),
-      message('reply', 'assistant', [
-        agentCall('ag-1', 'ses_synthworker1'),
-        { type: 'text', id: 'answer', text: 'On it.' },
-      ], { reply_to: 'prompt' }),
-    ]);
-    const front = render(handoff, { ...ROWS, messagesOnly: true, front: true });
-    expect(front).toContain('On it.');
-    expect(front.match(/data-slot="show-work"/g)).toHaveLength(1);
-    // The same turn in a plain thread opens its folded hand-off row instead: Show work still shows.
-    expect(render(handoff, { ...ROWS, messagesOnly: true })).toContain('data-slot="show-work"');
-    // A talk-only small-talk answer started no worker: nothing to open.
-    const smallTalk = turnOf([
-      message('prompt', 'user', [{ type: 'text', id: 'q', text: 'Hi' }]),
-      message('reply', 'assistant', [{ type: 'text', id: 'answer', text: 'Hi there.' }], { reply_to: 'prompt' }),
-    ]);
-    expect(render(smallTalk, { ...ROWS, messagesOnly: true, front: true })).not.toContain('data-slot="show-work"');
-  });
-
-  test("a talk-only answer to a worker's report opens that worker; the report itself is no row", () => {
+  test("a talk-only answer to a worker's report is one row; the report itself is no row", () => {
     const report = turnOf([
       message('prompt', 'user', [{
         type: 'text', id: 'q', synthetic: true,
@@ -187,9 +151,7 @@ describe('messages-only thread rows', () => {
     expect(html).toContain('Found one for you.');
     expect(html).not.toContain('Synthetic flight found');
     expect(rowCount(html)).toBe(1);
-    expect(html.match(/data-slot="show-work"/g)).toHaveLength(1);
-    // Outside a talk-only thread the same answer has no work of its own.
-    expect(render(report, { ...ROWS, messagesOnly: true })).not.toContain('data-slot="show-work"');
+    expect(html).not.toContain('data-slot="show-work"');
   });
 });
 
@@ -203,34 +165,7 @@ function agentCall(id: string, child: string): SessionLogMessage['blocks'][numbe
   } as unknown as ToolPart);
 }
 
-describe('Show work', () => {
-  test('opened, it draws the work and says "Hide work"', () => {
-    const html = renderToStaticMarkup(
-      <IntlTestProvider locale="en" onError={() => {}}>
-        <ShowWork defaultOpen>
-          <p>Synthetic work body</p>
-        </ShowWork>
-      </IntlTestProvider>,
-    );
-    expect(html).toContain('aria-expanded="true"');
-    expect(html).toContain('Hide work');
-    expect(html).toContain('data-slot="show-work-content"');
-    expect(html).toContain('Synthetic work body');
-  });
-
-  test('closed, it draws only the control, hidden until hover on a pointer screen', () => {
-    const html = renderToStaticMarkup(
-      <IntlTestProvider locale="en" onError={() => {}}>
-        <ShowWork>
-          <p>Synthetic work body</p>
-        </ShowWork>
-      </IntlTestProvider>,
-    );
-    expect(html).toContain('Show work');
-    expect(html).toContain('md:opacity-0');
-    expect(html).not.toContain('Synthetic work body');
-  });
-
+describe('worker ids and talk-only rows', () => {
   test('a talk-only message opens every worker its turn started or answers, each once', () => {
     const blocks = [
       agentCall('ag-1', 'ses_synthworker1'),

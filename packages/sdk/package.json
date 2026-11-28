@@ -43,13 +43,18 @@
     "./wire-message-id": "./src/core/session/wire-message-id.ts",
     "./wire-values": "./src/core/wire-values.ts",
     "./capture-rules": "./src/core/capture/rules.ts",
-    "./workspace-search": "./src/workspace-search/index.ts"
+    "./workspace-search": "./src/workspace-search/index.ts",
+    "./iam-actions": "./src/iam-actions.ts"
   },
   "publishConfig": {
     "access": "public",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
+      "./iam-actions": {
+        "types": "./dist/iam-actions.d.ts",
+        "import": "./dist/iam-actions.js"
+      },
       ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
       "./react": { "types": "./dist/react/index.d.ts", "import": "./dist/react/index.js" },
       "./genui": { "types": "./dist/genui/index.d.ts", "import": "./dist/genui/index.js" },

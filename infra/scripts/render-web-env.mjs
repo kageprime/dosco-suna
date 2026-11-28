@@ -13,18 +13,6 @@ const ENVIRONMENTS = {
     apiHost: 'dev-api.kortix.com',
     protected: true,
   },
-  staging: {
-    canonicalHost: 'staging.kortix.com',
-    ecsHost: 'staging-fe-ecs.kortix.com',
-    apiHost: 'staging-api.kortix.com',
-    protected: true,
-  },
-  prod: {
-    canonicalHost: 'kortix.com',
-    ecsHost: 'prod-fe-ecs.kortix.com',
-    apiHost: 'api.kortix.com',
-    protected: false,
-  },
 };
 
 const OPTIONAL_KEYS = [

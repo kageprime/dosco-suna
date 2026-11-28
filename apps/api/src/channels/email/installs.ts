@@ -9,7 +9,7 @@ import {
 import { and, eq, inArray, isNull, like, lt, ne, or, sql } from 'drizzle-orm';
 import { db } from '../../shared/db';
 import { revokeConnections } from '../../connectors/connection-status';
-import { decryptChannelSecret, deleteProjectSecrets, encryptChannelSecret } from '../install-store';
+import { decryptChannelSecret, deleteProjectSecrets, encryptChannelSecret } from '../core/install-secrets';
 
 /**
  * Email inboxes are ACCOUNTS of the project's one `kortix_email` connector

@@ -252,7 +252,7 @@ export class ClaudeReply {
   limitedBeforeOutput(result: Extract<SDKMessage, { type: 'result' }>): boolean {
     if (this.started || !this.resultError(result)) return false
     const status = (result as { api_error_status?: number }).api_error_status
-    return this.assistantError === 'rate_limit' || (this.rateLimited !== undefined && status === 429)
+    return this.assistantError === 'rate_limit' || status === 429
   }
 
   /** The turn ended. A result that is an error ends the stream with that error. */

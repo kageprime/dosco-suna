@@ -177,7 +177,7 @@ export function PromoSwitcher({
 
 /**
  * The promo card floating in the window's bottom-right corner, over the page:
- * a lifted card (`bg-popover`, `smooth-shadow-ring-lg`, the shadow and its
+ * a lifted card (`bg-popover`, `smooth-shadow-ring`, the shadow and its
  * hairline in one) with the art inset in a rounded panel, the close button on
  * the art, then the title, one sentence, the call to action and the dots.
  * Floating, so shadow + hairline (effects.md). Portaled to `document.body` so
@@ -214,7 +214,7 @@ function FloatingPromo({
       aria-roledescription="carousel"
       aria-label={label}
       className={cn(
-        'bg-popover text-popover-foreground smooth-shadow-ring-lg fixed right-4 bottom-4 z-40 w-80 rounded-xl p-1.5',
+        'bg-popover text-popover-foreground smooth-shadow-ring fixed right-4 bottom-4 z-40 w-80 rounded-xl p-1.5',
         composer === 'centered' && 'hidden min-[1700px]:block',
       )}
     >

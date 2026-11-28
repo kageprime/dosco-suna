@@ -254,7 +254,7 @@ function DensityCard({
       <div
         className={cn(
           'bg-popover duration-moderate relative h-24 w-full overflow-hidden rounded-md border p-3 transition-colors',
-          isActive ? 'border-primary/40' : 'border-border group-hover:border-border/80',
+          isActive ? 'border-primary/40' : 'border-border',
         )}
       >
         <DensityPreview density={option.id} />

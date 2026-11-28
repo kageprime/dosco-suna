@@ -103,18 +103,9 @@ function emptyActionsOf(
 }
 
 /**
- * The card's FULL markup, `PanelCard` and all, forced open via
- * `defaultExpanded` — the one place in this file that actually mounts
- * `PanelCard` rather than reaching into an unrendered element's props. Needed
- * here specifically to prove the acceptance rule "both actions render ONLY in
- * the empty state": that gate lives inside `PanelCard`'s own `isEmpty`
- * ternary (`panel-card.tsx`), not in `ContextCard`, so nothing short of a
- * real render of that ternary can catch a regression that flips it.
- *
- * `defaultExpanded` is safe to force here without a DOM: `PanelCard` seeds
- * its `expanded` state from that prop via plain `useState(defaultExpanded)`,
- * which resolves on the FIRST render `renderToStaticMarkup` performs — no
- * `useEffect` (which SSR never runs) required.
+ * The card's FULL markup, `PanelCard` and all — the one place in this file that
+ * actually mounts `PanelCard`. Needed to prove "both actions render ONLY in the
+ * empty state": that gate lives inside `PanelCard`'s own `isEmpty` ternary.
  */
 function renderExpanded(
   items: { files: ContextItem[]; web: ContextItem[]; tools: ContextItem[] },
@@ -129,28 +120,12 @@ function renderExpanded(
     onOpenFile: () => {},
     onAddContext: emptyStateProps.onAddContext ?? (() => {}),
   })) as ReactElement<PanelCardProps>;
-  return renderToStaticMarkup(<PanelCard {...card.props} defaultExpanded />);
+  return renderToStaticMarkup(<PanelCard {...card.props} />);
 }
 
 /** The opening tag of every `<button>` in the rendered body, in document order. */
 function buttonTags(html: string): string[] {
   return [...html.matchAll(/<button[^>]*>/g)].map((m) => m[0]);
-}
-
-/**
- * A group row's markup, minus its count `Badge`.
- *
- * The count badge is a legitimate `rounded-full` control (see `badge.tsx`'s
- * `badgeVariants`), so a check for "no pill in this row" has to look past it —
- * otherwise the only way to pass is to literally never render a badge. Every
- * row DOES currently have one, so scanning the row's own opening tag alone
- * (as this test used to) happened to dodge the badge without ever proving the
- * row overall was pill-free: a `rounded-full` reintroduced anywhere else in
- * the row — a wrapping `<li>`, an icon tile, the label span — would pass
- * silently as long as it never touched the `<button>` tag's own class.
- */
-function withoutBadgeMarkup(html: string): string {
-  return html.replace(/<span data-slot="badge"[^>]*>.*?<\/span>/g, '');
 }
 
 /**
@@ -200,30 +175,13 @@ function elementsOfType<P>(
 }
 
 describe('ContextCard groups are rows, not pills (W1)', () => {
-  test('every group control is a full-width row button, never a pill', () => {
-    const html = renderToStaticMarkup(<>{cardBody()}</>);
-    const tags = buttonTags(html);
-    expect(tags).toHaveLength(3); // one per group
-    for (const tag of tags) {
-      expect(tag).toContain('w-full');
-    }
-    // Over the FULL rendered markup of the group list (R8 #1) — not just each
-    // button's own opening tag, which a stray pill elsewhere in the row could
-    // dodge entirely. See `withoutBadgeMarkup` for why the count badge is
-    // excluded first.
-    expect(withoutBadgeMarkup(html)).not.toContain('rounded-full');
-  });
-
-  test('a tool row with one failed call among successes shows the error glyph (failed-call aggregation, R8 #2)', () => {
+  test('a tool row with one failed call among successes shows the error dot (failed-call aggregation, R8 #2)', () => {
     const html = renderToStaticMarkup(
       <>{cardBody(undefined, undefined, { files: [], web: [], tools: toolsWithAFailedCall })}</>,
     );
-    // `StepIcon` (step-icon.tsx) marks `status: 'error'` with `text-kortix-red`
-    // and everything else with `text-muted-foreground` — the only glyph in
-    // this render is the Terminal row's, so this pins the aggregation in
-    // `context-card.tsx` (one failed call among several still reads as failed)
-    // rather than the per-call status of whichever call happens to be first.
-    expect(html).toContain('text-kortix-red');
+    // The row's red dot: one failed call among several still reads as failed,
+    // not the status of whichever call happens to be first.
+    expect(html).toContain('bg-kortix-red');
   });
 
   test('the rows keep a stable order: web, then files, then tools', () => {

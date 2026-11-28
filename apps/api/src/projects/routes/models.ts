@@ -9,6 +9,7 @@ import { llmPriceMarkup } from '../../billing/services/tiers';
 import { PROJECT_ACTIONS } from '../../iam';
 import { isSessionSandboxCredential } from '../../middleware/session-sandbox-credential';
 import { gatewayModelCatalog } from '../../llm-gateway/models/catalog-models';
+import { isRetiredManagedModelId } from '../../llm-gateway/models/managed-models';
 import { unavailableCatalog } from '../../llm-gateway/models/picker-catalog';
 import { servableProjectCatalog } from '../../llm-gateway/models/servable-catalog';
 import { runtimeModelCatalog } from '../../llm-gateway/models/runtime-catalog';
@@ -517,6 +518,12 @@ export function registerModelsRoutes(): void {
 
       const claudeAgent = checkClaudeAgentRef(model);
       if (claudeAgent.kind === 'invalid') return c.json({ error: claudeAgent.message, code: 'invalid_model' }, 400);
+      // The servability check below maps a retired managed id to the current lineup (so old
+      // sessions keep running). A stored default must not: GET would report the retired id
+      // while every session runs the lineup's first model.
+      if (isRetiredManagedModelId(model.startsWith('kortix/') ? model.slice('kortix/'.length) : model)) {
+        return c.json({ error: `Model "${model}" was retired. Pick another model.`, code: 'model_retired' }, 409);
+      }
       const freeModelsOnly = !(await accountMayUseManagedModels(ownerAccountId));
       const servable = await isModelServableForAccount({
         userId,

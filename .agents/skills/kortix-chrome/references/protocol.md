@@ -213,7 +213,9 @@ without `chrome.tabGroups` (Arc, Dia) works the same. `chrome://`, the Web Store
 
 **Visible state.** Each attachment has one tab group `Kortix · <sessionTitle>`
 (color `blue`). The overlay (glow, agent cursor, control bar with Take over and
-Stop) shows on every tab of the group. Before `Page.captureScreenshot` the shim
+Stop) shows only on the attachment’s current interaction target, not every discovered or grouped tab.
+Input, navigation, evaluation, uploads, screenshots and explicit target activation select that tab.
+Switching targets removes the previous overlay; releasing the target or bridge removes it. Before `Page.captureScreenshot` the shim
 activates the tab in its own window.
 
 **Agent cursor.** The cursor glides to each `Input.dispatchMouseEvent` point. Before

@@ -58,7 +58,7 @@ const engRow = async () => (await db.select().from(projectSpaces).where(eq(proje
 
 beforeAll(async () => {
   await db.insert(accounts).values({ accountId: ACCOUNT, name: 'space-agent-config' });
-  await db.insert(projects).values({ projectId: PROJECT, accountId: ACCOUNT, name: 'Config', repoUrl: 'https://example.test/c.git', metadata: { experimental: { chat: true } } });
+  await db.insert(projects).values({ projectId: PROJECT, accountId: ACCOUNT, name: 'Config', repoUrl: 'https://example.test/c.git', metadata: { experimental: { channels: true } } });
   for (const id of USERS) {
     await db.execute(sql`
       insert into auth.users (id, email, instance_id, aud, role, raw_user_meta_data)

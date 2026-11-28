@@ -1,0 +1,21 @@
+<h2>Confirm your signup</h2>
+{{ $scheme := "https://" }}
+{{ if eq (printf "%.7s" .SiteURL) "http://" }}{{ $scheme = "http://" }}{{ end }}
+{{ $host := slice .SiteURL (len $scheme) }}
+{{ $alternate := printf "%swww.%s" $scheme $host }}
+{{ if eq (printf "%.4s" $host) "www." }}{{ $alternate = printf "%s%s" $scheme (slice $host 4) }}{{ end }}
+{{ $web := printf "%s/auth/callback" .SiteURL }}
+{{ $mobile := printf "%s/auth/mobile/callback" .SiteURL }}
+{{ $alternateWeb := printf "%s/auth/callback" $alternate }}
+{{ $alternateMobile := printf "%s/auth/mobile/callback" $alternate }}
+{{ if or
+  (eq .RedirectTo $web) (eq .RedirectTo $mobile)
+  (eq .RedirectTo $alternateWeb) (eq .RedirectTo $alternateMobile)
+  (eq (printf "%.*s" (len (printf "%s?" $web)) .RedirectTo) (printf "%s?" $web))
+  (eq (printf "%.*s" (len (printf "%s?" $mobile)) .RedirectTo) (printf "%s?" $mobile))
+  (eq (printf "%.*s" (len (printf "%s?" $alternateWeb)) .RedirectTo) (printf "%s?" $alternateWeb))
+  (eq (printf "%.*s" (len (printf "%s?" $alternateMobile)) .RedirectTo) (printf "%s?" $alternateMobile)) }}
+<p><a href="{{ .SiteURL }}/auth/confirm?redirect_to={{ .RedirectTo }}&token_hash={{ .TokenHash }}">Confirm your email address</a></p>
+{{ else }}
+<p><a href="{{ .ConfirmationURL }}">Confirm your email address</a></p>
+{{ end }}

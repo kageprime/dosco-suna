@@ -201,6 +201,7 @@ function webRootAndDark(): string {
   }
   lines.push(decl('radius', vs.radius.base));
   lines.push(decl('tracking-normal', vs.typography.tracking.normal));
+  for (const k of ['normal', 'medium', 'semibold', 'bold'] as const) lines.push(decl(`font-weight-${k}`, String(vs.typography.weight_values[k])));
   lines.push(decl('spacing', vs.spacing.web_base));
   for (const [k, v] of Object.entries<any>(vs.motion.duration)) lines.push(decl(`duration-${k}`, `${v.ms}ms`));
   for (const [k, v] of Object.entries<any>(vs.motion.easing))

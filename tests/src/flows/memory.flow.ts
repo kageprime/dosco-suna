@@ -218,7 +218,7 @@ flow('MEMORY-1', flowMeta('memory', [...Object.values(R), FEATURES, TOKEN_MINT],
 });
 
 flow('MEMORY-2', flowMeta('memory', [R.layer, R.pages, R.create, R.note, R.page, R.update, R.remove, R.history, FEATURES, SPACE_CREATE, SPACE_DM, ...STORAGE_PROBE], { timeoutMs: 180_000 }), async (ctx) => {
-  const { team, project, world } = await openWorld(ctx, { features: ['chat'] });
+  const { team, project, world } = await openWorld(ctx, { features: ['channels'] });
   const projectId = project.id;
   try {
     const launch = await channel(world, 'Launch');
@@ -424,7 +424,7 @@ flow('MEMORY-5', flowMeta('memory', [R.layer, R.pages, FEATURES, DRIVE_LIST, DRI
     let before: Record<string, string> = {};
 
     await ctx.step('chat on: Company and the DM layer list the files already in Drive, in place', async () => {
-      await world.setFeature('chat', true);
+      await world.setFeature('channels', true);
       const dmId = (await world.owner.post(DM, { agent_name: 'worker' }, { params: { projectId } })).status(200).json<Space>().space_id;
       const company = (await world.owner.get(PAGES, { params: { projectId, layerKey: 'company' } })).status(200).json<{ pages: MemoryPageSummary[] }>().pages;
       const dm = (await world.owner.get(PAGES, { params: { projectId, layerKey: dmId } })).status(200).json<{ pages: MemoryPageSummary[] }>().pages;
@@ -433,7 +433,7 @@ flow('MEMORY-5', flowMeta('memory', [R.layer, R.pages, FEATURES, DRIVE_LIST, DRI
     });
 
     await ctx.step('chat off: no file is moved, copied, renamed or deleted (sha256 of every file the owner sees), and memory still reads', async () => {
-      await world.setFeature('chat', false);
+      await world.setFeature('channels', false);
       // The toggle effect runs behind the PATCH response: read Files three times over ~4.5 s.
       for (let i = 0; i < 3; i++) {
         await new Promise((resolve) => setTimeout(resolve, 1_500));
@@ -444,7 +444,7 @@ flow('MEMORY-5', flowMeta('memory', [R.layer, R.pages, FEATURES, DRIVE_LIST, DRI
     });
 
     await ctx.step('chat on again: still no file changed', async () => {
-      await world.setFeature('chat', true);
+      await world.setFeature('channels', true);
       const diff = changed(before, await checksums(world.owner, driveId));
       if (diff.length) fail('files changed on turn-on', diff);
     });
@@ -454,7 +454,7 @@ flow('MEMORY-5', flowMeta('memory', [R.layer, R.pages, FEATURES, DRIVE_LIST, DRI
 });
 
 flow('MEMORY-12', flowMeta('memory', [R.usage, FEATURES, SPACE_CREATE, TOKEN_MINT], { timeoutMs: 180_000 }), async (ctx) => {
-  const { team, project, world } = await openWorld(ctx, { features: ['chat'] });
+  const { team, project, world } = await openWorld(ctx, { features: ['channels'] });
   const projectId = project.id;
   try {
     const launch = await channel(world, 'Launch');
@@ -537,18 +537,18 @@ flow(
     try {
       await ctx.step('with chat off, GET /onboarding/channels and POST …/marks → 403 feature_disabled', async () => {
         for (const r of [await world.owner.get(ONBOARDING, { params }), await mark(world.owner, 'channels_intro')]) {
-          r.status(403).body().has('$.code', 'feature_disabled').has('$.feature', 'chat');
+          r.status(403).body().has('$.code', 'feature_disabled').has('$.feature', 'channels');
         }
       });
 
       await ctx.step('D7: a project member turning chat on → 403 and the flag stays off', async () => {
-        (await asMember.patch(FEATURES_PATH, { feature: 'chat', enabled: true }, { params })).status(403);
+        (await asMember.patch(FEATURES_PATH, { feature: 'channels', enabled: true }, { params })).status(403);
         (await world.owner.get(ONBOARDING, { params })).status(403).body().has('$.code', 'feature_disabled');
       });
 
       const firstOff = await offSession();
       await ctx.step('the first turn-on by the owner files the session started while off into #general, records no "turned on again" line and marks no intro', async () => {
-        await world.setFeature('chat', true);
+        await world.setFeature('channels', true);
         await filedIntoGeneral(firstOff);
         (await world.owner.get(SPACES, { params })).status(200).body().schema(SpaceListSchema).has('$.general_notice', undefined);
         if ((await channelsMeta()) !== null) fail('a first turn-on recorded metadata.channels', await channelsMeta());
@@ -590,19 +590,19 @@ flow(
       });
 
       await ctx.step('D7: a project member turning chat off → 403 and Channels stays on', async () => {
-        (await asMember.patch(FEATURES_PATH, { feature: 'chat', enabled: false }, { params })).status(403);
+        (await asMember.patch(FEATURES_PATH, { feature: 'channels', enabled: false }, { params })).status(403);
         (await asMember.get(ONBOARDING, { params })).status(200);
       });
 
       let secondOff = '';
       await ctx.step('flag off → both onboarding routes 403 feature_disabled; a session started now has no space', async () => {
-        await world.setFeature('chat', false);
+        await world.setFeature('channels', false);
         for (const r of [await asMember.get(ONBOARDING, { params }), await mark(asMember, 'get_started.dm')]) r.status(403).body().has('$.code', 'feature_disabled');
         secondOff = await offSession();
       });
 
       await ctx.step('turned on again: the session moves into #general, GET /spaces carries general_notice {kind: reenabled, count: 1}, and the owner’s intro is marked seen', async () => {
-        await world.setFeature('chat', true);
+        await world.setFeature('channels', true);
         await filedIntoGeneral(secondOff);
         const owner = await waitFor(() => stateOf(world.owner), {
           until: (s) => s.intro_seen,

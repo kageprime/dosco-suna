@@ -6,14 +6,16 @@
  * the 409 of destroying an attached volume. The provider store is never
  * reached: every refused call fails before it.
  */
-import { afterAll, beforeAll, expect, test } from 'bun:test';
+import { afterAll, beforeAll, expect, spyOn, test } from 'bun:test';
 import { MAX_VOLUME_GB } from '@kortix/shared/app-config';
 import { appVolumes, apps } from '@kortix/db';
 import { eq } from 'drizzle-orm';
 import { db } from '../shared/db';
 import { removeSeeded, seedProject, type SeededProject } from '../__tests__/helpers/integration-fixtures';
 import { AppVolumeError, createAppVolume, destroyVolume, forkVolume, updateAppVolume } from './volumes';
+import { appVolumeStore } from './volume-store';
 
+const open = spyOn(appVolumeStore, 'open').mockResolvedValue(undefined);
 let project: SeededProject;
 const USER_ID = crypto.randomUUID();
 const APP_ID = crypto.randomUUID();
@@ -45,6 +47,7 @@ afterAll(async () => {
   await db.delete(appVolumes).where(eq(appVolumes.appId, APP_ID));
   await db.delete(apps).where(eq(apps.appId, APP_ID));
   await removeSeeded([project]);
+  open.mockRestore();
 });
 
 const refuse = (call: () => Promise<unknown>) => call().then(
@@ -56,10 +59,10 @@ const refuse = (call: () => Promise<unknown>) => call().then(
 );
 
 test('create refuses a bad name first, then a bad size', async () => {
-  const badName = await refuse(() => createAppVolume({ appId: APP_ID, accountId: project.account_id, name: 'Bad Name', sizeGb: 10 }));
+  const badName = await refuse(() => createAppVolume({ appId: APP_ID, accountId: project.account_id, name: 'Bad Name', sizeGb: 0, retentionDays: 0 }));
   expect(badName).toMatchObject({ status: 400, code: 'volume_name_invalid', message: 'A volume name is 1-30 lowercase letters, digits or "_".' });
 
-  const zero = await refuse(() => createAppVolume({ appId: APP_ID, accountId: project.account_id, name: 'ok', sizeGb: 0 }));
+  const zero = await refuse(() => createAppVolume({ appId: APP_ID, accountId: project.account_id, name: 'ok', sizeGb: 0, retentionDays: 0 }));
   expect(zero).toMatchObject({ status: 400, code: 'volume_size_invalid', message: `size_gb must be 1 to ${MAX_VOLUME_GB}.` });
 
   const huge = await refuse(() => createAppVolume({ appId: APP_ID, accountId: project.account_id, name: 'ok', sizeGb: MAX_VOLUME_GB + 1 }));
@@ -67,6 +70,29 @@ test('create refuses a bad name first, then a bad size', async () => {
 
   const fraction = await refuse(() => createAppVolume({ appId: APP_ID, accountId: project.account_id, name: 'ok', sizeGb: 10.5 }));
   expect(fraction).toMatchObject({ status: 400, code: 'volume_size_invalid' });
+});
+
+test.each([0, 61, 1.5])('create refuses retention %s before inserting or opening a provider volume', async (retentionDays) => {
+  const before = await db.select().from(appVolumes).where(eq(appVolumes.appId, APP_ID));
+  const calls = open.mock.calls.length;
+  const error = await refuse(() => createAppVolume({
+    appId: APP_ID, accountId: project.account_id, name: 'invalid_retention', sizeGb: 10, retentionDays,
+  }));
+  expect(error).toMatchObject({ status: 400, code: 'volume_retention_invalid', message: 'snapshot_retention_days must be 1 to 60.' });
+  expect(await db.select().from(appVolumes).where(eq(appVolumes.appId, APP_ID))).toEqual(before);
+  expect(open.mock.calls.length).toBe(calls);
+});
+
+test('create persists both retention boundaries and the omitted default', async () => {
+  for (const retentionDays of [1, 60, undefined]) {
+    const volume = await createAppVolume({
+      appId: APP_ID, accountId: project.account_id, name: `retention_${retentionDays ?? 'default'}`, sizeGb: 10, retentionDays,
+    });
+    const [stored] = await db.select().from(appVolumes).where(eq(appVolumes.volumeId, volume.volumeId));
+    expect(stored?.snapshotRetentionDays).toBe(retentionDays ?? 5);
+    expect(stored?.status).toBe('ready');
+    expect(open).toHaveBeenCalledWith(volume.externalId);
+  }
 });
 
 test('update refuses a size above the ceiling and an out-of-range retention', async () => {

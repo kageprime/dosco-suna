@@ -659,7 +659,7 @@ oauthApp.openapi(
               approved: z.boolean().optional(),
               workspace_id: z.string().uuid().optional().openapi({
                 description:
-                  'The workspace the app gets. The issued token is bound to it: it reaches that workspace only, like a workspace key. Omitted: an unbound token that acts as you in every workspace (deprecated; the consent screen always names one).',
+                  'The workspace the app gets. The issued token is bound to it: it reaches that workspace only, like a workspace key. Omitted: an unbound token that acts as you in every workspace and may create workspaces (the All my workspaces choice on the consent screen, and older consent screens).',
               }),
             }),
           },

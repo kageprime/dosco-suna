@@ -48,15 +48,33 @@ function jsonObject(body: ArrayBuffer | undefined): Record<string, unknown> | nu
 const encode = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).buffer as ArrayBuffer;
 
 /**
- * The body without a `system` (or `thread_files`) a client sent: only the API
- * sets a turn's system text, so a member who may prompt a thread cannot add to
- * its agent's system prompt. A body without `system` is returned as it is (byte for byte).
+ * The body without a `system` (or `thread_files`, `space_agents`, `author`) a
+ * client sent: only the API sets a turn's system text, so a member who may
+ * prompt a thread cannot add to its agent's system prompt, and only the API
+ * names who wrote a prompt, so a member cannot write as another person. A body
+ * without any of them is returned as it is (byte for byte).
  */
 export function withoutClientSystem(body: ArrayBuffer | undefined): ArrayBuffer | undefined {
   const parsed = jsonObject(body);
-  if (!parsed || (!('system' in parsed) && !(THREAD_FILES_BODY_KEY in parsed) && !(SPACE_AGENTS_BODY_KEY in parsed))) return body;
-  const { system: _client, [THREAD_FILES_BODY_KEY]: _files, [SPACE_AGENTS_BODY_KEY]: _agents, ...rest } = parsed;
+  if (!parsed || ![
+    'system', THREAD_FILES_BODY_KEY, SPACE_AGENTS_BODY_KEY, PROMPT_AUTHOR_BODY_KEY,
+  ].some((key) => key in parsed)) return body;
+  const { system: _client, [THREAD_FILES_BODY_KEY]: _files, [SPACE_AGENTS_BODY_KEY]: _agents, [PROMPT_AUTHOR_BODY_KEY]: _author, ...rest } = parsed;
   return encode(rest);
+}
+
+/**
+ * The prompt body key of the person who wrote the prompt (`{ name }`,
+ * KRTX-5121); only the API sets it. kortixd puts the name above the message
+ * for the model (`harness/pi/prompt-author.ts`).
+ */
+export const PROMPT_AUTHOR_BODY_KEY = 'author';
+
+/** The JSON object body with `author` set to `name`; any other body is returned as it is. */
+export function withPromptAuthor(body: ArrayBuffer | undefined, name: string): ArrayBuffer | undefined {
+  const parsed = jsonObject(body);
+  if (!parsed) return body;
+  return encode({ ...parsed, [PROMPT_AUTHOR_BODY_KEY]: { name } });
 }
 
 /**

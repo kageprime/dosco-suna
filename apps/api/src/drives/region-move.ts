@@ -24,7 +24,10 @@
 //     assertDriveWritable), so a caller that read the row before the fence is
 //     refused too.
 //  4. Copy: every directory and file, with its mode and mtime, in batches of
-//     one upload commit each, into a fresh volume opened in drive mode.
+//     one upload commit each, into a fresh volume opened in drive mode. A
+//     shared (live) drive moves onto a shared volume: every folder made, every
+//     file written whole with its mode (storage sets no mtime on a write), so
+//     it stays live. The staging of an unfinished shared upload is not copied.
 //  5. Verify: the same paths, types and sizes, every file's sha256 read back
 //     from the new volume, the old volume's head unchanged since the copy
 //     began, and no mount on it.
@@ -52,9 +55,12 @@ import {
   commitVolumeUpload,
   deleteDriveVolume,
   detachSandboxVolume,
+  driveVolumeHead,
   getDriveVolume,
+  isSharedUploadStaging,
   listVolumeFilesPage,
   listVolumeMounts,
+  makeVolumeFolder,
   openDriveVolume,
   planVolumeUpload,
   putVolumeUploadBlock,
@@ -62,6 +68,7 @@ import {
   statVolumeFile,
   type VolumeEntry,
   type VolumeMount,
+  writeVolumeFile,
 } from './volumes';
 
 const BLOCK_BYTES = 1024 * 1024;
@@ -101,7 +108,7 @@ export interface DriveMoveReport {
   ms: number;
 }
 
-interface Tree {
+export interface Tree {
   files: VolumeEntry[];
   dirs: string[];
   bytes: number;
@@ -109,14 +116,15 @@ interface Tree {
 
 const isLostFound = (path: string) => path === '/lost+found' || path.startsWith('/lost+found/');
 
-async function readTree(volume: DriveVolume): Promise<Tree> {
+export async function readTree(volume: DriveVolume): Promise<Tree> {
   const files: VolumeEntry[] = [];
   const dirs: string[] = [];
   let cursor: string | undefined;
   do {
     const page = await listVolumeFilesPage(volume, '/', { recursive: true, ...(cursor ? { cursor } : {}) });
     for (const e of page.entries) {
-      if (isLostFound(e.path)) continue;
+      // Half a shared upload (drives/volumes.ts): never a file of the drive; its client sends it again.
+      if (isLostFound(e.path) || isSharedUploadStaging(e.path)) continue;
       if (e.type === 'file' && e.size > MAX_FILE_BYTES) throw new MoveRefusal(`${e.path} is larger than ${MAX_FILE_BYTES / 2 ** 20} MiB`);
       if (e.type === 'file') files.push(e);
       else if (e.type === 'dir') dirs.push(e.path);
@@ -228,6 +236,29 @@ async function copyTree(from: DriveVolume, to: DriveVolume, tree: Tree): Promise
   return hashes;
 }
 
+const SHARED_COPY_CONCURRENCY = 4;
+
+/**
+ * Copy `tree` from `from` into `to`, a shared volume (empty): the folders
+ * first, parents before children, then each file with its own write and its
+ * mode. A shared volume has no block upload. Returns each file's sha256.
+ */
+export async function copyTreeShared(from: DriveVolume, to: DriveVolume, tree: Tree): Promise<Map<string, string>> {
+  const hashes = new Map<string, string>();
+  for (const dir of [...tree.dirs].sort((a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b))) {
+    await makeVolumeFolder(to, dir);
+  }
+  for (let i = 0; i < tree.files.length; i += SHARED_COPY_CONCURRENCY) {
+    await Promise.all(tree.files.slice(i, i + SHARED_COPY_CONCURRENCY).map(async (f) => {
+      const [bytes, stat] = await Promise.all([readAll(from, f.path), statVolumeFile(from, f.path)]);
+      if (bytes.byteLength !== f.size) throw new Error(`${f.path}: read ${bytes.byteLength} bytes, listed ${f.size}`);
+      hashes.set(f.path, sha256(bytes));
+      await writeVolumeFile(to, f.path, bytes, { overwrite: false, ...(stat.mode !== undefined ? { mode: stat.mode } : {}) });
+    }));
+  }
+  return hashes;
+}
+
 /** The new volume holds exactly `tree`: same paths, types and sizes, and every file's bytes. */
 async function verifyCopy(to: DriveVolume, tree: Tree, hashes: Map<string, string>): Promise<void> {
   const copied = await readTree(to);
@@ -326,7 +357,9 @@ export async function moveDriveToRegion(driveId: string, to: MoveTarget, opts: {
         report.detached++;
       }
       await awaitSaved(from);
-      fromHead = (await getDriveVolume(from)).head_commit_id ?? null;
+      // A shared (live) drive stays shared where it moves; a block drive stays block.
+      const live = (await getDriveVolume(from)).type === 'sharedfs';
+      fromHead = (await driveVolumeHead(from)).token;
       tree = await readTree(from);
       Object.assign(report, { files: tree.files.length, dirs: tree.dirs.length, bytes: tree.bytes });
 
@@ -336,14 +369,15 @@ export async function moveDriveToRegion(driveId: string, to: MoveTarget, opts: {
         throw err;
       });
       if (existing) await deleteDriveVolume(target);
-      const opened = await openDriveVolume(target);
+      const opened = live ? await openDriveVolume(target, undefined, { preferShared: true }) : await openDriveVolume(target);
       created = true;
       volumeId = opened.id;
-      const hashes = await copyTree(from, target, tree);
+      if (live && opened.type !== 'sharedfs') throw new MoveRefusal(`storage made no shared volume in ${to ?? 'the home region'}; a shared drive moves only onto a shared one`);
+      const hashes = live ? await copyTreeShared(from, target, tree) : await copyTree(from, target, tree);
 
       // 5. Verify.
       await verifyCopy(target, tree, hashes);
-      const head = (await getDriveVolume(from)).head_commit_id ?? null;
+      const head = (await driveVolumeHead(from)).token;
       if (head !== fromHead) throw new MoveRefusal('the old volume changed during the copy');
       if ((await listVolumeMounts(from)).length) throw new MoveRefusal('a box mounted the old volume during the copy');
     }
@@ -433,11 +467,11 @@ export async function purgeMovedVolumes(opts: { olderThanMs: number; apply: bool
       out.push({ driveId: row.driveId, volume, outcome: 'kept', reason: 'inside the retention window' });
       continue;
     }
-    const info = await getDriveVolume(volume).catch((err) => {
+    const info = await driveVolumeHead(volume).catch((err) => {
       if (err instanceof DriveStorageError && err.code === 'volume_not_found') return null;
       throw err;
     });
-    if (info && (info.head_commit_id ?? null) !== (move.from_head ?? null)) {
+    if (info && info.token !== (move.from_head ?? null)) {
       out.push({ driveId: row.driveId, volume, outcome: 'kept', reason: 'it changed after the move; compare it with the new volume by hand' });
       continue;
     }

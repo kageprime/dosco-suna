@@ -572,7 +572,7 @@ const TODOS = [
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <section data-case={label} className="border-border/40 border-b py-6">
+    <section data-case={label} className="border-border border-b py-6">
       <p className="text-muted-foreground mb-3 font-mono text-xs">{label}</p>
       {children}
     </section>

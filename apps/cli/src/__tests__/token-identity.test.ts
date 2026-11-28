@@ -18,6 +18,7 @@ import {
   printPermissionDenialIdentity,
   recordPermissionDenial,
   resetPermissionDenial,
+  withIssues,
 } from '../token-denial.ts';
 import type { MeResponse } from '../api/types.ts';
 
@@ -513,5 +514,25 @@ describe('permission-denial identity footer', () => {
 
     expect(first.output()).toContain('osp-vision-route-agent');
     expect(second.output()).toBe('');
+  });
+});
+
+describe('validation issues for a program', () => {
+  // QualiLoop on dev: kortix.yaml issues carry `path` as a string ("agents.x.tools"), so
+  // `path.join` threw and My Kortix saw a TypeError instead of what to fix in its agent.
+  test('a string path, an array path and no path each name the field', () => {
+    const body = { issues: [
+      { path: 'agents.writer.tools', message: 'unknown tool "question"' },
+      { path: ['behavior', 'prompt'], message: 'Required' },
+      { message: 'invalid' },
+    ] };
+    expect(withIssues('Validation failed', body)).toBe(
+      'Validation failed (agents.writer.tools: unknown tool "question"; behavior.prompt: Required; (body): invalid)',
+    );
+  });
+
+  test('an issue the message already names is not repeated', () => {
+    const message = 'agents.x.skills: not registered under `skills`: all.';
+    expect(withIssues(message, { issues: [{ path: 'agents.x.skills', message: 'not registered under `skills`: all.' }] })).toBe(message);
   });
 });

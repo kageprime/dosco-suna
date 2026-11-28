@@ -78,6 +78,14 @@ interface TriggerRow {
   source?: TriggerSource
   target?: { kind?: string; session_id?: string }
   next_fire_at?: string | null
+  /** `kortix triggers ls --json` (`trigger-draft.ts`): the kortix.yaml trigger's kind and schedule. */
+  type?: string | null
+  every_seconds?: number | null
+  run_at?: string | null
+  timezone?: string
+  app?: string | null
+  event?: { connector?: string; type?: string } | null
+  auto_paused_at?: string | null
 }
 
 /** One row of `kortix loops ls --json`: a loop, or a trigger that wakes this session. */
@@ -380,8 +388,13 @@ function rowsOf(value: unknown): TriggerRow[] {
 /** The schedule of a kortix.yaml or runtime agent trigger, when it names one. */
 function when(row: TriggerRow): string | undefined {
   if (row.source?.type && row.source.type !== 'schedule') return condition(row.source)
+  if (row.event) return `Wakes when ${condition({ type: 'event', connector: row.event.connector, event: row.event.type })}`
+  if (row.type === 'webhook' || row.type === 'app') return `Wakes when ${condition({ type: row.type, app: row.app ?? undefined })}`
+  if (row.cron) return row.cron
+  if (row.every_seconds) return schedule({ every: `${row.every_seconds}s` })
+  if (row.run_at) return schedule({ at: row.run_at })
   const on = (row.on ?? row.source ?? {}) as Record<string, unknown>
-  const value = row.schedule ?? row.cron ?? row.every ?? on.cron ?? on.every ?? on.at ?? on.schedule
+  const value = row.schedule ?? row.every ?? on.cron ?? on.every ?? on.at ?? on.schedule
   return typeof value === 'string' && value ? value : undefined
 }
 
@@ -409,7 +422,7 @@ async function list(context: PlatformToolContext) {
     schedule: when(row) ?? null,
     agent: row.agent ?? null,
     next_fire: row.next_fire_at ?? null,
-    state: row.enabled === false || row.paused || row.state === 'paused' ? 'paused' : (row.state ?? 'active'),
+    state: row.enabled === false || row.paused || row.auto_paused_at || row.state === 'paused' ? 'paused' : (row.state ?? 'active'),
   }))
 
   const rows: KortixCardRow[] = [
@@ -471,15 +484,21 @@ async function create(args: Record<string, any>, context: PlatformToolContext) {
   // A schedule into this session is a loop (`reminder.<hex>`); one that starts an agent is `trigger.<hex>`.
   const id = made.text.match(/(?:trigger|reminder)\.[0-9a-f]+/)?.[0] ?? made.text.split('\n').pop() ?? ''
   const spoken = schedule.spoken
+  // An agent's schedule is an automation: saved paused, like `automate`, until run_now tested it and resume
+  // puts it live (QualiLoop on dev: create went live at once, and the agent paused it by hand after its test).
+  // The runtime create takes no `enabled`, so it is paused right after; a paused trigger still runs on run_now.
+  const paused = agent && /^trigger\.[0-9a-f]+$/.test(id) ? !('error' in (await cliRun(['triggers', 'pause', id], context))) : false
   return ok(
     TOOL,
     'create',
     {
-      title: agent ? `${agent} runs ${spoken}` : `Reminder set: ${spoken}`,
+      // The title is what the person reads first: "runs" for a schedule that does not run yet read as live (QualiLoop, Company setup journeys).
+      title: agent ? (paused ? `Saved paused: ${agent}, ${spoken}` : `${agent} runs ${spoken}`) : `Reminder set: ${spoken}`,
       subtitle: prompt.length > 140 ? `${prompt.slice(0, 137)}…` : prompt,
+      ...(agent ? { rows: [paused ? { title: 'Not running yet', detail: 'Test it with run_now, then resume it to put it live' } : { title: 'Live now', detail: 'It could not be saved paused; pause it if it is not tested' }] } : {}),
       links: [{ label: 'Triggers', href: adminHref(context.env, 'triggers') }],
     },
-    { id, agent, prompt, schedule: spoken },
+    { id, agent, prompt, schedule: spoken, ...(agent ? { state: paused ? 'paused' : 'active', next: paused ? 'run_now, then resume' : null } : {}) },
   )
 }
 
@@ -555,6 +574,11 @@ async function automate(args: Record<string, any>, context: PlatformToolContext)
     if (!APP_PATH.test(targetPath)) return invalid('Which path?', '`target_path` is the App path each run calls, starting with "/", e.g. "/tick".')
     if (typeof args.agent === 'string' && args.agent.trim()) return invalid('An App or an agent', 'A run calls `target_app` or starts `agent`, not both.')
   }
+  // No agent runs the workspace's default agent, My Kortix in a new workspace, and a schedule cannot start My Kortix:
+  // every run failed with "My Kortix cannot start another My Kortix session" (QualiLoop e2e on dev).
+  if (!targetApp && !(typeof args.agent === 'string' && args.agent.trim())) {
+    return invalid('Who does the work?', 'Pass `agent`: the workspace agent each run starts a session of (kortix_agents list shows them; "worker" for general work). A schedule cannot start My Kortix.')
+  }
   const prompt = typeof args.prompt === 'string' ? args.prompt.trim() : ''
   if (!prompt && !targetApp) return invalid('What should each run do?', 'Missing `prompt`: what each run starts with. Read the event with {{ event.data.<field> }} (connector and App events) or {{ body.<field> }} (webhooks). If you did send it, it did not arrive: send this call from codemode.')
   const badPrompt = prompt ? cliArgProblem('prompt', prompt, 'text') : null
@@ -605,7 +629,10 @@ async function automate(args: Record<string, any>, context: PlatformToolContext)
     if (n) flags.push(`--${flag}=${n}`)
   }
 
-  const made = await cliRun(['triggers', 'add', name, ...flags, '--apply'], context)
+  // Created paused, so it runs nothing before its test passes; `resume` puts it live. An App event
+  // automation starts live: its `test` is a real App event, which a paused trigger would not run.
+  const paused = on !== 'app_event'
+  const made = await cliRun(['triggers', 'add', name, ...flags, ...(paused ? ['--disabled'] : []), '--apply'], context)
   if ('error' in made) {
     // A webhook secret that is missing or stored for agents: hand back the link where the person saves it
     // for webhooks (an intake link: the value never passes through chat or this session).
@@ -623,23 +650,28 @@ async function automate(args: Record<string, any>, context: PlatformToolContext)
     }
     return fail(TOOL, 'automate', 'Could not set up the automation', made.error, context)
   }
+  // Saved again: an earlier test was of the old automation.
+  TESTED.delete(testedKey(context, name))
   const url = made.text.match(/webhook\s+(https?:\/\/\S+)/)?.[1]
   const reacts = on === 'connector_event' ? `${args.event} on ${args.connector}` : on === 'app_event' ? `${args.app} events` : on === 'webhook' ? 'each webhook call' : flags.find((f) => f.startsWith('--every=') || f.startsWith('--cron='))?.replace(/^--/, '').replace('=', ' ')
   return ok(
     TOOL,
     'automate',
     {
-      title: `Automation set: ${name}`,
+      title: paused ? `Automation saved, paused: ${name}` : `Automation set: ${name}`,
       subtitle: targetApp
         ? `Calls the App ${targetApp} (${targetPath}) on ${reacts}`
-        : `${typeof args.agent === 'string' && args.agent.trim() ? args.agent.trim() : 'My Kortix'} runs on ${reacts}${key ? ', one session per key' : ''}`,
+        : `${String(args.agent).trim()} runs on ${reacts}${key ? ', one session per key' : ''}`,
       rows: [
         ...(filter.length ? [{ title: 'Only when', detail: short(filter.map((f) => f.replace('--filter=', '')).join(' · '), 140) }] : []),
         ...(url ? [{ title: 'Webhook URL', detail: url }] : []),
+        ...(paused ? [{ title: 'Not running yet', detail: 'Test it, then resume it to put it live' }] : []),
       ],
       links: [{ label: 'Triggers', href: adminHref(context.env, 'triggers') }],
     },
-    { name, on, ...(url ? { webhook_url: url } : {}), next: 'Run `test` with a sample payload before you tell the person it is live.', output: short(made.text, 600) },
+    { name, on, ...(url ? { webhook_url: url } : {}), next: paused
+        ? 'It is paused and runs nothing yet. Run `test` with a sample that should run and one that should not, fix it until both come out right, then `resume` it by name to put it live.'
+        : 'Run `test` with a sample payload before you tell the person it is live.', output: short(made.text, 600) },
   )
 }
 
@@ -666,6 +698,7 @@ async function testAutomation(args: Record<string, any>, context: PlatformToolCo
   )
   if ('error' in read) return fail(TOOL, 'test', `Could not test ${name}`, read.error, context)
   const r = read.value
+  noteTest(context, name, r.filter_matches ? 'matched' : 'skipped')
   return ok(
     TOOL,
     'test',
@@ -737,10 +770,24 @@ async function testAppAutomation(name: string, app: string, filter: Record<strin
   )
 }
 
+/**
+ * What this session's tests of an automation showed since it was last saved: a run (`matched`) and a skip
+ * (`skipped`). `resume` reads it: an automation goes live only after its test passed (QualiLoop e2e on dev:
+ * it went live after one matching sample, or after a change with no new test). In this process only: after a
+ * daemon restart the automation is tested again.
+ */
+const TESTED = new Map<string, { matched: boolean; skipped: boolean }>()
+const testedKey = (context: PlatformToolContext, name: string) => `${context.env.KORTIX_SESSION_ID ?? ''}:${name}`
+function noteTest(context: PlatformToolContext, name: string, outcome: 'matched' | 'skipped') {
+  const seen = TESTED.get(testedKey(context, name)) ?? { matched: false, skipped: false }
+  TESTED.set(testedKey(context, name), { ...seen, [outcome]: true })
+}
+
 /** `runs`: an automation's recent runs, newest first: what it started, skipped or failed. */
 async function automationRuns(args: Record<string, any>, context: PlatformToolContext) {
   const name = typeof args.name === 'string' ? args.name.trim() : typeof args.id === 'string' ? args.id.trim() : ''
-  if (!TRIGGER_SLUG.test(name)) return fail(TOOL, 'runs', 'Which automation?', { kind: 'invalid', message: '`name` is the automation\'s name, as list shows it.' }, context)
+  // A kortix.yaml automation by its name, or an agent schedule by its runtime id (trigger.<hex>, from create).
+  if (!TRIGGER_SLUG.test(name) && !RUNTIME_ID.test(name)) return fail(TOOL, 'runs', 'Which automation?', { kind: 'invalid', message: '`name` is the automation\'s name or the schedule\'s id, as list shows it.' }, context)
   const read = await runJson<{ runs?: Array<{ status?: string; run_status?: string | null; error?: string | null; run_error?: string | null; session_id?: string | null; started_at?: string }> }>(
     ['triggers', 'runs', name, '--limit=20', '--json'],
     context,
@@ -776,6 +823,19 @@ const FAILED_TITLE: Record<keyof typeof VERB, string> = {
 }
 
 /** `action` is what the caller asked (`delete` stays `delete` in the result); `verb` routes it. */
+/** Why `resume` must wait: what this session's tests have not shown yet, or null when it may go live. */
+async function untested(id: string, context: PlatformToolContext): Promise<string | null> {
+  const seen = TESTED.get(testedKey(context, id)) ?? { matched: false, skipped: false }
+  if (RUNTIME_ID.test(id)) return seen.matched ? null : `Test it first: run_now ${id}, read its runs, then resume. If the person said to skip the test, call resume with force: true.`
+  const shown = await runJson<{ type?: string; filter?: Record<string, unknown> | null }>(['triggers', 'show', id, '--json'], context)
+  // An App event automation starts live (its test is a real App event); one the CLI cannot read is not blocked here.
+  if ('error' in shown || shown.value.type === 'app') return null
+  const filtered = !!shown.value.filter && Object.keys(shown.value.filter).length > 0
+  if (!seen.matched) return `Test it first: \`test\` ${id} with a sample that should run${filtered ? ', and one that should be skipped' : ''}, then resume. If the person said to skip the test, call resume with force: true.`
+  if (filtered && !seen.skipped) return `Its filter is untested: \`test\` ${id} with a sample that should be skipped, then resume. If the person said to skip the test, call resume with force: true.`
+  return null
+}
+
 async function change(action: string, verb: keyof typeof VERB, id: string, context: PlatformToolContext) {
   const cli = VERB[verb]!
   // A loop of this session (`reminder.<hex>`) changes through `kortix loops`; a runtime trigger
@@ -786,7 +846,8 @@ async function change(action: string, verb: keyof typeof VERB, id: string, conte
         'triggers',
         cli.triggers,
         id,
-        ...(verb === 'remove' && !RUNTIME_ID.test(id) ? ['--apply'] : []),
+        // pause and resume too: without --apply the CLI edits a local kortix.yaml, not the live project.
+        ...(verb !== 'run_now' && !RUNTIME_ID.test(id) ? ['--apply'] : []),
         // A kortix.yaml trigger's fire waits up to 90 s for the run's outcome by default, past this tool's
         // own limit: return once the fire is accepted, and read the outcome with `runs`.
         ...(verb === 'run_now' && !RUNTIME_ID.test(id) ? ['--wait=0'] : []),
@@ -806,17 +867,18 @@ export default {
     '4) Tell the person in one line, e.g. "I\'ll check for replies every 3 hours until 14 Nov." ' +
     '5) On each fire: check, act, report what changed; widen the cadence after repeated empty checks (remove, then a slower follow_up); `remove` every follow-up and wake-on the moment the work is done or the end date passes. ' +
     'No follow-up for work that finishes this turn, for background hand-offs, teammates and workflows (they report back by themselves), or when the person said not to track it. ' +
+    'A follow-up wakes THIS chat to check on something. Work the person wants done on a schedule (a weekly report, a daily digest, a Monday summary) is `create` with an agent, or `automate`, never a cron follow-up: a follow-up lives only as long as this chat. ' +
     'If it answers that Loops are not enabled, tell the person and ask them or a workspace admin to turn Loops on in Workspace settings → Feature flags. ' +
     'Actions: `follow_up` (text + ONE of in "3h", at ISO time, every "4h" (min 5m), cron "0 9 * * 1-5" + timezone; with several, the first of at, in, cron, every is used); ' +
     '`wake_on` (text + on); `events` (connector); `list` (this session\'s follow-ups and wake-ons, and the project schedules, with ids); ' +
-    '`create` (prompt + agent + one schedule: each run starts a new session of that agent); `pause`, `resume`, `run_now`, `remove` (each needs `id` as list shows it; `delete` = remove). ' +
+    '`create` (prompt + agent + one schedule: each run starts a new session of that agent; with an agent it is saved paused: run_now tests it, resume puts it live); `pause`, `resume`, `run_now`, `remove` (each needs `id` as list shows it; `delete` = remove). ' +
     'AUTOMATIONS (work that starts by itself whenever something happens, with no one asking: each new email from a customer, each new issue, each form submission, each failed build, every weekday at 9): `automate` (name + on + agent + prompt; on=connector_event: connector + event (+ config), run `events` first; an automation runs only on the shared sign-in of the workspace, so when the app still needs one, call kortix_connectors connect with for_trigger=true once (one card, never a private one first); webhook: secret_env, give the outside system the returned URL; app_event: app (+ event); schedule: every or cron + timezone). ' +
     'No event fits (none, or too coarse): have a colleague build a watcher App that posts App events, then `automate` its check (on=schedule + every + target_app + target_path "/tick": calls the App, no session, no model) and its work (on=app_event, with expect_event_within of a few check intervals). To tell the person in this chat instead, the work is `wake_on` on=app_event with expect_event_within. ' +
     'Do it well: 1) `filter` at the source so noise never starts a run (skip bots and Kortix itself, keep only the actions that matter: { "body.action": ["opened"], "body.sender.login": { "not": "kortix-bot" } }); ' +
     '2) `session_key` per thing ("{{ event.data.thread_id }}", "{{ body.issue.number }}", "{{ body.email }}") so a follow-up about the same thing lands in the same session; ' +
     '3) a prompt that judges first: "If this is not <what matters>, stop: do nothing and send no message. Otherwise …", with the event fields it needs; ' +
     '4) cap it (`max_runs_per_day`, e.g. 20) and pick the agent with the least access, and a fast model for triage; ' +
-    '5) ask the person before you create it (it runs unattended and uses credits), then call automate directly: it checks the secret, the connector and the Event triggers feature itself, and its error says what is missing (never check with the shell); then `test` with a sample payload (an App event automation gets a real test event and reports the run it started; any other fires nothing: the filter verdict, the session key and the prompt) and fix it until it is right; ' +
+    '5) ask the person before you create it (it runs unattended and uses credits), then call automate directly: it checks the secret, the connector and the Event triggers feature itself, and its error says what is missing (never check with the shell); then `test` with a sample payload (an App event automation gets a real test event and reports the run it started; any other fires nothing: the filter verdict, the session key and the prompt) and fix it until it is right; it is created paused (an App event automation excepted) and runs nothing until you `resume` it by name once the test passed; ' +
     '6) tell them in one line what it does, set a `follow_up` in 2-3 days to read its `runs` and tune it, and `remove` it (by name) when it is no longer wanted.',
   parameters: {
     type: 'object',
@@ -841,13 +903,14 @@ export default {
       app: { type: 'string', description: 'For wake_on app_event: the App slug.' },
       expect_event_within: { type: 'string', description: 'For wake_on and automate with on=app_event: the silence alert, e.g. "1h" (5m to 30d, a few check intervals). No App event for that long tells the person once; the next event clears it.' },
       prompt: { type: 'string', description: 'For create and automate: the message each run starts with. In automate, read the event with {{ event.data.<field> }} or {{ body.<field> }}.' },
-      agent: { type: 'string', description: 'For create and automate: the agent each run starts a session of. Without it, create is a reminder to this session (prefer follow_up), and automate runs the project default agent.' },
+      agent: { type: 'string', description: 'For create and automate: the agent each run starts a session of. Without it, create is a reminder to this session (prefer follow_up). automate needs it unless target_app is set: a schedule cannot start My Kortix ("worker" for general work).' },
       every: { type: 'string', description: 'For follow_up, create and automate (schedule): repeat interval, e.g. "4h", "1d".' },
       cron: { type: 'string', description: 'For follow_up and create: a cron expression, e.g. "0 9 * * 1-5". For automate (schedule): 6 fields, seconds first, e.g. "0 0 9 * * 1-5".' },
       timezone: { type: 'string', description: 'With cron: an IANA time zone, e.g. "Europe/Berlin".' },
       at: { type: 'string', description: 'For follow_up and create: one time, ISO 8601.' },
       in: { type: 'string', description: 'For follow_up and create: once, after this long, e.g. "3h".' },
       id: { type: 'string', description: 'For pause, resume, run_now, remove: the id, as list shows it (reminder.<hex>, trigger.<hex> or a schedule slug).' },
+      force: { type: 'boolean', description: 'For resume: put it live without the test this session ran. Only when the person said to skip the test.' },
     },
     required: ['action'],
   },
@@ -863,8 +926,9 @@ export default {
     if (action === 'runs') return automationRuns(args, context)
     if (!(ACTIONS as readonly string[]).includes(action)) return fail(TOOL, action, 'Unknown action', { kind: 'invalid', message: `Use one of: ${ACTIONS.join(', ')}.` }, context)
     const verb = (action === 'delete' ? 'remove' : action) as keyof typeof VERB
-    const id = typeof args.id === 'string' ? args.id.trim() : ''
-    if (!id) return fail(TOOL, action, 'Which one?', { kind: 'invalid', message: 'Pass id, as list shows it.' }, context)
+    // `automate` names an automation by `name`; the verbs that follow it take the same word as `id`.
+    const id = typeof args.id === 'string' && args.id.trim() ? args.id.trim() : typeof args.name === 'string' ? args.name.trim() : ''
+    if (!id) return fail(TOOL, action, 'Which one?', { kind: 'invalid', message: 'Pass id (or name), as list shows it.' }, context)
     // Exactly the shapes `list` prints. The id goes into the CLI's request path, where `/` or `..` would address
     // another endpoint (CWE-22), and an option-shaped one would leave pause/resume with no trigger, so the CLI
     // would flip the project-wide switch (CWE-88). Neither shape can be either.
@@ -877,6 +941,13 @@ export default {
         context,
       )
     }
-    return change(action, verb, id, context)
+    if (verb === 'resume' && !id.startsWith('reminder.') && args.force !== true) {
+      const missing = await untested(id, context)
+      if (missing) return fail(TOOL, action, 'Test it before it goes live', { kind: 'invalid', message: missing }, context)
+    }
+    const changed = await change(action, verb, id, context)
+    // A run started now is a test run of a schedule.
+    if (verb === 'run_now' && changed.ok) noteTest(context, id, 'matched')
+    return changed
   },
 }

@@ -29,6 +29,7 @@ import { UiLink as Link, useUiSearchParams } from '../../providers/ui-provider';
 import type { SetupStep } from './setup-steps';
 import { snoozeSetupBanner } from './setup-banner-snooze';
 import { useSetupSteps } from './use-setup-steps';
+import { useSkippedConnectors } from './skipped-connectors';
 
 /** While a step is open, read it again this often: the person may finish it in another tab. */
 const OPEN_STEP_POLL_MS = 5_000;
@@ -61,9 +62,16 @@ export function WorkspaceSetupModal({ projectId, onClose }: { projectId: string;
     enabled: usesSlack,
     staleTime: 60_000,
   });
-  const open = steps.filter((step) => !step.done);
+  const { skipped, skip, restore } = useSkippedConnectors(projectId);
+  const isSkipped = (step: SetupStep) => step.kind === 'connector' && skipped.includes(step.connector.slug);
+  const open = steps.filter((step) => !step.done && !isSkipped(step));
+  // A skip outlives its connector: one connected or removed since has nothing to restore.
+  const hidesOpenStep = steps.some((step) => !step.done && isSkipped(step));
+  const required = open.filter((step) => step.kind !== 'connector');
+  const optional = open.filter((step): step is Extract<SetupStep, { kind: 'connector' }> => step.kind === 'connector');
   const finished = steps.filter((step) => step.done);
-  const ready = !loading && !failed && steps.length > 0;
+  const visible = [...open, ...finished];
+  const ready = !loading && !failed && visible.length > 0;
   const complete = ready && open.length === 0;
   const view: StepView = {
     projectId,
@@ -107,11 +115,11 @@ export function WorkspaceSetupModal({ projectId, onClose }: { projectId: string;
           {ready ? (
             <div className="space-y-2">
               <p className="text-foreground text-sm font-medium tabular-nums">
-                {t('progress', { done: finished.length, total: steps.length })}
+                {t('progress', { done: finished.length, total: visible.length })}
               </p>
               <Progress
-                value={(finished.length / steps.length) * 100}
-                getValueLabel={() => t('progress', { done: finished.length, total: steps.length })}
+                value={(finished.length / visible.length) * 100}
+                getValueLabel={() => t('progress', { done: finished.length, total: visible.length })}
                 className="bg-muted h-1"
                 indicatorClassName="bg-kortix-green"
               />
@@ -149,15 +157,25 @@ export function WorkspaceSetupModal({ projectId, onClose }: { projectId: string;
             <EmptyState media={<EmptyArt icon={CheckCircleIcon} />} title={t('emptyTitle')} description={t('emptyDescription')} />
           ) : (
             <div className="space-y-6">
-              {open.length > 0 ? (
-                <StepSection title={t('sectionOpen')} count={open.length}>
+              {required.length > 0 ? (
+                <StepSection title={t('sectionOpen')} count={required.length}>
                   <ul className="grid gap-2 sm:grid-cols-2">
-                    {open.map((step) => (
+                    {required.map((step) => (
                       <OpenStepTile key={step.id} view={view} step={step} />
                     ))}
                   </ul>
                 </StepSection>
               ) : null}
+              {optional.length > 0 ? (
+                <StepSection title={t('sectionOptional')} count={optional.length}>
+                  <ul className="grid gap-2">
+                    {optional.map((step) => (
+                      <OpenStepTile key={step.id} view={view} step={step} onSkip={() => skip(step.connector.slug)} />
+                    ))}
+                  </ul>
+                </StepSection>
+              ) : null}
+              {hidesOpenStep ? <Button variant="ghost" size="sm" onClick={restore}>{t('showSkipped')}</Button> : null}
               {finished.length > 0 ? (
                 // What is already done is one quiet line, not a second list:
                 // the stack shows which, the count says how many.
@@ -209,7 +227,8 @@ interface StepView {
 }
 
 /** An open step: its logo, its name, and the one control that finishes it. */
-function OpenStepTile({ view, step }: { view: StepView; step: SetupStep }) {
+function OpenStepTile({ view, step, onSkip }: { view: StepView; step: SetupStep; onSkip?: () => void }) {
+  const t = useTranslations('workspaceSetup');
   return (
     <li className="flex min-w-0 items-center gap-3 rounded-lg border py-2.5 pr-2.5 pl-3">
       <StepLogo step={step} size="md" />
@@ -217,6 +236,7 @@ function OpenStepTile({ view, step }: { view: StepView; step: SetupStep }) {
         {step.name}
       </p>
       <StepAction view={view} step={step} />
+      {onSkip ? <Button variant="ghost" size="sm" onClick={onSkip} aria-label={t('skipNamed', { name: step.name })}>{t('skip')}</Button> : null}
     </li>
   );
 }

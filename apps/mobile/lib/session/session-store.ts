@@ -95,6 +95,11 @@ export function markSeededPrompt(sessionId: string, messageId: string): void {
   useSessionStateStore.getState().markOptimisticDispatched(sessionId, messageId);
 }
 
+/** The store still holds this message as an optimistic send from this device (no echo yet). */
+export function isOptimisticMessage(sessionId: string, messageId: string): boolean {
+  return useSessionStateStore.getState().isOptimisticMessage(sessionId, messageId);
+}
+
 /** Drop an optimistic message that was never accepted (a refused or failed send). */
 export function removeOptimisticMessage(sessionId: string, messageId: string): void {
   useSessionStateStore.getState().optimisticRemove(sessionId, messageId);

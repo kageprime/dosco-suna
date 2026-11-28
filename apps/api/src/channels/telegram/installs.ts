@@ -21,7 +21,7 @@ import {
   recordChannelAccessRequest,
   setChannelAllowedUsers,
 } from '../core/channel-access';
-import { deleteProjectSecrets, readSecret, upsertSecret } from '../install-store';
+import { deleteProjectSecrets, readSecret, upsertSecret } from '../core/install-secrets';
 import { projectsView } from '../../workspaces/rows';
 
 export const TELEGRAM_BOT_TOKEN = 'TELEGRAM_BOT_TOKEN';

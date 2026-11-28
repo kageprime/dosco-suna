@@ -1,6 +1,6 @@
 import type { Part } from "../../../core/runtime/runtime-types";
 
-import { Binary } from "./binary";
+import { Binary, compareStrings } from "./binary";
 
 function isTextLikePart(part: Part): part is Extract<Part, { type: "text" | "reasoning" }> {
 	return part.type === "text" || part.type === "reasoning";
@@ -24,7 +24,7 @@ export function reconcileHydratedParts(
 
 		const inParts = m.parts
 			.filter((p) => !!p?.id)
-			.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+			.sort((a, b) => compareStrings(a.id, b.id));
 		if (tracking.isBridged(mid) && inParts.length > 0) {
 			tracking.clearBridge(mid);
 			parts[mid] = inParts;

@@ -154,8 +154,6 @@ resource "aws_iam_role_policy" "gha_ecs_deploy" {
           "arn:aws:iam::${local.account_id}:role/kortix-staging-euw2-exec",
           "arn:aws:iam::${local.account_id}:role/kortix-staging-euw2-gateway-task",
           "arn:aws:iam::${local.account_id}:role/kortix-staging-euw2-gateway-exec",
-          "arn:aws:iam::${local.account_id}:role/kortix-staging-euw2-web-task",
-          "arn:aws:iam::${local.account_id}:role/kortix-staging-euw2-web-exec",
         ]
       },
     ]
@@ -298,8 +296,6 @@ resource "aws_iam_role_policy" "gha_ecs_deploy_prod" {
           "arn:aws:iam::${local.account_id}:role/kortix-prod-exec",
           "arn:aws:iam::${local.account_id}:role/kortix-prod-gateway-task",
           "arn:aws:iam::${local.account_id}:role/kortix-prod-gateway-exec",
-          "arn:aws:iam::${local.account_id}:role/kortix-prod-web-task",
-          "arn:aws:iam::${local.account_id}:role/kortix-prod-web-exec",
         ]
       },
     ]
@@ -322,12 +318,6 @@ resource "aws_iam_role_policy" "gha_ecs_deploy_prod_secrets" {
           "arn:aws:secretsmanager:*:${local.account_id}:secret:kortix-ci-env-*",
           "arn:aws:secretsmanager:*:${local.account_id}:secret:kortix-prod*-env-*",
         ]
-      },
-      {
-        Sid      = "WriteProdWebSecret"
-        Effect   = "Allow"
-        Action   = ["secretsmanager:CreateSecret", "secretsmanager:PutSecretValue"]
-        Resource = "arn:aws:secretsmanager:*:${local.account_id}:secret:kortix-prod*-web-env-*"
       },
     ]
   })

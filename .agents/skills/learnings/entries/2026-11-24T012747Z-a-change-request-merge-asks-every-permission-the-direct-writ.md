@@ -1,0 +1,13 @@
+---
+recorded: 2026-11-24T01:27:47Z
+incident_date: 2026-11-24
+---
+# A change-request merge asks every permission the direct write of each changed section asks, and never lands a key the change's commits add
+
+**Rule:** When a route or a manifest section gains a permission on its direct write, add the section to `requiredManifestActions` (`apps/api/src/projects/change-request-policy.ts`) and the action to `MANIFEST_WRITE_ACTIONS` in the same PR. The merge classifies for every principal, person included: the web role editor adds `implies`, but the API accepts a custom role without them. A merge lands only the head commit it classified (`expectedHeadSha`). What the change's commits add is scanned for provider-shaped keys (`secret-scan.ts`); a person may override with `allow_secrets`, an agent session never.
+
+**Trigger surface:** Adding a manifest section or a permission to a config write route (`connectors/*`, `projects/routes/agent-*`, triggers); changing `change-request-actions.ts`, `change-request-governance.ts`, `ref-policy.ts`; adding a key format to `SECRET_RULES`.
+
+**Incident:** 2026-11-24, a customer reported an agent session that deleted a connector from `kortix.yaml` outside review and committed a hard-coded API key into the workspace repository. Reproduced on the local stack: an agent with `project.gitops.merge` but no `project.connector.write` merged a change request deleting a connector (`200`); a person whose custom role had merge but not connector write was refused `DELETE /connectors/:slug` (`403`) and merged the same deletion (`200`); an agent merged a change request adding a synthetic GitHub token (`200`, token on the default branch). Path still open by design: a governed agent with `project.connector.write` (the starter `worker` has `kortix_permissions: "*"`) writes connectors on the default branch directly through the connector routes and the CLI's `--apply`.
+
+**Enforcement:** flows `CR-15` (connector governance, agent and custom-role person) and `CR-16` (secret check: 409, agent override 403, real CLI, a later deleting commit, person override recorded), each run red on the unfixed API. `secret-scan.test.ts` (rules, placeholders, hunk parsing), `change-request-policy.test.ts` (sections, refusal), `change-request-governance.integration.test.ts` (real git: connector delete, history, base-branch keys), `partial-store-history.test.ts` (the scan on a partial store fetches only the changed files). Not enforced: a key pushed straight to the default branch by an agent that holds `project.gitops.ref.any` and every grant, and a key in connector `headers:` written through `POST /connectors`.

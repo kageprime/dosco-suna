@@ -253,3 +253,19 @@ describe('duplicate trigger-admissions twin runtime correction', () => {
     expect(() => materializeMigrationRuntimeDirectory(dir)).toThrow(`${file} checksum mismatch`);
   });
 });
+
+test('artifact folder runtime defers validation and refuses source drift', () => {
+  const root = mkdtempSync(join(tmpdir(), 'artifact-folder-override-'));
+  roots.push(root);
+  const file = '20261123215124149_artifact_folders.sql';
+  const source = readFileSync(join(import.meta.dir, '../migrations', file), 'utf8');
+  writeFileSync(join(root, file), source);
+  const runtime = materializeMigrationRuntimeDirectory(root);
+  try {
+    expect(readFileSync(join(root, file), 'utf8')).toBe(source);
+    expect(readFileSync(join(runtime.path, file), 'utf8')).not.toContain('ALTER TABLE kortix.artifacts VALIDATE CONSTRAINT');
+    expect(runtime.appliedOverrides).toHaveLength(1);
+  } finally { runtime.cleanup(); }
+  writeFileSync(join(root, file), source + '\n-- drift');
+  expect(() => materializeMigrationRuntimeDirectory(root)).toThrow('checksum mismatch');
+});

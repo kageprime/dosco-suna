@@ -1,12 +1,11 @@
 /**
- * Internal types of the device's saved copies (`saved-copy-store.ts`), shared with the v2
- * copy of the session log (`../session-log/saved-log.ts`). Kept out of `saved-copy-store.ts`,
- * which the package root re-exports whole: none of these is public.
+ * Internal types of the device's saved copies (`saved-copy-store.ts`), shared with the codec of
+ * the session-log page (`../session-log/saved-log.ts`). Kept out of `saved-copy-store.ts`, which
+ * the package root re-exports whole: none of these is public.
  */
-import type { SessionTranscriptSyncEnvelope } from '../rest/projects-client/sessions';
 
-/** One kept copy. `e` is the payload: a v1 envelope, or a v2 session-log page (`saved-log.ts`). */
-export interface StoredCopy<T = SessionTranscriptSyncEnvelope> {
+/** One kept copy. `e` is the payload: a session-log page (`saved-log.ts`). */
+export interface StoredCopy<T> {
   v: number;
   user: string;
   at: number;
@@ -21,7 +20,7 @@ export interface CopyCodec<T> {
   capturedAt(value: T): number;
 }
 
-/** The store over one kind of copy; `SavedCopyStore` is this over the v1 envelope. */
+/** The store over one kind of copy; `SavedCopyStore` is this over the session-log page. */
 export interface CopyStore<T> {
   keyFor(projectId: string, sessionId: string): string;
   read(projectId: string, sessionId: string): T | null | Promise<T | null>;

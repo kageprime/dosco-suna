@@ -3,8 +3,7 @@
  * other call to action that leads to purchasing digital goods or a
  * subscription outside Apple's in-app purchase.
  *
- * Mobile ships no in-app purchase — `shouldUseRevenueCat()` (./provider) is
- * hard-disabled — so on iOS every billing surface stays read-only: no price
+ * Mobile ships no in-app purchase, so on iOS every billing surface stays read-only: no price
  * text, and no "Buy credits" / "Change plan" / "Upgrade" / "Manage on
  * dosco.live" action that opens web checkout. Android and web are unaffected;
  * checkout there still opens dosco.live in the browser.

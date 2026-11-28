@@ -49,7 +49,7 @@ export function extractPreviewSandboxId(path: string): string | null {
 export async function enforceTokenProjectScope(
   c: Context,
   tokenProjectId: string,
-  opts: { sessionBound?: boolean; principal?: string } = {},
+  opts: { sessionBound?: boolean; principal?: string; remedy?: string } = {},
 ): Promise<void> {
   const path = c.req.path;
   const method = c.req.method;
@@ -67,8 +67,11 @@ export async function enforceTokenProjectScope(
   // reason made every denial indistinguishable in Better Stack: 2,338 identical
   // `POST /v1/platform/boot-timeline -> 403` lines over 7 days (2026-09-09)
   // named neither the credential nor the branch that rejected it.
+  // A remedy names the fix a reconnect gives. A platform route or an unlisted
+  // route stays refused to every credential of the person, so it gets none.
+  const remedy = opts.remedy && verdict.check !== 'platform-route' && verdict.check !== 'default-deny' ? `. ${opts.remedy}` : '';
   const message =
-    `${verdict.reason} ` +
+    `${verdict.reason}${remedy} ` +
     `[check=token-project-scope:${verdict.check} ` +
     `principal=${opts.principal ?? (opts.sessionBound ? 'session-scoped-pat' : 'project-scoped-pat')} ` +
     `project=${workspaceId} path=${path}]`;

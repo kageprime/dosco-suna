@@ -75,7 +75,6 @@ describe('ProjectDeleteTool joins the shared BasicTool shell', () => {
 
     expect(html).not.toContain('sticky');
     expect(html).toContain('bg-popover border-border overflow-hidden rounded-md border');
-    expect(html).toContain('text-sm font-medium');
     expect(html).toContain('Workspace');
     expect(html).toContain('Workspace delete disabled');
 

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { serializePromptWithPastes } from '@kortix/shared';
 
-import { queueHeaderLabel, queueRowCaption, queueRowText, restoreQueued } from './queue-undo';
+import { queueHeaderLabel, queueRowCaption, queueRowSendLabel, queueRowText, restoreQueued } from './queue-undo';
 
 const m = (id: string, sessionId = 's1') => ({ id, sessionId, text: id, timestamp: 0 });
 
@@ -66,6 +66,24 @@ describe('queueRowCaption', () => {
   test('a plain queued message, or one from an older server, has no caption', () => {
     expect(queueRowCaption({ delivery: 'queue', steer_fallback: null })).toBeNull();
     expect(queueRowCaption({})).toBeNull();
+  });
+
+  test('a row the server failed reads "Not sent", with its reason (web wording)', () => {
+    expect(queueRowCaption({ state: 'failed', delivery: 'steer', last_error: null })).toBe('Not sent');
+    expect(queueRowCaption({ state: 'failed', delivery: 'steer', last_error: 'the box did not start' })).toBe(
+      'Not sent · the box did not start',
+    );
+    expect(
+      queueRowCaption({ state: 'failed', last_error: "this session's computer cannot reach the API. Start a new session" }),
+    ).toBe('Not sent · This session lost its connection to Kortix. Start a new session to continue.');
+  });
+});
+
+describe('queueRowSendLabel', () => {
+  test('a failed row offers "Try again", a waiting row "Send now"', () => {
+    expect(queueRowSendLabel({ state: 'failed' })).toBe('Try again');
+    expect(queueRowSendLabel({ state: 'queued' })).toBe('Send now');
+    expect(queueRowSendLabel({})).toBe('Send now');
   });
 });
 

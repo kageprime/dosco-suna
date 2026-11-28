@@ -87,6 +87,14 @@ export class CompileAgentConfigError extends Error {
   }
 }
 
+/** The prompt files of one compile hold more than the caller's `maxPromptChars`. */
+export class PromptFilesTooLargeError extends Error {
+  constructor(readonly limit: number) {
+    super(`the prompt files of kortix.yaml hold more than ${limit} characters in all`);
+    this.name = 'PromptFilesTooLargeError';
+  }
+}
+
 /** What a daemon that predates program agents tells the person instead of running the program. */
 const PROGRAM_AGENT_FALLBACK_PROMPT =
   'This agent runs a program, and this sandbox cannot run program agents yet. Do not call any tool. ' +
@@ -562,7 +570,16 @@ interface CompileReadOptions {
    * 60s TTL. Omitted keeps the plain TTL behavior.
    */
   forceRefresh?: MirrorRefresh;
+  /**
+   * The characters every prompt file of one compile may hold in all. Past it
+   * the compile throws `PromptFilesTooLargeError` before it reads more, and
+   * compiles nothing. Omitted: no bound but each file's own.
+   */
+  maxPromptChars?: number;
 }
+
+/** Prompt files read at once under `maxPromptChars`: at most this many files past the bound are held. */
+const BOUNDED_PROMPT_READS = 8;
 
 /**
  * Compiled configs by the commit they were compiled from. A commit never
@@ -628,9 +645,17 @@ export function __setCompiledAtCommitBudgetForTests(bytes: number): void {
 /**
  * Every prompt file the manifest names (agents and commands), read at `ref`.
  * A missing file is left out (the compile turns its agent off and names the
- * file in `manifest_issues`); any other read failure throws.
+ * file in `manifest_issues`); any other read failure throws. Past
+ * `maxPromptChars` in all: `PromptFilesTooLargeError`, and no file is read
+ * after.
  */
-async function readPromptFiles(project: GitBackedProject, raw: Record<string, unknown>, ref: string, overlay: Record<string, string> = {}): Promise<Record<string, string>> {
+async function readPromptFiles(
+  project: GitBackedProject,
+  raw: Record<string, unknown>,
+  ref: string,
+  overlay: Record<string, string> = {},
+  maxPromptChars = Infinity,
+): Promise<Record<string, string>> {
   const paths = new Set<string>();
   for (const block of [...Object.values(mapOf<{ prompt_file?: unknown }>(raw.agents)), ...Object.values(mapOf<{ prompt_file?: unknown }>(raw.commands))]) {
     if (typeof block?.prompt_file === 'string' && safeAgentFile(block.prompt_file)) paths.add(block.prompt_file);
@@ -642,18 +667,31 @@ async function readPromptFiles(project: GitBackedProject, raw: Record<string, un
   // A converted legacy file (in the overlay) reads without the repo.
   await prefetchRepoFiles(project, [...paths].filter((path) => overlay[path] === undefined), ref);
   const files: Record<string, string> = {};
-  await Promise.all([...paths].map(async (path) => {
-    // A converted legacy file: the prompt without its frontmatter, or a command moved out of the harness folder.
-    if (overlay[path] !== undefined) {
-      files[path] = overlay[path];
-      return;
+  const queue = [...paths];
+  let chars = 0;
+  const readNext = async () => {
+    for (let path = queue.shift(); path !== undefined; path = queue.shift()) {
+      // A converted legacy file: the prompt without its frontmatter, or a command moved out of the harness folder.
+      let text = overlay[path];
+      if (text === undefined) {
+        try {
+          text = await readRepoFile(project, path, ref);
+        } catch (err) {
+          if (!isRepoFileNotFoundError(err)) throw err;
+          continue;
+        }
+      }
+      chars += text.length;
+      if (chars > maxPromptChars) {
+        queue.length = 0;
+        throw new PromptFilesTooLargeError(maxPromptChars);
+      }
+      files[path] = text;
     }
-    try {
-      files[path] = await readRepoFile(project, path, ref);
-    } catch (err) {
-      if (!isRepoFileNotFoundError(err)) throw err;
-    }
-  }));
+  };
+  // Unbounded, every file is read at once, as before the bound existed.
+  const lanes = Number.isFinite(maxPromptChars) ? BOUNDED_PROMPT_READS : queue.length;
+  await Promise.all(Array.from({ length: Math.min(lanes, queue.length) }, readNext));
   return files;
 }
 
@@ -711,7 +749,7 @@ export async function resolveCompiledAgentConfigForSession(
   if (hit) return hit.compiled;
   // Every file is read at the commit the manifest came from: a sha read
   // needs no mirror fetch, and all files come from one commit.
-  const compiled = JSON.stringify(compileAgentConfig(read.usable, await readPromptFiles(project, read.usable, read.found.commit ?? ref, read.found.legacy?.overlay), [...read.issues]));
+  const compiled = JSON.stringify(compileAgentConfig(read.usable, await readPromptFiles(project, read.usable, read.found.commit ?? ref, read.found.legacy?.overlay, options.maxPromptChars), [...read.issues]));
   rememberCompiled(key, { raw: read.usable, compiled });
   return compiled;
 }
@@ -750,7 +788,7 @@ export async function resolveSelectedAgentConfigForSession(
   const hit = compiledAt(key);
   if (hit?.compiled) return hit.compiled;
   // Read at the manifest's own commit, as the full compile does.
-  const compiled = JSON.stringify(compileSelectedAgentConfig(read.usable, agentName, await readPromptFiles(project, read.usable, read.found.commit ?? ref, read.found.legacy?.overlay), [...read.issues]));
+  const compiled = JSON.stringify(compileSelectedAgentConfig(read.usable, agentName, await readPromptFiles(project, read.usable, read.found.commit ?? ref, read.found.legacy?.overlay, options.maxPromptChars), [...read.issues]));
   rememberCompiled(key, { raw: read.usable, compiled });
   return compiled;
 }

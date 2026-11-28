@@ -686,11 +686,12 @@ jobs:
       # remove the key and redeploy; Files already created in us-east stay
       # there, and their sessions keep running there.
       #
-      # KORTIX_WORKSPACE_VOLUMES=on turns `workspace_volume` (stateless
-      # sandboxes) on for every dev project that has made no choice: each new
-      # session keeps /workspace on its own Platinum volume, and a box stopped
-      # for KORTIX_SANDBOX_IDLE_DELETE_MINUTES is deleted. Rollback: remove the
-      # key and redeploy; sessions that already have a volume keep it.
+      # KORTIX_WORKSPACE_VOLUMES=on: stateless sandboxes (each new session
+      # keeps /workspace on its own Platinum volume; a box stopped for
+      # KORTIX_SANDBOX_IDLE_DELETE_MINUTES is deleted). The code default is on
+      # since 2026-11-23; the key stays so a rollback to an older image, where
+      # unset meant off, keeps it on. Kill switch: set it to `off` and
+      # redeploy; sessions that already have a volume keep it.
       #
       # KORTIX_PLATINUM_RESIDENTIAL_PROXY=true honors a sandbox template's
       # `residential_proxy` on dev and starts the worker that debits Platinum's

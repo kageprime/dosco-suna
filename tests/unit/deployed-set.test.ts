@@ -32,6 +32,7 @@ const SEAMS: Record<string, string[]> = {
   'web push keys': ['NOTIF-4'],
   'internal cron key': ['BILL-13'],
   'database writes over the deployed pool': ['ACCT-2', 'PROJ-1'],
+  'Supabase Data API stays off': ['SEC-K'],
 };
 
 interface TaggedFlow {

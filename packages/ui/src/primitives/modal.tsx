@@ -114,7 +114,7 @@ ModalOverlay.displayName = 'ModalOverlay';
 
 const ModalVariants = cva(
   cn(
-    'fixed gap-0 border p-0 shadow-lg overflow-y-auto',
+    'fixed gap-0 border p-0 shadow-md overflow-y-auto',
     'lg:top-[50%] lg:left-[50%] lg:grid lg:w-full lg:max-w-lg lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-xl',
     'lg:flex lg:h-full lg:flex-col space-y-4',
   ),

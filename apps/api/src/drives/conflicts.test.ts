@@ -13,6 +13,8 @@ import { expect, mock, test } from 'bun:test';
 // ── the fake storage: kd-d1 hangs on every read, kd-d2 answers its head ────
 const failVolumeNames = new Set(['kd-d1']);
 const volumeCalls: string[] = [];
+const listCalls: string[] = [];
+const updates: string[] = [];
 
 export class FakeDriveStorageError extends Error {
   constructor(
@@ -34,10 +36,14 @@ mock.module('./volumes', () => ({
       await Bun.sleep(2);
       throw new FakeDriveStorageError(503, 'Drive storage is unavailable, try again shortly', 'drive_storage_unavailable');
     }
-    return { id: volume.name, head_commit_id: 'h1' };
+    return { id: volume.name, head_commit_id: 'h1', ...(volume.name.startsWith('kd-s') ? { type: 'sharedfs' } : {}) };
   },
+  isKortixInternalPath: (path: string) => path.startsWith('/.kortix'),
   isMissingVolume: (err: unknown) => err instanceof FakeDriveStorageError && err.code === 'volume_not_found',
-  listVolumeFiles: async () => [],
+  listVolumeFiles: async (volume: { name: string }) => {
+    listCalls.push(volume.name);
+    return [];
+  },
   readVolumeFile: async () => {
     throw new Error('not read in these tests');
   },
@@ -77,7 +83,10 @@ mock.module(
 mock.module('../shared/db', () => ({
   db: {
     select: () => ({ from: (t: { __t?: string }) => chain(tableRows.get(t.__t ?? '') ?? []) }),
-    update: () => chain([]),
+    update: (t: { __t?: string }) => {
+      updates.push(t.__t ?? '');
+      return chain([]);
+    },
     insert: () => chain([]),
     delete: () => chain([]),
   },
@@ -101,7 +110,7 @@ mock.module('../lib/logger', () => ({
   },
 }));
 
-const { runConflictScan } = await import('./conflicts');
+const { runConflictScan, scanDriveConflicts } = await import('./conflicts');
 const { createDriveBackoff } = await import('./backoff');
 
 test('a drive whose scan fails backs off: later passes skip it and do not warn again', async () => {
@@ -134,4 +143,23 @@ test('a success re-arms the warn: the next failure is a first failure again', ()
   expect(b.fail('d1', new Error('down')).firstFailure).toBe(false);
   b.ok('d1');
   expect(b.fail('d1', new Error('down')).firstFailure).toBe(true);
+});
+
+test('a shared (live) drive is not scanned, and its open conflicts are closed: nothing merges on it any more', async () => {
+  updates.length = 0;
+  listCalls.length = 0;
+  const shared = { driveId: 's1', platinumVolumeId: 'vs', platinumVolumeName: 'kd-s1', platinumVolumeRegion: null, conflictScanHead: 'h0' };
+  expect(await scanDriveConflicts(shared as never)).toEqual([]);
+  expect(listCalls).toEqual([]);
+  expect(updates).toEqual(['driveConflicts']);
+});
+
+test('a block drive whose head moved is scanned as before, and closes nothing it still finds', async () => {
+  updates.length = 0;
+  listCalls.length = 0;
+  const block = { driveId: 'b1', platinumVolumeId: 'vb', platinumVolumeName: 'kd-b1', platinumVolumeRegion: null, conflictScanHead: 'h0' };
+  expect(await scanDriveConflicts(block as never)).toEqual([]);
+  expect(listCalls).toEqual(['kd-b1']);
+  // Only the scan head is recorded: no conflict was open, none is closed.
+  expect(updates).toEqual(['drives']);
 });

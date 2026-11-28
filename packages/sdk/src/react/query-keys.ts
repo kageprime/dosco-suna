@@ -641,6 +641,8 @@ export const qk = {
     unifiedTriggers: (id: string) => [...qk.project.scope(id), 'unified-triggers'] as const,
     /** `listProjectSpaces` — the project's channels and the caller's DMs. */
     spaces: (id: string) => [...qk.project.scope(id), 'spaces'] as const,
+    /** `listWorkspaceAgentDirectory` — the agents the caller can message. Under `spaces`, so opening a DM refreshes each agent's `chat_space_id`. */
+    agentDirectory: (id: string) => [...qk.project.spaces(id), 'agent-directory'] as const,
     /** `listProjectSessionGroups` — the project's session groups, in order. */
     sessionGroups: (id: string) => [...qk.project.scope(id), 'session-groups'] as const,
     /** `listProjectSpaceApps` — one channel's Apps. Under `apps`, so every App mutation's invalidation refetches it. */
@@ -649,6 +651,7 @@ export const qk = {
     spaceLinks: (id: string, spaceId: string) => [...qk.project.spaces(id), spaceId, 'links'] as const,
     /** `listProjectSpaceMembers` — a channel's people (the header roster, the Members tab). Under `spaces`, so a spaces refresh refreshes it. */
     spaceMembers: (id: string, spaceId: string) => [...qk.project.spaces(id), spaceId, 'members'] as const,
+    spaceActivity: (id: string, spaceId: string) => [...qk.project.spaces(id), spaceId, 'activity'] as const,
     /** `getProjectSpaceProactive` — a space's watcher settings (`spaces_proactive`). Under `spaces`, so a spaces refresh refreshes it. */
     spaceProactive: (id: string, spaceId: string) => [...qk.project.spaces(id), spaceId, 'proactive'] as const,
     /** `getProjectSpaceGeneralNotice` — `#general`'s turned-on-again line. Under `spaces`, so a spaces refresh refreshes it. */

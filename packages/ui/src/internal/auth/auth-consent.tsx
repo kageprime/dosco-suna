@@ -144,7 +144,7 @@ export function DetailPanel({
   children: React.ReactNode;
 }) {
   return (
-    <dl className={cn('border-border divide-border/60 divide-y rounded-md border', className)}>
+    <dl className={cn('border-border divide-border divide-y rounded-md border', className)}>
       {children}
     </dl>
   );

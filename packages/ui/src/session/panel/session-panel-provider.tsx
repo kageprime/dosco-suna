@@ -97,7 +97,8 @@ export interface SessionPanelValue {
   files: OutputItem[];
   context: ReturnType<typeof deriveContext>;
   apps: OutputItem[];
-  outputsDefaultOpen: boolean;
+  /** The session works now: lists that poll (Background tasks) poll faster. */
+  isSessionBusy: boolean;
 
   /** Detail-panel state — everything the side panel renders. */
   detail: Detail | null;
@@ -675,7 +676,7 @@ export function SessionPanelProvider({
     [apps, handleOpenOutput, sessionId],
   );
 
-  const { outputsDefaultOpen, pendingQuickView } = usePanelHandoffs({
+  const { pendingQuickView } = usePanelHandoffs({
     sessionId, projectId, projectSessionId, isRunning, outcome, apps, files, steps, calls,
     detail, handleOpenOutput, openDetail, closeDetail, openTerminal, openAudit, openReminders, openDesktop, openBrowser, openFiles,
   });
@@ -791,7 +792,7 @@ export function SessionPanelProvider({
       files,
       context,
       apps,
-      outputsDefaultOpen,
+      isSessionBusy,
       detail,
       terminalOpen,
       terminalSwap,
@@ -814,7 +815,7 @@ export function SessionPanelProvider({
       files,
       context,
       apps,
-      outputsDefaultOpen,
+      isSessionBusy,
       detail,
       terminalOpen,
       terminalSwap,

@@ -47,6 +47,7 @@ import { startSessionModelFallbackWorker, stopSessionModelFallbackWorker } from 
 import { startSpaceWatcher, stopSpaceWatcher } from './space-watcher';
 import { startGoalReconciler, stopGoalReconciler } from './goal-reconciler';
 import { startEvalRunner, stopEvalRunner } from './eval-runner';
+import { startWorkspaceCacheBuilder, stopWorkspaceCacheBuilder } from './workspace-cache-builder';
 import { startSlackTurnGc, stopSlackTurnGc } from './slack-turn-gc';
 import { startTeamsTurnGc, stopTeamsTurnGc } from './teams-turn-gc';
 import { startProjectTriggerScheduler, stopProjectTriggerScheduler, triggerSweepStalled } from './trigger-scheduler';
@@ -137,6 +138,8 @@ export const JOBS: readonly Job[] = [
   // Goals (flag `goals`): finishes partial creates, repairs heartbeats, flags lost owners and stalled verifications.
   { ticks: { 'goal-reconciler': 10 * MIN }, start: startGoalReconciler, stop: stopGoalReconciler },
   { ticks: { 'eval-runner': 10 * MIN }, start: startEvalRunner, stop: stopEvalRunner },
+  // Workspace cache (flag `platinum_cache`): each project's daily rebuild by its recorded builder.
+  { ticks: { 'workspace-cache-builder': 20 * MIN }, start: startWorkspaceCacheBuilder, stop: stopWorkspaceCacheBuilder },
   // Idle sessions off a fallback model once their own model serves again.
   { ticks: { 'session-model-fallback': 10 * MIN }, start: startSessionModelFallbackWorker, stop: stopSessionModelFallbackWorker },
   // Closed pending days of the gateway spend running total.

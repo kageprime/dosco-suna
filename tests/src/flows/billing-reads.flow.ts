@@ -142,7 +142,7 @@ flow(
       r.status(401);
     });
 
-    await ctx.step("OWNER reads the credits tier ladder ($50 … $50,000, 25 tiers) and the $50–$50,000 bounds", async () => {
+    await ctx.step("OWNER reads the credits tier ladder ($50 … $10,000, 16 tiers, volume bonus in the credits) and the $50–$10,000 bounds", async () => {
       const r = await ctx.client.as(ctx.P.OWNER).get("/v1/billing/tier-configurations");
       r.status(OWNER_READ);
       if (r.statusCode !== 200) return;
@@ -150,12 +150,16 @@ flow(
         .has("$.tiers[0].name", "credits_50")
         .has("$.tiers[0].display_name", "5,000 credits")
         .has("$.tiers[0].monthly_price", 50)
+        .has("$.tiers[0].monthly_credits", 50)
         .has("$.tiers[3].monthly_price", 200)
-        .has("$.tiers[24].monthly_price", 50000)
-        .has("$.tiers[24].display_name", "5,000,000 credits")
-        .has("$.tiers[25]", undefined)
+        .has("$.tiers[3].display_name", "22,000 credits")
+        .has("$.tiers[3].monthly_credits", 220)
+        .has("$.tiers[15].monthly_price", 10000)
+        .has("$.tiers[15].display_name", "1,300,000 credits")
+        .has("$.tiers[15].monthly_credits", 13000)
+        .has("$.tiers[16]", undefined)
         .has("$.min_monthly_usd", 50)
-        .has("$.max_monthly_usd", 50000);
+        .has("$.max_monthly_usd", 10000);
     });
     await ctx.step("ANON cannot read tier-configurations → 401 (auth-gated, not public)", async () => {
       const r = await ctx.client.as(ctx.P.ANON).get("/v1/billing/tier-configurations");

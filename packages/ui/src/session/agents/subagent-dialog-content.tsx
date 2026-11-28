@@ -24,7 +24,7 @@ import { useSessionIds } from '../../providers/session-ids';
 import { appendMentionRefs } from '../../internal/lib/project-preamble';
 import { SessionChatInput } from '../composer/session-chat-input';
 import { agentRowOf, isActive, shortElapsed, type AgentRow } from './agent-model';
-import { AgentFace, AgentFailure } from './agent-surface';
+import { AgentChip, AgentFailure } from './agent-surface';
 import { AgentStateMark } from './agent-state-mark';
 import { LegacySubagentChat } from './legacy-subagent-chat';
 import { SessionPeek } from './session-peek';
@@ -297,9 +297,8 @@ export function SubagentPanel({ sessionId, title, handle, projectId: projectIdPr
               tabIndex={0}
               className="hover:bg-secondary focus-visible:ring-ring duration-fast -ml-1.5 flex h-8 min-w-0 cursor-default items-center gap-2 rounded-md px-1.5 transition-colors outline-none focus-visible:ring-2"
             >
-              <AgentFace handle={face} />
-              <h2 data-agent-state={sub.agent?.state} className="text-foreground min-w-0 truncate text-sm font-semibold">
-                {name}
+              <h2 data-agent-state={sub.agent?.state} className="flex min-w-0">
+                <AgentChip handle={face} name={name} plain className="max-w-none" />
               </h2>
             </div>
           </HoverCardTrigger>

@@ -145,8 +145,9 @@ export function FolderAccessDialog({
         </ModalHeader>
         {ready ? (
           <FolderAccessForm
-            // A fresh draft for every folder and every opening.
-            key={`${path}:${access.dataUpdatedAt}`}
+            // A fresh draft for every folder and every opening (closing unmounts the form). Never key on
+            // the fetch time: every drive mutation on the page refetches the grants mid-edit.
+            key={path}
             driveId={driveId}
             projectId={projectId}
             path={path}
@@ -186,12 +187,16 @@ function FolderAccessForm({
   const id = useId();
   const { user } = useAuth();
   const current = useMemo(() => folderAudience(grants), [grants]);
-  const [draft, setDraft] = useState<FolderAccessDraft>(() => ({
+  // Until the person edits, the draft follows the server, so a refetch that lands after opening
+  // (a cached copy refreshed) shows. Once edited, a refetch keeps the edit.
+  const [edited, setEdited] = useState<FolderAccessDraft | null>(null);
+  const draft: FolderAccessDraft = edited ?? {
     // A grant to everyone is not served any more; a stale one reads as none.
     mode: current.mode === 'everyone' ? 'restricted' : current.mode,
     everyoneLevel: current.everyoneLevel,
     named: current.named,
-  }));
+  };
+  const setDraft = (update: (d: FolderAccessDraft) => FolderAccessDraft) => setEdited((e) => update(e ?? draft));
   const identities = useProjectAgentIdentities(projectId, canManage);
   const share = useShareFolder();
   const unshare = useUnshareFolder();

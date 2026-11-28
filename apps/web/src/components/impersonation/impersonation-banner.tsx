@@ -90,7 +90,7 @@ export function ImpersonationBanner() {
       <div
         className={cn(
           'bg-background border-kortix-orange/30 pointer-events-auto flex max-w-[calc(100vw-2rem)]',
-          'items-center gap-3 rounded-[0.64rem] border py-2 pr-2 pl-3 shadow-lg',
+          'items-center gap-3 rounded-[0.64rem] border py-2 pr-2 pl-3 shadow-md',
         )}
       >
         <span className="bg-kortix-orange/10 text-kortix-orange flex size-7 shrink-0 items-center justify-center rounded-sm">

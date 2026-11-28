@@ -12,6 +12,9 @@ import {
   XIcon as X,
 } from '@phosphor-icons/react';
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+
+import { dialogContentZ, useDialogLayerDepth } from '../../../lib/z-stack';
 import { PresentationExportMenu } from './presentation-export-menu';
 import { SlideIframe } from './slide-iframe';
 import { usePresentationMetadata } from './use-presentation-metadata';
@@ -64,6 +67,10 @@ export function FullScreenPresentationViewer({
 
   const currentSlideData = slides.find((slide) => slide.number === currentSlide);
 
+  // A full-window layer: on the dialogs' scale and portaled to <body>, so the
+  // page's isolated stacking context (`SidebarInset`) cannot put the sidebar over it.
+  const layerDepth = useDialogLayerDepth(isOpen);
+
   if (!isOpen) return null;
 
   // Render slide iframe with proper scaling
@@ -80,8 +87,8 @@ export function FullScreenPresentationViewer({
       />
     );
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm">
+  return createPortal(
+    <div className="fixed inset-0 flex flex-col bg-black/90 backdrop-blur-sm" style={{ zIndex: dialogContentZ(layerDepth) }}>
       {/* Top Controls Bar */}
       <div className="shrink-0 border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
         <div
@@ -249,6 +256,7 @@ export function FullScreenPresentationViewer({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

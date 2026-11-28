@@ -36,18 +36,7 @@ function bundleBody(overrides: Record<string, unknown> = {}) {
     session: { session_id: SID },
     turn: { known: true, turns: [{ turn_token: 't1', state: 'active' }] },
     queue: { known: true, prompts: [{ prompt_id: 'p1' }], held: false },
-    transcript: {
-      known: true,
-      requested: true,
-      available: true,
-      reason: null,
-      source: 'mirror',
-      complete: true,
-      captured_at: '2026-08-26T11:59:00.000Z',
-      runtime_session_id: 'ses_root',
-      message_count: 2,
-      messages: [{ info: { id: 'msg_1' }, parts: [] }],
-    },
+    transcript: { known: true, requested: false },
     config: { known: true, base_ref: 'main', agent_name: 'kortix', llm_gateway_enabled: true },
     models: { known: true, resolvedForCaller: 'anthropic/claude-sonnet-4-6' },
     audit: {
@@ -226,14 +215,9 @@ describe('the bundle legs — every one is tri-state', () => {
 });
 
 describe('the transcript leg', () => {
-  test('an open asks for no v1 window by default (the session log is read first); a window only when asked', async () => {
+  test('an open asks for the pointer only (the session log is the saved history)', async () => {
     openSessionBundle(PID, SID);
     await claimOpenBundle(PID, SID);
     expect(requests[0]).toContain('transcript=0');
-
-    resetSessionOpenBundles();
-    openSessionBundle(PID, SID, { transcript: 40 });
-    await claimOpenBundle(PID, SID);
-    expect(requests[1]).toContain('transcript=40');
   });
 });

@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 
+import { config } from '../../config';
 import { resolveFeatureFlag, resolveFeatureFlags } from '../../feature-flags/registry';
 import { db } from '../../shared/db';
 import { isPlatinumConfigured } from '../../shared/platinum';
@@ -34,6 +35,14 @@ const LEGACY_IMAGE_FLAGS = ['genui'];
 const DRIVE_FLAGS = ['artifacts', 'drives', 'volumes'];
 
 /**
+ * Graduated 2026-11-24 and listed wherever the API serves Kortix in Chrome
+ * (KORTIX_CHROME_ENABLED): kortixd withholds the kortix-chrome skill
+ * (`kortix-feature-flag: chrome`) and CLIs built before then hide
+ * `kortix chrome` unless it is listed.
+ */
+const CHROME_BOX_FLAG = 'chrome';
+
+/**
  * Goal mode: a chat binds a goal to itself (`kortix goals new --here`) with no
  * `goals` flag. Not a registry flag: the box token that shows `kortix goals`
  * and loads kortixd's goal extension, wherever a Drive can hold a goal. The
@@ -46,7 +55,14 @@ export function featureFlagsEnvValue(metadata: unknown): string {
   const flags = Object.entries(resolveFeatureFlags(metadata))
     .filter(([, on]) => on)
     .map(([key]) => key);
-  return [...flags, ...LEGACY_IMAGE_FLAGS, ...(isPlatinumConfigured() ? [...DRIVE_FLAGS, GOAL_MODE_BOX_FLAG] : [])].sort().join(',');
+  return [
+    ...flags,
+    ...LEGACY_IMAGE_FLAGS,
+    ...(isPlatinumConfigured() ? [...DRIVE_FLAGS, GOAL_MODE_BOX_FLAG] : []),
+    ...(config.KORTIX_CHROME_ENABLED ? [CHROME_BOX_FLAG] : []),
+  ]
+    .sort()
+    .join(',');
 }
 
 export async function buildFeatureFlagSandboxEnv(projectId: string): Promise<Record<string, string>> {

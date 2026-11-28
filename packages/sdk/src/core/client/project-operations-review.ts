@@ -21,6 +21,13 @@ export function bindProjectOperationsReview(projectId: string) {
         P.claimWarmProjectSession(projectId, input),
     },
 
+    /** The agents the caller can message (`channels` flag). An agent's chat is `spaces.dm(name)`. */
+    agentDirectory: {
+      list: () => P.listWorkspaceAgentDirectory(projectId),
+      /** `setPaused(name, paused)`: a paused agent gets messages but no automatic run. */
+      setPaused: (name: string, paused: boolean) => P.setWorkspaceAgentPaused(projectId, name, paused),
+    },
+
     /** Channels and the caller's DMs (`chat` flag). A session joins one with `sessions.create({ space_id })`. */
     spaces: {
       list: () => P.listWorkspaceSpaces(projectId),

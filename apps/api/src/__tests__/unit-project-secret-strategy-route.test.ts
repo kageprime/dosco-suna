@@ -224,13 +224,12 @@ mock.module('../shared/db', () => ({ hasDatabase: true, db: databaseMock }));
 mock.module('../projects/lib/access', () => ({
   ...realAccess,
   loadProjectForUser: async () => ({
-    // Egress delivery is gated by the experimental `secrets_egress` flag; these
-    // tests exercise the egress POLICY handling, not the gate, so the project
-    // has the flag enabled. (The gate itself is covered by its own 403 tests.)
+    // A project that stored `secrets_egress: false` before the flag graduated
+    // (2026-11-23): the override is inert, egress delivery is accepted.
     row: {
       accountId: ACCOUNT_ID,
       projectId: PROJECT_ID,
-      metadata: { experimental: { secrets_egress: true } },
+      metadata: { experimental: { secrets_egress: false } },
     },
     userId: USER_ID,
     accountRole: 'owner',

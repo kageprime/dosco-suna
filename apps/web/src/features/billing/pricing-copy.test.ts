@@ -5,6 +5,8 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { join } from 'node:path';
 
+import { PLAN_BONUS_STEPS } from '@kortix/ui/internal/billing/compute-pricing';
+
 import { PRICING_FEATURE_COUNTS, PRICING_PLANS } from './pricing-plans';
 
 const root = join(import.meta.dir, '../../..');
@@ -88,12 +90,21 @@ describe('pricing copy', () => {
     expect(english.billing.pricing.faq.credit.answer).toContain('1 credit is $0.01');
   });
 
-  test('the FAQ states the tier range and the one rate, and names no tier most popular', () => {
+  test('the FAQ states the tier range and the volume bonus from compute-pricing, and names no tier most popular', () => {
+    for (const locale of locales) {
+      const answer = catalog(locale).billing.pricing.faq.amounts.answer;
+      for (const token of ['{minUsd}', '{minCredits}', '{maxUsd}', '{maxCredits}', '{firstBonus}', '{firstBonusUsd}', '{topBonus}', '{topBonusUsd}']) {
+        expect(answer).toContain(token);
+      }
+    }
     const answer = english.billing.pricing.faq.amounts.answer;
-    expect(answer).toContain('$50 a month (5,000 credits)');
-    expect(answer).toContain('$50,000 a month (5,000,000 credits)');
     expect(answer).not.toContain('most popular');
-    expect(answer).toContain('100 credits per dollar');
+    expect(answer).toContain('more credits per dollar');
+  });
+
+  test('the Credits card names the top plan bonus that compute-pricing grants', () => {
+    const top = Math.max(...PLAN_BONUS_STEPS.map((step) => step.percent));
+    expect(PRICING_PLANS.find((plan) => plan.id === 'credits')!.features).toContain(`Up to ${top}% bonus credits on bigger tiers`);
   });
 
   test('the FAQ answers what happened to existing plans and to members', () => {
@@ -142,10 +153,12 @@ describe('pricing copy', () => {
     expect(html).not.toContain('Kimi');
   });
 
-  test('the top-up FAQ states the bonus ladder from compute-pricing, not literals', () => {
-    const answer = english.billing.pricing.faq.topup.answer;
-    for (const token of ['{smallestBonus}', '{smallestBonusUsd}', '{largestBonus}', '{largestBonusUsd}']) {
-      expect(answer).toContain(token);
+  test('the mid-month FAQ sends people to a bigger tier: self-serve Credits sells no top-ups (plan-catalog.ts)', () => {
+    expect(english.billing.pricing.faq.topup.answer).toContain('raise your monthly tier');
+    expect(english.billing.pricing.faq.topup.answer).toContain('Enterprise');
+    for (const locale of locales) {
+      expect(catalog(locale).billing.pricing.faq.topup.answer).not.toMatch(/\{(smallest|largest)Bonus/);
     }
+    expect(JSON.stringify(PRICING_PLANS)).not.toMatch(/top up any time/i);
   });
 });

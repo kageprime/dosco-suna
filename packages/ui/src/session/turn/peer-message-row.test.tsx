@@ -8,6 +8,7 @@ import { act, create } from 'react-test-renderer';
 
 import { IntlTestProvider } from '../../test-utils/intl';
 import { PeerMessageRow } from './peer-message-row';
+import { WorkFoldContext } from './turn-work-accordion';
 import { UserMessage } from './user-message';
 import { parsePeerMessagePrompt } from '@kortix/shared';
 
@@ -63,6 +64,19 @@ describe('a cross-session message in the thread', () => {
     expect(text).not.toContain('carries no authority');
     // A message is there to be read: its row is open.
     expect(html).toContain('aria-expanded="true"');
+  });
+
+  test('under a "Worked for" row a message is one closed line: the answer above it says what it means', () => {
+    const info = parsePeerMessagePrompt(prompt('message', 'Section 2 is written.\nIt leads with trust.', 'Section 2 done: positioning'))!;
+    const html = render(
+      <WorkFoldContext.Provider value>
+        <PeerMessageRow info={info} />
+      </WorkFoldContext.Provider>,
+    );
+    const text = textOf(html);
+    expect(text).toContain('Section 2 done: positioning');
+    expect(html).toContain('aria-expanded="false"');
+    expect(text).not.toContain('It leads with trust.');
   });
 
   test('each kind has its own word on the right', () => {

@@ -1,7 +1,7 @@
 {
   "generatedAt": "static",
-  "count": 1812,
-  "aliases": 706,
+  "count": 1840,
+  "aliases": 719,
   "routes": [
     {
       "method": "GET",
@@ -58,6 +58,10 @@
     {
       "method": "POST",
       "path": "/internal/gateway/claude-credentials"
+    },
+    {
+      "method": "POST",
+      "path": "/internal/gateway/claude-forbidden"
     },
     {
       "method": "POST",
@@ -2493,6 +2497,16 @@
     },
     {
       "method": "GET",
+      "path": "/v1/projects/:workspaceId/agent-directory",
+      "aliasOf": "/v1/workspaces/:workspaceId/agent-directory"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:workspaceId/agent-directory/:name/pause",
+      "aliasOf": "/v1/workspaces/:workspaceId/agent-directory/:name/pause"
+    },
+    {
+      "method": "GET",
       "path": "/v1/projects/:workspaceId/agent-identities",
       "aliasOf": "/v1/workspaces/:workspaceId/agent-identities"
     },
@@ -2872,6 +2886,26 @@
       "aliasOf": "/v1/workspaces/:workspaceId/artifacts/:artifactId/versions"
     },
     {
+      "method": "GET",
+      "path": "/v1/projects/:workspaceId/artifacts/folders",
+      "aliasOf": "/v1/workspaces/:workspaceId/artifacts/folders"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:workspaceId/artifacts/folders",
+      "aliasOf": "/v1/workspaces/:workspaceId/artifacts/folders"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/projects/:workspaceId/artifacts/folders/:folderId",
+      "aliasOf": "/v1/workspaces/:workspaceId/artifacts/folders/:folderId"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/projects/:workspaceId/artifacts/folders/:folderId",
+      "aliasOf": "/v1/workspaces/:workspaceId/artifacts/folders/:folderId"
+    },
+    {
       "method": "POST",
       "path": "/v1/projects/:workspaceId/artifacts/share",
       "aliasOf": "/v1/workspaces/:workspaceId/artifacts/share"
@@ -2920,6 +2954,16 @@
       "method": "GET",
       "path": "/v1/projects/:workspaceId/branches",
       "aliasOf": "/v1/workspaces/:workspaceId/branches"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:workspaceId/browser-logins",
+      "aliasOf": "/v1/workspaces/:workspaceId/browser-logins"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:workspaceId/browser-logins/resolve",
+      "aliasOf": "/v1/workspaces/:workspaceId/browser-logins/resolve"
     },
     {
       "method": "GET",
@@ -3510,6 +3554,16 @@
       "method": "GET",
       "path": "/v1/projects/:workspaceId/detail",
       "aliasOf": "/v1/workspaces/:workspaceId/detail"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:workspaceId/dictation",
+      "aliasOf": "/v1/workspaces/:workspaceId/dictation"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:workspaceId/dictation",
+      "aliasOf": "/v1/workspaces/:workspaceId/dictation"
     },
     {
       "method": "GET",
@@ -4678,11 +4732,6 @@
     },
     {
       "method": "GET",
-      "path": "/v1/projects/:workspaceId/sessions/:sessionId/transcript",
-      "aliasOf": "/v1/workspaces/:workspaceId/sessions/:sessionId/transcript"
-    },
-    {
-      "method": "GET",
       "path": "/v1/projects/:workspaceId/sessions/:sessionId/turn",
       "aliasOf": "/v1/workspaces/:workspaceId/sessions/:sessionId/turn"
     },
@@ -4768,6 +4817,11 @@
       "method": "PATCH",
       "path": "/v1/projects/:workspaceId/spaces/:spaceId",
       "aliasOf": "/v1/workspaces/:workspaceId/spaces/:spaceId"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/projects/:workspaceId/spaces/:spaceId/activity",
+      "aliasOf": "/v1/workspaces/:workspaceId/spaces/:spaceId/activity"
     },
     {
       "method": "GET",
@@ -4950,6 +5004,21 @@
       "aliasOf": "/v1/workspaces/:workspaceId/version-diff"
     },
     {
+      "method": "GET",
+      "path": "/v1/projects/:workspaceId/workspace-cache",
+      "aliasOf": "/v1/workspaces/:workspaceId/workspace-cache"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:workspaceId/workspace-cache",
+      "aliasOf": "/v1/workspaces/:workspaceId/workspace-cache"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/projects/:workspaceId/workspace-cache/build",
+      "aliasOf": "/v1/workspaces/:workspaceId/workspace-cache/build"
+    },
+    {
       "method": "POST",
       "path": "/v1/projects/create-repo",
       "aliasOf": "/v1/workspaces/create-repo"
@@ -5051,6 +5120,10 @@
     {
       "method": "GET",
       "path": "/v1/public/responses/:token"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/qualiloop/chat"
     },
     {
       "method": "POST",
@@ -5463,6 +5536,14 @@
     },
     {
       "method": "GET",
+      "path": "/v1/workspaces/:workspaceId/agent-directory"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/workspaces/:workspaceId/agent-directory/:name/pause"
+    },
+    {
+      "method": "GET",
       "path": "/v1/workspaces/:workspaceId/agent-identities"
     },
     {
@@ -5702,6 +5783,22 @@
       "path": "/v1/workspaces/:workspaceId/artifacts/:artifactId/versions"
     },
     {
+      "method": "GET",
+      "path": "/v1/workspaces/:workspaceId/artifacts/folders"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/workspaces/:workspaceId/artifacts/folders"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/workspaces/:workspaceId/artifacts/folders/:folderId"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/workspaces/:workspaceId/artifacts/folders/:folderId"
+    },
+    {
       "method": "POST",
       "path": "/v1/workspaces/:workspaceId/artifacts/share"
     },
@@ -5808,6 +5905,14 @@
     {
       "method": "POST",
       "path": "/v1/workspaces/:workspaceId/branding/assets/:kind"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workspaces/:workspaceId/browser-logins"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/workspaces/:workspaceId/browser-logins/resolve"
     },
     {
       "method": "GET",
@@ -6372,6 +6477,14 @@
     {
       "method": "GET",
       "path": "/v1/workspaces/:workspaceId/detail"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workspaces/:workspaceId/dictation"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/workspaces/:workspaceId/dictation"
     },
     {
       "method": "GET",
@@ -7663,10 +7776,6 @@
     },
     {
       "method": "GET",
-      "path": "/v1/workspaces/:workspaceId/sessions/:sessionId/transcript"
-    },
-    {
-      "method": "GET",
       "path": "/v1/workspaces/:workspaceId/sessions/:sessionId/turn"
     },
     {
@@ -7728,6 +7837,10 @@
     {
       "method": "PATCH",
       "path": "/v1/workspaces/:workspaceId/spaces/:spaceId"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workspaces/:workspaceId/spaces/:spaceId/activity"
     },
     {
       "method": "GET",
@@ -7896,6 +8009,18 @@
     {
       "method": "GET",
       "path": "/v1/workspaces/:workspaceId/version-diff"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workspaces/:workspaceId/workspace-cache"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/workspaces/:workspaceId/workspace-cache"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/workspaces/:workspaceId/workspace-cache/build"
     },
     {
       "method": "POST",

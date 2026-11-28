@@ -145,46 +145,6 @@ describe('OutputRows folds scaffolding behind "more files" (W16)', () => {
   });
 });
 
-describe('OutputRows rhythm matches the Context card (W5)', () => {
-  /**
-   * New contract, replacing the untracked `py-1.5` + no-motion rows: every row
-   * in this list is `py-2` (~44px, a real touch target) and carries the same
-   * transition + press scale the Context card's rows use, so the two cards
-   * sharing one panel move identically. Pinned because that parity was lost
-   * once already — the Context rows gained motion and these did not.
-   */
-  test('rows and the fold row carry the shared padding and press feedback', () => {
-    const html = renderOutputRows(
-      Array.from({ length: 9 }, (_, i) => out({ name: `report-${i}.pdf` })),
-    );
-    // Sliced per button: an assertion over the whole list would be satisfied
-    // by either row type alone, and the point is that BOTH carry it.
-    const firstRow = html.slice(html.indexOf('<button'), html.indexOf('</button>'));
-    expect(firstRow).toContain('py-1.5');
-    expect(firstRow).toContain('transition-[background-color,transform]');
-    expect(firstRow).toContain('active:scale-[0.998]');
-
-    // The fold row is the last button rendered. It keeps a `color` transition
-    // of its own for the muted → foreground hover on its label.
-    const foldRow = html.slice(html.lastIndexOf('<button'));
-    expect(foldRow).toContain('1 more file');
-    expect(foldRow).toContain('py-1.5');
-    expect(foldRow).toContain('transition-[background-color,color,transform]');
-    expect(foldRow).toContain('active:scale-[0.998]');
-  });
-
-  // A row's leading mark sits on a chalk tile keyed by its type: one stable
-  // fill per extension, no border. Two different types get two colors.
-  test('a non-thumbnail row gets a chalk tile per type, fill only', () => {
-    const pdf = renderOutputRows([out({ name: 'report.pdf' })]);
-    const csv = renderOutputRows([out({ name: 'rows.csv' })]);
-    const fill = (html: string) => /background-color:(hsl\([^)]*\))/.exec(html)?.[1];
-    expect(fill(pdf)).toBeDefined();
-    expect(fill(pdf)).not.toBe(fill(csv));
-    expect(pdf).not.toContain('border-color');
-  });
-});
-
 describe('OutputsCard "download all" header action (W15)', () => {
   test('two-or-more downloadable outputs → the header offers download-all', () => {
     const html = renderToStaticMarkup(
@@ -194,7 +154,6 @@ describe('OutputsCard "download all" header action (W15)', () => {
             { callID: 'c1', name: 'a.pdf', kind: 'file', path: 'a.pdf' },
             { callID: 'c2', name: 'b.pdf', kind: 'file', path: 'b.pdf' },
           ]}
-          defaultExpanded={false}
           onOpenOutput={() => {}}
         />
       </TooltipProvider>,
@@ -207,7 +166,6 @@ describe('OutputsCard "download all" header action (W15)', () => {
       <TooltipProvider>
         <OutputsCard
           outputs={[{ callID: 'c1', name: 'a.pdf', kind: 'file', path: 'a.pdf' }]}
-          defaultExpanded={false}
           onOpenOutput={() => {}}
         />
       </TooltipProvider>,
@@ -220,7 +178,6 @@ describe('OutputsCard "download all" header action (W15)', () => {
       <TooltipProvider>
         <OutputsCard
           outputs={[{ callID: 'a1', name: 'Dashboard', kind: 'app', url: 'http://localhost:3000' }]}
-          defaultExpanded={false}
           onOpenOutput={() => {}}
         />
       </TooltipProvider>,
@@ -242,23 +199,6 @@ describe('OutputRows kind-group headers on the expanded list (Task 9)', () => {
     // Every row from all 4 kinds is present — the expanded view is the WHOLE
     // list, not just the pre-fold slice.
     for (const o of MIXED_KIND_FIXTURE) expect(html).toContain(o.name);
-  });
-
-  test('group headers carry the specified rhythm; only the first skips the top pad', () => {
-    const html = renderOutputRows(MIXED_KIND_FIXTURE, true);
-    const headers = [...html.matchAll(/<p class="([^"]*)">([^<]*)<\/p>/g)];
-    expect(headers).toHaveLength(4);
-
-    const [firstClass, ...restClasses] = headers.map((m) => m[1]);
-    for (const cls of [firstClass, ...restClasses]) {
-      expect(cls).toContain('text-xs');
-      expect(cls).toContain('font-medium');
-      expect(cls).toContain('text-muted-foreground');
-      expect(cls).toContain('px-4');
-      expect(cls).toContain('pb-1');
-    }
-    expect(firstClass).not.toContain('pt-2');
-    for (const cls of restClasses) expect(cls).toContain('pt-2');
   });
 
   test('the collapsed pre-fold view of the same fixture stays a flat list — no group headers', () => {

@@ -27,7 +27,7 @@ describe('outcomeTint', () => {
       // not a brand colour being softened.
       bg: 'bg-muted',
       fg: 'text-muted-foreground',
-      ring: 'ring-border/70',
+      ring: 'ring-border',
     });
   });
 
@@ -63,7 +63,7 @@ describe('outcomeTint', () => {
     for (const tone of ['success', 'warning', 'destructive', 'info'] as const) {
       expect(outcomeTint(tone).ring).toContain('ring-kortix-');
     }
-    expect(outcomeTint('neutral').ring).toBe('ring-border/70');
+    expect(outcomeTint('neutral').ring).toBe('ring-border');
   });
 });
 

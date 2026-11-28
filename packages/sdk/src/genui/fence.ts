@@ -27,7 +27,7 @@ export function genuiVersionFromClassName(className: string | undefined): number
  * and the generative-UI version of the tag (null for any other language). A backtick in the info
  * string means no fence.
  */
-export function fenceOpener(line: string): { prefix: string; marker: string; version: number | null } | null {
+function fenceOpener(line: string): { prefix: string; marker: string; version: number | null } | null {
   const match = FENCE_START.exec(line);
   if (!match) return null;
   const info = line.slice(match[0].length);
@@ -36,7 +36,7 @@ export function fenceOpener(line: string): { prefix: string; marker: string; ver
 }
 
 /** True when `prefix` puts a fence at top level: at most 3 spaces, no blockquote, no list indentation. */
-export function isTopLevel(prefix: string): boolean {
+function isTopLevel(prefix: string): boolean {
   return TOP_LEVEL.test(prefix);
 }
 

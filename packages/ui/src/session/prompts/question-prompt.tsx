@@ -8,15 +8,18 @@ import { useTranslations } from '../../i18n';
  * - Expandable body with question options
  * - Single-question immediate submit on pick
  * - Multi-select toggle + Next/Confirm flow
- * - Custom answers typed in the main chat textarea (no nested input)
+ * - Explicit custom answer and clarification controls; composer answers remain supported
  */
 
 import { cn } from '../../lib/utils';
 import type { QuestionAnswer, QuestionInfo, QuestionRequest } from '../../internal/session-types';
 import { CaretDownIcon, CaretLeftIcon, CaretRightIcon, CheckIcon } from '@phosphor-icons/react';
-import React, { useCallback, useEffect, useImperativeHandle, useState } from 'react';
+import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Button } from '../../primitives/button';
+import { Textarea } from '../../primitives/textarea';
+import Loading from '../../primitives/loading';
 import { Close } from '../../icons/close';
 import { confirmRowLabels, questionPlainLine } from './question-labels';
 
@@ -32,7 +35,9 @@ function QuestionMarkdown({ content, className }: { content: string; className?:
         components={{
           // `pre-line`: a single newline is a line break. A question's lines (a workflow's
           // title, phases and agent count) would otherwise run together as one paragraph.
-          p: ({ children }) => <p className="my-1 leading-relaxed whitespace-pre-line">{children}</p>,
+          p: ({ children }) => (
+            <p className="my-1 leading-relaxed whitespace-pre-line">{children}</p>
+          ),
           strong: ({ children }) => (
             <strong className="text-foreground font-semibold">{children}</strong>
           ),
@@ -84,8 +89,9 @@ export interface QuestionPromptHandle {
 
 interface QuestionPromptProps {
   request: QuestionRequest;
-  onReply: (requestId: string, answers: QuestionAnswer[]) => void;
+  onReply: (requestId: string, answers: QuestionAnswer[]) => void | Promise<void>;
   onReject: (requestId: string) => void;
+  onDiscuss?: (text: string) => Promise<unknown>;
   /** Called whenever the question's action state changes (for syncing to the send button). */
   onActionChange?: (action: QuestionAction, canAct: boolean) => void;
 }
@@ -95,15 +101,41 @@ interface QuestionPromptProps {
 // ---------------------------------------------------------------------------
 
 export const QuestionPrompt = React.forwardRef<QuestionPromptHandle, QuestionPromptProps>(
-  function QuestionPrompt({ request, onReply, onReject, onActionChange }, ref) {
+  function QuestionPrompt({ request, onReply, onReject, onActionChange, onDiscuss }, ref) {
     const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
     const tCommon = useTranslations('common');
+    const tQuestion = useTranslations('questionPrompt');
     const questions = request.questions;
     const isSingle = questions.length === 1 && !questions[0].multiple;
 
     const [tab, setTab] = useState(0);
     const [answers, setAnswers] = useState<QuestionAnswer[]>(() => questions.map(() => []));
     const [replying, setReplying] = useState(false);
+    const submitting = useRef(false);
+    const [error, setError] = useState<string | null>(null);
+    const [custom, setCustom] = useState('');
+    const [discussion, setDiscussion] = useState<string | null>(null);
+    const [discussing, setDiscussing] = useState(false);
+    const discussingRef = useRef(false);
+    const [answered, setAnswered] = useState(false);
+    const reply = useCallback(
+      async (values: QuestionAnswer[]) => {
+        if (submitting.current) return;
+        submitting.current = true;
+        setReplying(true);
+        setError(null);
+        try {
+          await onReply(request.id, values);
+          setAnswered(true);
+        } catch {
+          setError(tQuestion('submitFailed'));
+        } finally {
+          submitting.current = false;
+          setReplying(false);
+        }
+      },
+      [onReply, request.id, tQuestion],
+    );
     // Collapsed hides the body so the transcript gets the height back.
     const [collapsed, setCollapsed] = useState(false);
 
@@ -126,15 +158,14 @@ export const QuestionPrompt = React.forwardRef<QuestionPromptHandle, QuestionPro
         setAnswers(next);
 
         if (isSingle) {
-          setReplying(true);
-          onReply(request.id, [[answer]]);
+          void reply([[answer]]);
           return;
         }
 
         // Advance to next tab
         setTab(tab + 1);
       },
-      [answers, tab, isSingle, request.id, onReply],
+      [answers, tab, isSingle, reply],
     );
 
     const toggle = useCallback(
@@ -171,7 +202,7 @@ export const QuestionPrompt = React.forwardRef<QuestionPromptHandle, QuestionPro
     const handleCustomSubmit = useCallback(
       (value: string) => {
         const trimmed = value.trim();
-        if (!trimmed) return;
+        if (!trimmed || submitting.current || answered || (!isConfirm && !showCustom)) return;
 
         // On the Confirm tab there is no "current question" to answer. Treat a
         // typed message as the user's intent to submit: send all collected
@@ -184,8 +215,7 @@ export const QuestionPrompt = React.forwardRef<QuestionPromptHandle, QuestionPro
           if (lastIdx >= 0) {
             finalAnswers[lastIdx] = [...finalAnswers[lastIdx], trimmed];
           }
-          setReplying(true);
-          onReply(request.id, finalAnswers);
+          void reply(finalAnswers);
           return;
         }
 
@@ -202,7 +232,7 @@ export const QuestionPrompt = React.forwardRef<QuestionPromptHandle, QuestionPro
 
         pick(trimmed);
       },
-      [isConfirm, isMulti, answers, tab, pick, questions, request.id, onReply],
+      [isConfirm, isMulti, answers, tab, pick, questions, reply, answered, showCustom],
     );
 
     const advanceToNext = useCallback(() => {
@@ -220,16 +250,17 @@ export const QuestionPrompt = React.forwardRef<QuestionPromptHandle, QuestionPro
     })();
 
     const canAct = (() => {
-      if (action === 'submit') return true;
+      if (replying || answered) return false;
+      if (action === 'submit') return answers.every((answer) => answer.length > 0);
       if (action === 'next') return currentAnswers.length > 0;
       return true;
     })();
 
     const submit = useCallback(() => {
-      setReplying(true);
+      if (answers.some((answer) => answer.length === 0)) return;
       const finalAnswers = questions.map((_, i) => answers[i] ?? []);
-      onReply(request.id, finalAnswers);
-    }, [answers, questions, request.id, onReply]);
+      void reply(finalAnswers);
+    }, [answers, questions, reply]);
 
     const performAction = useCallback(() => {
       if (action === 'submit') {
@@ -264,10 +295,22 @@ export const QuestionPrompt = React.forwardRef<QuestionPromptHandle, QuestionPro
     }, [request.id, onReject]);
 
     // -----------------------------------------------------------------------
-    // Once replied, hide completely
+    // Acknowledgement and pending states stay visible until the host removes the request.
     // -----------------------------------------------------------------------
 
-    if (replying) return null;
+    if (answered)
+      return (
+        <p role="status" className="px-3 py-2 text-sm">
+          {tQuestion('submitted')}
+        </p>
+      );
+    if (replying)
+      return (
+        <p role="status" className="flex items-center gap-2 px-3 py-2 text-sm">
+          <Loading className="size-4 shrink-0" />
+          {tQuestion('submitting')}
+        </p>
+      );
 
     // -----------------------------------------------------------------------
     // Render — the question docks onto the composer card as one surface:
@@ -276,9 +319,7 @@ export const QuestionPrompt = React.forwardRef<QuestionPromptHandle, QuestionPro
     // -----------------------------------------------------------------------
 
     const total = questions.length;
-    const stepLabel = isConfirm
-      ? tI18nComplete.raw('texteebdd24a77d9')
-      : currentQuestion?.header?.trim() || '';
+    const stepLabel = isConfirm ? tQuestion('review') : currentQuestion?.header?.trim() || '';
     const collapsedLabel = isConfirm
       ? stepLabel
       : questionPlainLine(currentQuestion?.question ?? '') || stepLabel;
@@ -352,6 +393,11 @@ export const QuestionPrompt = React.forwardRef<QuestionPromptHandle, QuestionPro
           </button>
         </div>
 
+        {error && (
+          <p role="alert" className="text-destructive px-3 py-2 text-sm">
+            {error}
+          </p>
+        )}
         {/* Body — scrollable so long option lists don't blow up the card. The
             0fr/1fr grid row animates the collapse without measuring height. */}
         <div
@@ -473,6 +519,85 @@ export const QuestionPrompt = React.forwardRef<QuestionPromptHandle, QuestionPro
                 </div>
               </div>
             ) : null}
+            {isMulti && currentAnswers.filter((answer) => !options.some((option) => option.label === answer)).map((answer) => (
+              <Button key={answer} size="sm" variant="ghost" className="mx-3" onClick={() => toggle(answer)} aria-label={tQuestion('removeCustom', { answer })}>{answer}</Button>
+            ))}
+            {showCustom && !isConfirm && (
+              <form
+                className="space-y-2 px-3 py-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!custom.trim()) return;
+                  handleCustomSubmit(custom);
+                  if (!isSingle) setCustom('');
+                }}
+              >
+                <label className="text-muted-foreground text-xs" htmlFor={`${request.id}-custom`}>
+                  {tQuestion('customAnswer')}
+                </label>
+                <Textarea
+                  id={`${request.id}-custom`}
+                  value={custom}
+                  onChange={(event) => setCustom(event.target.value)}
+                  placeholder={tQuestion('customPlaceholder')}
+                />
+                <Button type="submit" size="sm" disabled={!custom.trim()}>
+                  {isSingle ? tQuestion('submitAnswer') : isMulti ? tQuestion('addAnswer') : tQuestion('nextQuestion')}
+                </Button>
+              </form>
+            )}
+            {isConfirm && (
+              <Button size="sm" className="m-3" onClick={submit}>
+                {tQuestion('submitAnswers')}
+              </Button>
+            )}
+            {onDiscuss && (
+              <div className="space-y-2 px-3 py-2">
+                {discussion === null ? (
+                  <Button size="sm" variant="ghost" onClick={() => setDiscussion('')}>
+                    {tQuestion('askClarification')}
+                  </Button>
+                ) : (
+                  <form
+                    className="space-y-2"
+                    onSubmit={async (event) => {
+                      event.preventDefault();
+                      if (!discussion.trim() || discussingRef.current) return;
+                      discussingRef.current = true;
+                      setDiscussing(true);
+                      setError(null);
+                      try {
+                        await onDiscuss(
+                          `Please clarify this question (this is not my answer):\n${currentQuestion?.question ?? questions.map((q) => q.question).join('\n')}\n\n${discussion}`,
+                        );
+                        setDiscussion(null);
+                      } catch {
+                        setError(tQuestion('clarificationFailed'));
+                      } finally {
+                        discussingRef.current = false;
+                        setDiscussing(false);
+                      }
+                    }}
+                  >
+                    <label
+                      htmlFor={`${request.id}-discussion`}
+                      className="text-muted-foreground text-xs"
+                    >
+                      {tQuestion('discussionLabel')}
+                    </label>
+                    <Textarea
+                      id={`${request.id}-discussion`}
+                      value={discussion}
+                      onChange={(event) => setDiscussion(event.target.value)}
+                      disabled={discussing}
+                    />
+                    <Button type="submit" size="sm" disabled={discussing || !discussion.trim()}>
+                      {tQuestion('sendClarification')}
+                    </Button>
+                  </form>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

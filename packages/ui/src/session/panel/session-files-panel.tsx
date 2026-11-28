@@ -107,7 +107,7 @@ export function SessionFilesPanel({
   return (
     <div className="flex h-full flex-col">
       {/* What this is + the one action. */}
-      <div className="border-border/40 shrink-0 space-y-3 border-b p-4">
+      <div className="border-border shrink-0 space-y-3 border-b p-4">
         <div className="space-y-1.5">
           <h3 className="text-foreground text-sm font-medium">
             {tHardcodedUi.raw(

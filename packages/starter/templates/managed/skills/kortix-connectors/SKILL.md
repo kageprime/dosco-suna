@@ -45,9 +45,11 @@ audits it. The sandbox carries only `KORTIX_TOKEN`.
    A trigger or automation runs only on that shared account: for one, mint
    the `--owner workspace` link (tool: `for_trigger=true`) and only that one.
    Never post a private link first and a shared one after it.
-   You act with your person's rights: it works when they may manage the
-   workspace's connections (an owner, admin or manager) and your grant
-   includes it. A refusal names the missing permission and who holds it.
+   Every member may connect their own account. A shared one
+   (`--owner workspace`) needs `workspace.connector.connections.manage`: a
+   declared agent holds it through its `kortix_permissions`, My Kortix through
+   its person's role (an owner, admin or manager). A refusal names the missing
+   permission and who holds it.
 3. **Pick the account** (see `<accounts>`). With 2 or more accounts, pass
    `--account "<label>"`.
 4. **Read the action before calling it.** `kortix connectors show <slug>.<action>`
@@ -320,6 +322,16 @@ Build the rest while you wait. Recipes: `references/sdk.md`.
 - Use the CLI for one-off actions; `@kortix/sdk` for durable workflows and
   for App, backend and program code. Never use raw provider tokens.
 - Confirm irreversible work before a destructive call.
+- `rm --apply`, `add --apply`, `catalog install` and the `policy` and
+  `policy-sets` commands change `kortix.yaml` on the default branch at once,
+  with no change request. Run them only for what the human asked. To propose
+  a change for review, edit `kortix.yaml` in your clone and open a change
+  request; merging one that changes `connectors`, `policies` or `policy`
+  needs `workspace.connector.write`.
+- Never write a key, token or password into a file: code, `kortix.yaml`
+  (`headers:` included) or `.env`. Store it with `kortix secrets set` or
+  `kortix secrets request` (Credentials above). A change request whose commits
+  add one does not merge (`409 CR_SECRET_DETECTED`).
 </rules>
 
 </skill>

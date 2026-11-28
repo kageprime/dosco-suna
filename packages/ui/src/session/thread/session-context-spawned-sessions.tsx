@@ -86,7 +86,7 @@ function UsageTreeNode({
 }) {
   const children = childMap.get(entry.session_id) ?? [];
   return (
-    <div className="border-border/30 ml-4 flex flex-col border-l pl-3">
+    <div className="border-border ml-4 flex flex-col border-l pl-3">
       <UsageRow entry={entry} projectId={projectId} onNavigate={onNavigate} />
       {children.map((child) => (
         <UsageTreeNode key={child.session_id} entry={child} childMap={childMap} projectId={projectId} onNavigate={onNavigate} />

@@ -46,7 +46,7 @@ export function PropertyList({
   rows: { label: string; value: ReactNode; hint?: string }[];
 }) {
   return (
-    <dl className="divide-border/60 divide-y">
+    <dl className="divide-border divide-y">
       {rows.map((row) => (
         <div
           key={row.label}

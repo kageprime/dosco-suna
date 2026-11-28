@@ -34,6 +34,7 @@ export interface ApiClient {
   refreshCredential: (principal: AuthedPrincipal, descriptor: UpstreamDescriptor) => Promise<UpstreamDescriptor | null>;
   claudeCredentials: NonNullable<ClaudeCodeHooks['claudeCredentials']>;
   claudeRefused: NonNullable<ClaudeCodeHooks['claudeRefused']>;
+  claudeForbidden: NonNullable<ClaudeCodeHooks['claudeForbidden']>;
   assertBillingActive: (accountId: string) => Promise<{ holdUsd?: number } | void>;
   assertBudget: (principal: AuthedPrincipal) => Promise<void>;
   recordUsage: (event: UsageEvent) => Promise<void>;
@@ -240,6 +241,11 @@ export function createApiClient(opts: ApiClientOptions): ApiClient {
     },
     claudeRefused: async (principal, secretId, failedKeySha256) => {
       await post<{ ok: boolean }>('/internal/gateway/claude-refused', { principal, secretId, failedKeySha256 });
+    },
+    // Its own route: an API older than this hook answers 404 and marks nothing,
+    // where a 403 sent to /claude-refused would read as a dead token.
+    claudeForbidden: async (principal, secretId, failedKeySha256, message) => {
+      await post<{ ok: boolean }>('/internal/gateway/claude-forbidden', { principal, secretId, failedKeySha256, message });
     },
     assertBillingActive: async (accountId) => {
       const result = billingResult(await post<BillingBody>('/internal/gateway/billing', { accountId }, RETRY_SLOW));

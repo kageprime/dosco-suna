@@ -8,8 +8,11 @@ import {
   DEFAULT_COMPUTE_HOURLY_PRICE_USD,
   DEFAULT_TIER_USD,
   ENTRY_TIER_USD,
+  creditsForUsd,
   isValidMonthlyUsd,
   monthlyCreditsForUsd,
+  PLAN_BONUS_STEPS,
+  planBonusPercent,
   agentHoursForCredits,
   MINUTES_PER_CREDIT,
   PLATFORM_FEE_PERCENT,
@@ -18,7 +21,8 @@ import {
 } from './compute-pricing';
 
 describe('credit tier ladder', () => {
-  test('runs $50 to $50,000, ascending, every tier a valid API amount', () => {
+  test('runs $50 to $10,000 in 16 tiers, ascending, every tier a valid API amount', () => {
+    expect(CREDIT_TIERS).toHaveLength(16);
     const amounts = CREDIT_TIERS.map((tier) => tier.monthlyUsd);
     expect(amounts[0]).toBe(CREDITS_PLAN_MIN_USD);
     expect(amounts.at(-1)).toBe(CREDITS_PLAN_MAX_USD);
@@ -41,10 +45,22 @@ describe('credit tier ladder', () => {
     expect([...new Set(groups)]).toEqual([...CREDIT_TIER_GROUPS]);
   });
 
-  test('1 credit = $0.01 at every tier: no volume bonus', () => {
-    for (const tier of CREDIT_TIERS) {
-      expect(monthlyCreditsForUsd(tier.monthlyUsd)).toBe(tier.monthlyUsd * 100);
+  test('a bigger tier buys more credits per dollar: +5% at $100 up to +30% from $7,500', () => {
+    expect(CREDIT_TIERS.map((tier) => [tier.monthlyUsd, monthlyCreditsForUsd(tier.monthlyUsd)])).toEqual([
+      [50, 5_000], [75, 7_500], [100, 10_500], [200, 22_000], [300, 33_000], [400, 44_000], [500, 57_500],
+      [750, 86_250], [1_000, 120_000], [1_500, 180_000], [2_000, 240_000], [3_000, 375_000], [4_000, 500_000],
+      [5_000, 625_000], [7_500, 975_000], [10_000, 1_300_000],
+    ]);
+    for (let i = 1; i < CREDIT_TIERS.length; i++) {
+      const [prev, next] = [CREDIT_TIERS[i - 1].monthlyUsd, CREDIT_TIERS[i].monthlyUsd];
+      expect(monthlyCreditsForUsd(next) / next).toBeGreaterThanOrEqual(monthlyCreditsForUsd(prev) / prev);
     }
+    expect(Math.max(...PLAN_BONUS_STEPS.map((step) => step.percent))).toBe(30);
+    expect(planBonusPercent(99)).toBe(0);
+  });
+
+  test('a top-up buys at the flat rate: 100 credits per dollar, no bonus', () => {
+    for (const amount of [10, 50, 500, 5_000]) expect(creditsForUsd(amount)).toBe(amount * 100);
   });
 
   test('an off-ladder amount (a legacy $20 plan) has no tier', () => {
@@ -53,11 +69,12 @@ describe('credit tier ladder', () => {
     expect(tierForMonthlyUsd(500)?.group).toBe('growing');
   });
 
-  test('valid amounts are whole dollars from $50 to $50,000', () => {
+  test('valid amounts are whole dollars from $50 to $10,000', () => {
     expect(isValidMonthlyUsd(49)).toBe(false);
     expect(isValidMonthlyUsd(20)).toBe(false);
-    expect(isValidMonthlyUsd(50_000)).toBe(true);
-    expect(isValidMonthlyUsd(50_001)).toBe(false);
+    expect(isValidMonthlyUsd(10_000)).toBe(true);
+    expect(isValidMonthlyUsd(10_001)).toBe(false);
+    expect(isValidMonthlyUsd(50_000)).toBe(false);
     expect(isValidMonthlyUsd(75.5)).toBe(false);
     expect(isValidMonthlyUsd(null)).toBe(false);
     expect(isValidMonthlyUsd(Number.NaN)).toBe(false);

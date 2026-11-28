@@ -20,7 +20,7 @@ import {
   clearChannelAccessRequests,
   readChannelAccess,
 } from '../core/channel-access';
-import { deleteProjectSecrets, readSecret, upsertSecret } from '../install-store';
+import { deleteProjectSecrets, readSecret, upsertSecret } from '../core/install-secrets';
 import { discordCall, discordConfigured } from './api';
 import { projectsView } from '../../workspaces/rows';
 

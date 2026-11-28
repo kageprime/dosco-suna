@@ -61,9 +61,20 @@ describe('setup banner', () => {
 
   test('counts the open steps the viewer has the permission to finish', () => {
     const ids = (can: { connect: boolean; setSecrets: boolean }) => openStepsFor(steps, can).map((s) => s.id);
-    expect(ids({ connect: true, setSecrets: true })).toEqual(['connector:linear', 'secret:FACTORY_GITHUB_TOKEN', 'slack']);
-    expect(ids({ connect: true, setSecrets: false })).toEqual(['connector:linear', 'slack']);
+    expect(ids({ connect: true, setSecrets: true })).toEqual(['secret:FACTORY_GITHUB_TOKEN', 'slack']);
+    expect(ids({ connect: true, setSecrets: false })).toEqual(['slack']);
     expect(ids({ connect: false, setSecrets: true })).toEqual(['secret:FACTORY_GITHUB_TOKEN']);
     expect(ids({ connect: false, setSecrets: false })).toEqual([]);
   });
+});
+
+test('installed optional connectors do not make the home banner required work (KRTX-5118)', () => {
+  const steps = setupSteps({
+    connectors: [connector('optional-calendar', { state: 'needs_account' }), connector('optional-tasks', { state: 'error' })],
+    secrets: [secret('REQUIRED_TOKEN', 'required', false)],
+    slack: { needed: false, installed: false },
+    slackName: 'Slack',
+  });
+  expect(openStepsFor(steps, { connect: true, setSecrets: true }).map((step) => step.id)).toEqual(['secret:REQUIRED_TOKEN']);
+  expect(steps.filter((step) => step.kind === 'connector')).toHaveLength(2);
 });

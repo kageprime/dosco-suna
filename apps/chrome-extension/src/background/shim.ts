@@ -38,8 +38,10 @@ export interface ShimHost {
    * out of the way. The page gets the event only after that.
    */
   pointer(tabId: number, params: { type?: string; x?: number; y?: number }): Promise<void>;
-  /** Called after the debugger attaches a tab, so the overlay can appear. */
+  /** Records debugger ownership without marking a tab as the interaction target. */
   touched(tabId: number): void;
+  /** The tab receiving an agent action, not merely a debugger attachment. */
+  interaction(tabId: number | undefined): void | Promise<void>;
 }
 
 export type Emit = (clientId: string, message: Record<string, unknown>) => void;
@@ -68,6 +70,13 @@ export class Shim {
   private tabUse = new Map<number, number>(); // tabId -> number of client sessions
   private ids = new Map<number, string>(); // tabId -> targetId, kept for targetDestroyed
   private seq = 0;
+  private activeTab: number | undefined;
+
+  private async interact(tabId: number | undefined) {
+    if (tabId === this.activeTab) return;
+    this.activeTab = tabId;
+    await this.host.interaction(tabId);
+  }
 
   constructor(private host: ShimHost, private emit: Emit) {}
 
@@ -80,6 +89,7 @@ export class Shim {
     if (!cl) return;
     this.clients.delete(c);
     for (const tabId of cl.sessions.values()) this.unuse(tabId);
+    if (!this.clients.size) void this.interact(undefined);
   }
 
   /** Drop every client and release every tab (Stop, bridge close). */
@@ -155,7 +165,9 @@ export class Shim {
         return { success: true };
       }
       case 'Target.activateTarget': {
-        await this.host.activateTab(await this.tabFor(cl, p.targetId));
+        const tabId = await this.tabFor(cl, p.targetId);
+        await this.interact(tabId);
+        await this.host.activateTab(tabId);
         return {};
       }
       case 'Target.getTargetInfo': {
@@ -182,6 +194,7 @@ export class Shim {
     }
     if (tabId === undefined) throw new CdpError(-32001, 'Session with given id not found.');
     if (method.startsWith('Input.') && this.host.paused()) throw new CdpError(-32000, PAUSED_MSG);
+    if (method.startsWith('Input.') || INTERACTION.has(method)) await this.interact(tabId);
     // Awaited: the user sees the cursor arrive before the click or the text lands,
     // and the control bar must not take an agent click.
     if (method === 'Input.dispatchMouseEvent') await this.host.pointer(tabId, params ?? {});
@@ -270,6 +283,7 @@ export class Shim {
     const n = (this.tabUse.get(tabId) ?? 1) - 1;
     if (n > 0) return this.tabUse.set(tabId, n);
     this.tabUse.delete(tabId);
+    if (this.activeTab === tabId) void this.interact(undefined);
     for (const [id, t] of this.children) if (t === tabId) this.children.delete(id);
     void this.host.detach(tabId).catch(() => {});
   }
@@ -385,6 +399,7 @@ export class Shim {
       if (destroyed && cl.announced.has(tabId)) this.destroyed(c, cl, tabId);
     }
     this.tabUse.delete(tabId);
+    if (this.activeTab === tabId) void this.interact(undefined);
     for (const [id, t] of this.children) if (t === tabId) this.children.delete(id);
     if (destroyed) this.ids.delete(tabId);
   }
@@ -402,3 +417,5 @@ const LOCAL = new Set([
   'Target.setDiscoverTargets', 'Target.getTargets', 'Target.createTarget', 'Target.attachToTarget', 'Target.detachFromTarget',
   'Target.closeTarget', 'Target.activateTarget', 'Target.getTargetInfo',
 ]);
+
+const INTERACTION = new Set(['Page.navigate', 'Page.reload', 'Page.captureScreenshot', 'Runtime.evaluate', 'Runtime.callFunctionOn', 'Kortix.setFileInputFiles']);

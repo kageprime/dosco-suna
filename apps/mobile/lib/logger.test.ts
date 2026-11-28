@@ -74,10 +74,6 @@ const ENTRIES: [keyof typeof log, Sink, string][] = [
   ['debug', 'debug', '[LEVEL:debug]'],
   ['warn', 'warn', '[LEVEL:warn]'],
   ['error', 'error', '[LEVEL:error]'],
-  ['rc', 'log', '[LEVEL:info] [COMPONENT:RC]'],
-  ['rcDebug', 'debug', '[LEVEL:debug] [COMPONENT:RC]'],
-  ['rcWarn', 'warn', '[LEVEL:warn] [COMPONENT:RC]'],
-  ['rcError', 'error', '[LEVEL:error] [COMPONENT:RC]'],
 ];
 
 /** Calls `log[name]` with `__DEV__` set and returns every console call it made. */

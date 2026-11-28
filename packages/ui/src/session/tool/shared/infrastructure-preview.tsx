@@ -423,7 +423,7 @@ export function InlineServicePreview({ url, label }: { url: string; label?: stri
 
   return (
     <div className={cn('overflow-hidden', fill && 'flex h-full flex-col')}>
-      <div className="bg-muted/40 border-border/30 flex h-8 shrink-0 items-center gap-1.5 border-b px-2.5">
+      <div className="bg-muted/40 border-border flex h-8 shrink-0 items-center gap-1.5 border-b px-2.5">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <Globe className="text-muted-foreground h-3 w-3 shrink-0" />
           <span className="text-muted-foreground truncate font-mono text-xs">{displayLabel}</span>

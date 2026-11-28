@@ -117,7 +117,7 @@ export function ConnectMcpModal({
                 // inks the one mark drawn in `currentColor` (OpenAI) black on it.
                 <span
                   key={id}
-                  className="bg-foreground text-background flex size-16 items-center justify-center rounded-xl shadow-lg"
+                  className="bg-foreground text-background flex size-16 items-center justify-center rounded-xl shadow-md"
                 >
                   <Logo className="size-8" />
                 </span>

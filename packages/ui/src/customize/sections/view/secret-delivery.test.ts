@@ -65,10 +65,15 @@ describe('secretUsage', () => {
     expect(secretUsage('broker', 'http_broker')).toBe('agent');
   });
 
-  test('the three assigned usages are named by their consumer', () => {
+  test('the four assigned usages are named by their consumer', () => {
     expect(secretUsage('broker', 'llm_gateway')).toBe('llm_gateway');
     expect(secretUsage('broker', 'connector')).toBe('connector');
     expect(secretUsage('broker', 'git_proxy')).toBe('git');
+    expect(secretUsage('broker', 'browser')).toBe('browser');
+  });
+
+  test('a website login reads as one, never as Disabled', () => {
+    expect(secretDeliveryPresentation('broker', 'browser').label).toBe('Website login');
   });
 
   test('a disabled secret has no spender', () => {
@@ -84,6 +89,9 @@ describe('secretUsageIsAssigned', () => {
     expect(secretUsageIsAssigned('llm_gateway')).toBe(true);
     expect(secretUsageIsAssigned('connector')).toBe(true);
     expect(secretUsageIsAssigned('git_proxy')).toBe(true);
+    // A website login is written by its login link and read by the sandbox
+    // browser only: the picker would move it into the env.
+    expect(secretUsageIsAssigned('browser')).toBe(true);
   });
 
   test('leaves the pickable consumers alone', () => {
@@ -158,8 +166,8 @@ describe('secretDeliveryTarget', () => {
 
 describe('classifyNewSecret', () => {
   test('an ordinary key defaults to the environment with an empty host list', () => {
-    // Environment is ALWAYS the default now: enforcement is experimental and
-    // behind the `secrets_egress` flag, so a new secret is never pointed at it.
+    // Environment is ALWAYS the default: an enforced secret needs its approved
+    // hosts first, so a new secret is never pointed at it.
     const classification = classifyNewSecret({ key: 'STRIPE_API_KEY', value: 'sk_live_abc' });
     expect(classification).toEqual({
       exposure: 'environment',
@@ -170,8 +178,8 @@ describe('classifyNewSecret', () => {
   });
 
   test('a known model key still prefills the vendor host, ready for an opt-in to enforce', () => {
-    // The default stays environment; the host waits prefilled so a project on
-    // the experimental flag that switches to enforced does not retype it.
+    // The default stays environment; the host waits prefilled so a person who
+    // switches to enforced does not retype it.
     const classification = classifyNewSecret({ key: 'DEEPSEEK_API_KEY', value: 'sk-abc' });
     expect(classification.exposure).toBe('environment');
     expect(classification.modelProvider).toEqual({ id: 'deepseek', label: 'DeepSeek' });
@@ -293,7 +301,7 @@ describe('defaultSecretExposure', () => {
 });
 
 describe('secretDeliveryLegend', () => {
-  test('lists the three exposures first, then the three assigned usages', () => {
+  test('lists the three exposures first, then the four assigned usages', () => {
     expect(secretDeliveryLegend().map((entry) => [entry.kind, entry.key])).toEqual([
       ['exposure', 'environment'],
       ['exposure', 'enforced'],
@@ -301,18 +309,7 @@ describe('secretDeliveryLegend', () => {
       ['usage', 'llm_gateway'],
       ['usage', 'connector'],
       ['usage', 'git'],
-    ]);
-  });
-
-  test('drops the experimental enforced definition when it is not shown', () => {
-    // With the `secrets_egress` flag off and no enforced row, the legend must
-    // not explain a value the picker never offers.
-    expect(secretDeliveryLegend(false).map((entry) => [entry.kind, entry.key])).toEqual([
-      ['exposure', 'environment'],
-      ['exposure', 'disabled'],
-      ['usage', 'llm_gateway'],
-      ['usage', 'connector'],
-      ['usage', 'git'],
+      ['usage', 'browser'],
     ]);
   });
 
@@ -388,25 +385,16 @@ describe('secretDeliveryPresentation', () => {
 });
 
 describe('secretExposureOptions', () => {
-  test('with egress available, offers all three in picker order (environment first)', () => {
-    expect(secretExposureOptions(true).map((option) => option.exposure)).toEqual([
+  test('offers all three in picker order (environment first)', () => {
+    expect(secretExposureOptions().map((option) => option.exposure)).toEqual([
       'environment',
       'enforced',
       'disabled',
     ]);
-    for (const option of secretExposureOptions(true)) {
+    for (const option of secretExposureOptions()) {
       expect(option.label.length).toBeGreaterThan(0);
       expect(option.description.length).toBeGreaterThan(0);
     }
-  });
-
-  test('without egress, hides the experimental enforced option', () => {
-    // The `secrets_egress` flag is off: a new secret can only load into the
-    // sandbox environment, or be disabled.
-    expect(secretExposureOptions(false).map((option) => option.exposure)).toEqual([
-      'environment',
-      'disabled',
-    ]);
   });
 });
 

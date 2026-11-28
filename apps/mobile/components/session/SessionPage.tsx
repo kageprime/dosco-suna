@@ -73,15 +73,17 @@ import { useReviewItems } from '@/lib/review/use-review';
 import type { ProjectSession } from '@/lib/projects/projects-client';
 import { haptics } from '@/lib/haptics';
 import { playSound } from '@/lib/sounds';
-import { ReviewDetailSheet } from '@/components/review/ReviewDetailSheet';
+import { ReviewDetailSheet, type ReviewDetailSheetRef } from '@/components/review/ReviewDetailSheet';
 import { requestPushPermissionOnce } from '@/lib/notifications/registration';
 import { Icon } from '@/components/ui/icon';
 import { MOTION, THEME, withAlpha } from '@/lib/utils/theme';
 import { ComposerBottomFade, composerSafeAreaPadding } from '@/components/session/composer-bottom-fade';
 import { GlassButtons, LIQUID_GLASS_AVAILABLE } from '@/components/kortix/liquid-glass';
 
+import { forgetSeededPrompt, seedEchoed, seededPromptOf } from '@/lib/session/first-prompt-seed';
 import {
   addOptimisticMessage,
+  isOptimisticMessage,
   markOptimisticAccepted,
   removeOptimisticMessage,
   removeSessionMessage,
@@ -160,7 +162,16 @@ import {
 } from '@/lib/session/auto-scroll';
 import { mintWireMessageId } from '@/lib/session/wire-message-id';
 import { recordTimeMs } from '@/lib/session/turn-meta';
-import { failedSendMessages, sendIdsFor, useFailedSendStore, useFailedSends, type SendIds } from '@/lib/session/failed-sends';
+import {
+  sendIdsFor,
+  serverHeldSendIds,
+  threadWithFailedSends,
+  unsentFailedSends,
+  useFailedSendStore,
+  useFailedSends,
+  type SendIds,
+  type ServerHeldSendIds,
+} from '@/lib/session/failed-sends';
 import { optimisticUserParts } from '@/lib/session/optimistic-parts';
 import { draftKey } from '@/lib/session/composer-draft';
 import {
@@ -182,7 +193,7 @@ import { useToast } from '@/components/kortix/toast-provider';
 import { pinnedPermission } from '@/lib/session/permission-prompt';
 import { useTabStore } from '@/stores/tab-store';
 import { useMessageQueueStore } from '@/stores/message-queue-store';
-import { queueHeaderLabel, queueRowCaption, queueRowText } from '@/lib/session/queue-undo';
+import { queueHeaderLabel, queueRowCaption, queueRowSendLabel, queueRowText } from '@/lib/session/queue-undo';
 import { useSessionPromptRequestStore } from '@/stores/session-prompt-request-store';
 import { useSandboxContext } from '@/contexts/SandboxContext';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -271,6 +282,8 @@ const EMPTY_COMMANDS = frozenEmpty<Command>();
 const EMPTY_IDS = frozenEmpty<string>();
 const EMPTY_PROJECT_SESSIONS = frozenEmpty<ProjectSession>();
 const EMPTY_PROMPTS = frozenEmpty<SessionPrompt>();
+/** No failed send to check: nothing to look up. */
+const NOTHING_HELD: ServerHeldSendIds = { messageIds: new Set(), clientMessageIds: new Set() };
 /** No runtime session: `useSessionMessages` reads nothing and never re-renders. */
 const DETACHED_ROWS = { projectId: '', sessionId: '', runtimeSessionId: null };
 
@@ -523,18 +536,26 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
   const storeThread = useSessionLogThread(threadSource, isSubThread ? sessionId : undefined, {
     throttleMs: TRANSCRIPT_RENDER_INTERVAL_MS,
   });
-  // A failed send is not in the transcript (the server never had it): it
-  // stays in the thread from its own store, with "Not sent · Try again".
-  const failedSends = useFailedSends(sessionId);
-  const thread = useMemo(() => {
-    const failed = failedSendMessages(storeThread?.thread_id ?? sessionId, failedSends);
-    if (failed.length === 0) return storeThread;
-    const base = storeThread ?? emptyThread(sessionId);
-    return { ...base, messages: [...base.messages, ...failed] };
-  }, [sessionId, storeThread, failedSends]);
-  // Handlers read the thread at call time (an edit's rewind).
-  const threadRef = useRef(thread);
-  threadRef.current = thread;
+  // The first prompt's seed (`firstPromptSeed`) leaves once the log holds its
+  // echo. The log names the prompt by the server's id and the v2 stream sends
+  // no v1 echo, so the SDK's optimistic swap never fires for it: without this
+  // the thread shows the prompt twice, the seed under the reply. The thread
+  // hides the seed from the first snapshot that holds the echo; the effect
+  // then removes it from the store.
+  const echoedSeedId = useMemo(() => {
+    const seed = seededPromptOf(sessionId);
+    if (!seed) return null;
+    const optimistic = (id: string) => isOptimisticMessage(sessionId, id);
+    return seedEchoed(storeThread?.messages, seed, optimistic) ? seed.id : null;
+  }, [sessionId, storeThread]);
+  useEffect(() => {
+    const seedId = seededPromptOf(sessionId)?.id;
+    if (!seedId) return;
+    if (!isOptimisticMessage(sessionId, seedId)) return void forgetSeededPrompt(sessionId);
+    if (seedId !== echoedSeedId) return;
+    removeOptimisticMessage(sessionId, seedId);
+    forgetSeededPrompt(sessionId);
+  }, [sessionId, echoedSeedId]);
   const sessionStatus = useSessionStatus(sessionId);
   const pendingQuestions = usePendingQuestions(sessionId);
   const pendingPermissions = usePendingPermissions(sessionId);
@@ -618,6 +639,39 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
   useEffect(() => {
     void refreshQueue();
   }, [refreshQueue]);
+
+  // A failed send is not in the transcript (the server never had it): it
+  // stays in the thread from its own store, with "Not sent · Try again",
+  // where the user sent it (`threadWithFailedSends`). A send the server holds
+  // is not failed: its request arrived and only the answer was lost (a
+  // timeout, a dropped connection). Its log message, inbox row or `sent` entry
+  // proves it, and the copy leaves the store.
+  const storedFailedSends = useFailedSends(sessionId);
+  const serverHeld = useMemo(
+    () =>
+      Object.keys(storedFailedSends).length === 0
+        ? NOTHING_HELD
+        : serverHeldSendIds({ messages: storeThread?.messages, prompts: queuedMessages, sent: sdkQueue.sent }),
+    [storedFailedSends, storeThread, queuedMessages, sdkQueue.sent],
+  );
+  const failedSends = useMemo(() => unsentFailedSends(storedFailedSends, serverHeld), [storedFailedSends, serverHeld]);
+  useEffect(() => {
+    if (failedSends === storedFailedSends) return;
+    for (const messageId of Object.keys(storedFailedSends)) {
+      if (!(messageId in failedSends)) useFailedSendStore.getState().take(sessionId, messageId);
+    }
+  }, [sessionId, storedFailedSends, failedSends]);
+  const thread = useMemo(() => {
+    const shown =
+      echoedSeedId && storeThread
+        ? { ...storeThread, messages: storeThread.messages.filter((m) => m.message_id !== echoedSeedId) }
+        : storeThread;
+    if (Object.keys(failedSends).length === 0) return shown;
+    return threadWithFailedSends(shown ?? emptyThread(sessionId), failedSends);
+  }, [sessionId, storeThread, echoedSeedId, failedSends]);
+  // Handlers read the thread at call time (an edit's rewind).
+  const threadRef = useRef(thread);
+  threadRef.current = thread;
 
   // The composer calls this while a turn runs: the running turn reads the
   // message at its next step (`steer`, D9.1). A prompt request from another
@@ -1151,7 +1205,7 @@ function SessionPageImpl({ sessionId, projectId, projectSessionId, onBack, onOpe
       : [];
     return anchorChangeRequests(sessionChanges, starts);
   }, [sessionChanges, turnStartsKey]);
-  const changeSheetRef = useRef<SheetRef>(null);
+  const changeSheetRef = useRef<ReviewDetailSheetRef>(null);
   const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
   // Read from the live list, so a merge made elsewhere updates the open sheet.
   const selectedChange = useMemo(
@@ -2628,8 +2682,9 @@ function FreshSessionHero({
 
 // ---------------------------------------------------------------------------
 // QueuePanel — the messages waiting to send, above the text input. Header
-// "Up next · N" toggles the list. Each row: the message, a "Send now" pill,
-// and a 44pt remove. Remove acts at once; the caller shows a toast with Undo.
+// "Up next · N" toggles the list. Each row: the message, a "Send now" pill
+// ("Not sent · <reason>" and "Try again" on a row the server failed), and a
+// 44pt remove. Remove acts at once; the caller shows a toast with Undo.
 // No Clear-all (Jay, 2026-09-25): the per-row X is enough.
 // ---------------------------------------------------------------------------
 
@@ -2736,10 +2791,10 @@ function QueuePanel({
                     size="sm"
                     className="rounded-full"
                     onPress={() => onSendNow(qm.prompt_id)}
-                    accessibilityLabel="Send now"
-                    accessibilityHint={busy ? 'Stops the current reply and sends this message' : undefined}
+                    accessibilityLabel={qm.state === 'failed' ? 'Message not sent. Try again' : 'Send now'}
+                    accessibilityHint={busy && qm.state !== 'failed' ? 'Stops the current reply and sends this message' : undefined}
                   >
-                    <Text>Send now</Text>
+                    <Text>{queueRowSendLabel(qm)}</Text>
                   </Button>
                 )}
                 {/* 40pt box + the Button's default 2pt hit slop = 44pt target. */}

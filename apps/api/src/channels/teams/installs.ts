@@ -3,7 +3,7 @@ import { and, eq, ne } from 'drizzle-orm';
 import { getProjectSecretValuesForConsumer } from '../../projects/secrets';
 import { db } from '../../shared/db';
 import { TEAMS_MANIFEST_VERSION } from '../teams-manifest';
-import { deleteProjectSecrets, readSecret, upsertSecret } from '../install-store';
+import { deleteProjectSecrets, readSecret, upsertSecret } from '../core/install-secrets';
 
 export const MS_TEAMS_TENANT_ID = 'MS_TEAMS_TENANT_ID';
 export const MS_TEAMS_SERVICE_URL = 'MS_TEAMS_SERVICE_URL';

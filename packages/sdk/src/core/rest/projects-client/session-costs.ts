@@ -480,3 +480,91 @@ export async function fetchCostExportCsv(
   const blob = await res.blob();
   return { blob, rowCap: Number.isFinite(parsedRowCap) ? parsedRowCap : null };
 }
+
+/**
+ * How many data rows a CSV body holds — records, not physical lines, and not
+ * counting the header.
+ *
+ * `encodeField` (`apps/api/src/shared/cost-csv.ts`) quotes any value holding
+ * CR, LF, a comma or a quote, and both `project_name` and `owner` are free
+ * text the account's own users control. So a project named with an embedded
+ * newline puts a real line break inside a quoted field, and splitting the
+ * body on newlines counts that one row twice.
+ *
+ * Blank records are skipped, so a trailing newline never becomes a row.
+ *
+ * One shape is NOT handled: a body with an unterminated quote. Everything
+ * after the opening quote is read as one field, so
+ * `header\r\ns0,"never closed\r\ns1,…\r\ns2,…` counts 1 record, not 3.
+ * `toCsv` always balances its quotes, so this is unreachable from either
+ * export route; and the error direction is an undercount, which can only
+ * suppress the row-cap warning, never raise a false one.
+ */
+export function countCsvDataRows(body: string): number {
+  let records = 0;
+  let inQuotes = false;
+  let recordHasContent = false;
+
+  for (let index = 0; index < body.length; index += 1) {
+    const char = body[index];
+
+    if (inQuotes) {
+      // `""` is the escape for a literal quote — consume both and stay inside
+      // the field, otherwise the rest of the record is read as unquoted.
+      if (char === '"' && body[index + 1] === '"') index += 1;
+      else if (char === '"') inQuotes = false;
+      recordHasContent = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = true;
+      recordHasContent = true;
+      continue;
+    }
+
+    if (char === '\r' || char === '\n') {
+      if (char === '\r' && body[index + 1] === '\n') index += 1;
+      if (recordHasContent) records += 1;
+      recordHasContent = false;
+      continue;
+    }
+
+    recordHasContent = true;
+  }
+
+  if (recordHasContent) records += 1;
+  return Math.max(0, records - 1);
+}
+
+/**
+ * Whether an export reached its row cap, so it may be missing rows.
+ *
+ * `rowCap` is the CAP VALUE the route reports on every response
+ * (`x-kortix-row-cap` = `CSV_ROW_CAP`), not a truncation flag: a 3-row export
+ * and a capped one carry the identical header. Truncation is only knowable by
+ * comparing the rows actually present against that cap, which is why this
+ * takes both.
+ *
+ * `>=` rather than `===` because the route queries at `limit: CSV_ROW_CAP` and
+ * so cannot return more — but if that ever changes, over-reporting must warn
+ * rather than fall silent.
+ */
+export function isCostExportCapped(rowCount: number, rowCap: number | null): boolean {
+  if (rowCap === null || rowCap <= 0) return false;
+  return rowCount >= rowCap;
+}
+
+export interface CostExportAnalysis extends CostExportResult {
+  /** Data records in the CSV, header excluded (`countCsvDataRows`). */
+  rowCount: number;
+  /** `isCostExportCapped(rowCount, rowCap)`: the export may be truncated. */
+  capped: boolean;
+}
+
+/** Reads the fetched CSV once to decide whether it was truncated, and hands
+ *  back the same `Blob` for the download. */
+export async function analyzeCostExport(result: CostExportResult): Promise<CostExportAnalysis> {
+  const rowCount = countCsvDataRows(await result.blob.text());
+  return { ...result, rowCount, capped: isCostExportCapped(rowCount, result.rowCap) };
+}

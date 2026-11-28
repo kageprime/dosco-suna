@@ -359,6 +359,39 @@ describe('useProjectSessions pollFirstPageOnly', () => {
     }
   };
 
+  test.each([false, true])('cached first-page polling honors enabled=%s and resumes after enabling', async (initialEnabled) => {
+    jest.useFakeTimers();
+    pages = [{ ids: ['S1'], next: null }];
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    client.setQueryData(qk.project.sessionsPaged('P1'), {
+      pages: [{ items: [{ session_id: 'S1' }], next_cursor: null }],
+      pageParams: [null],
+    });
+    let setEnabled: (enabled: boolean) => void = () => {};
+    function Probe() {
+      const [enabled, set] = React.useState(initialEnabled);
+      setEnabled = set;
+      list = useWorkspaceSessions('P1', { enabled, refetchInterval: 40, pollFirstPageOnly: true });
+      return null;
+    }
+    await act(async () => {
+      root = create(React.createElement(QueryClientProvider, { client }, React.createElement(Probe)));
+    });
+    expect(list.isSuccess).toBe(true);
+    await advance(20);
+    await act(async () => setEnabled(false));
+    await advance(100);
+    expect(cursors).toEqual([]);
+    await act(async () => setEnabled(true));
+    await advance(50);
+    expect(cursors).toEqual([null]);
+    await act(async () => setEnabled(false));
+    const reads = cursors.length;
+    await advance(100);
+    expect(cursors).toHaveLength(reads);
+    client.clear();
+  });
+
   test('a poll re-reads page one only, and a loaded older page keeps its rows', async () => {
     jest.useFakeTimers();
     pages = [

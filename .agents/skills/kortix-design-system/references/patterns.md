@@ -132,9 +132,9 @@ screen (D14, D4h, Q24). — *Where:* app. — *When silent:* the table. Rendered
 | State | Primitive | Shape | Never |
 | --- | --- | --- | --- |
 | Loading | `Skeleton` rows, the row's height | the row shape, no stagger | a spinner for a list; a skeleton of a page the route cannot draw |
-| Empty | `EmptyState size="sm"` + `media={<EmptyArt icon={…} />}` | one title, one sentence ("{Plural noun} you create will show up here."), `Button variant="outline" size="sm"` with a leading glyph | another tile or illustration, a centred `<p>` alone |
-| Error | `ErrorState size="sm"` | "Could not {verb} {object}." then a Try again action, no wrapper box | `Alert` for a load failure, raw JSON |
-| Loaded | the rows | `bg-popover rounded-md border px-3 py-2`, status as a tinted tile with a glyph, label in ink | a hue on the label |
+| Empty | `EmptyState size="sm"` + `media={<EmptyArt icon={…} />}` | one title, one sentence ("{Plural noun} appear here when {trigger}."), the page's primary action, `Button variant="outline" size="sm"` with a leading glyph | another tile or illustration, a centred `<p>` alone |
+| Error | `ErrorState size="sm"` | "Could not {verb} {object}" (no period), one meta sentence naming the cause, then a Try again action, no wrapper box | `Alert` for a load failure, raw JSON |
+| Loaded | the rows | hairline rows, `h-11 px-3 border-b border-border`, status as a bare `size-4` glyph (hue only for live or attention states), name in ink | a hue on the label, a card per row, a tinted tile in a row |
 
 Page-level loading (no shell yet) is `ProjectPendingScreen`, the pulsing mark.
 

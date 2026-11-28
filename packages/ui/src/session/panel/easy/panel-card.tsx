@@ -1,230 +1,98 @@
 'use client';
 
 /**
- * `PanelCard` — the reusable Easy-mode section shell (a flat section of the
- * docked cards column; the name predates the flat design). Outputs, Context, Preview
- * and Plan are all this component with different contents.
+ * `PanelCard` — one section of the session's docked column. Outputs, Changes,
+ * Context, Preview, Plan, Background tasks and Change requests are all this
+ * component with different contents.
  *
- * Collapsed and empty, a card is a *promise*: a title, soft placeholder art,
- * and one plain sentence saying what will show up here. Nothing technical is
- * visible until the user asks for it.
+ * A section is a plain title over its rows, always open. No header button, no
+ * caret, no count chip: the rows ARE the count. Sections are divided by one
+ * hairline on the column's inset (`mx-3`), never full-bleed.
  *
- * The chevron rotates down and the header toggles an in-place body. Every card
- * works this way: expanding one never hides the others, so the panel is always
- * the same rows and never navigates away from itself.
+ * The column's one text edge is `px-3`. Rows sit on `mx-1` and pad `px-2`, so
+ * their text starts on the same x as the title and their hover fill reaches a
+ * little past it — see `PANEL_ROW`.
  */
 
-import { CountBadge } from '../../../primitives/count-badge';
-import { Disclosure, DisclosureContent, DisclosureTrigger } from '../../../primitives/disclosure';
-import { Empty, EmptyContent, EmptyDescription, EmptyMedia } from '../../../primitives/empty';
 import { cn } from '../../../lib/utils';
-import { m } from 'motion/react';
-import { useReducedMotion } from '../../../internal/hooks/use-reduced-motion';
-import { type ReactNode, useState } from 'react';
-import { CaretRightSolidIcon } from '../../../icons/caret-right-solid';
+import type { ReactNode } from 'react';
+
+/** The row every section draws: one height, one hover, one text edge. Its
+ *  parent is a flex row (`<li className="flex">`) so `flex-1` fills it. */
+export const PANEL_ROW = cn(
+  'mx-1 flex h-8 flex-1 min-w-0 items-center gap-3 rounded-md px-2 text-left text-sm',
+  'hover:bg-hover transition-colors duration-(--duration-fast) ease-out',
+  'disabled:cursor-default disabled:hover:bg-transparent',
+);
+
+/** The fixed leading slot, so every row's label starts on one x. */
+export const PANEL_ROW_ICON = 'text-muted-foreground flex w-5 shrink-0 items-center justify-center [&_svg]:size-4';
 
 export interface PanelCardProps {
   title: string;
-  count?: number;
-  /**
-   * Stands in the count badge's slot for a card whose quantity is not a count.
-   *
-   * Plan is the only such card: "3 of 6, and here is the dial" is its size,
-   * the way "12" is Outputs'. Putting it HERE rather than beside the chevron
-   * is what keeps the column's headers parallel — every card states its size
-   * immediately after its title, so the eye reads one column of titles and one
-   * column of sizes rather than hunting a different edge per card.
-   *
-   * Mutually exclusive with `count` in practice: a card that has both is
-   * saying its size twice.
-   */
+  /** Stands beside the title: Plan's "3 of 6" dial. */
   indicator?: ReactNode;
   /** Second line under the title — Plan uses it for its live step label. */
   subtitle?: ReactNode;
   children?: ReactNode;
-  /** Soft placeholder art shown above `emptyText` — the "promise" state. */
-  emptyArt?: ReactNode;
   emptyText?: string;
-  /** Extra content under `emptyText` — the empty Context card's "Add
-   *  context" / "Connect apps" row (Task 5). Full-width, not the `Empty`
-   *  primitive's own `max-w-sm` prose cap, since a connector strip needs the
-   *  card's whole width to lay out its rows. */
+  /** Extra content under `emptyText` — the empty Context section's "Add context". */
   emptyActions?: ReactNode;
   isEmpty: boolean;
-  defaultExpanded?: boolean;
   /** Override the body padding — a full-bleed list wants none. */
   contentClassName?: string;
-  /** A control beside the chevron (Outputs' "download all") — click-isolated
-   * from the header's own expand/collapse toggle. */
+  /** A control on the title's right edge (Outputs' "download all"). */
   headerAction?: ReactNode;
   /**
-   * This card absorbs the column's leftover height instead of pushing its
-   * siblings off the bottom.
-   *
-   * Exactly ONE card in the column may set it. The card still sizes to its
-   * content — it never stretches to fill space it does not need — but it is the
-   * only one the flex algorithm is allowed to shrink, and when it shrinks its
-   * BODY scrolls while its header stays put. Everything else in the column
-   * keeps `shrink-0` and stays wholly visible.
-   *
-   * That asymmetry is the whole design. A column where every card can shrink
-   * has no anchor and clips all three; a column where none can shrink pushes
-   * the lower cards out of sight the moment one list gets long. One flexible
-   * card, the rest fixed, is what keeps Context and Preview on screen while
-   * Outputs holds two hundred files.
-   *
-   * A `fill` card's `contentClassName` carries padding and scrolling only.
+   * This section absorbs the column's leftover height: it is the only one the
+   * flex algorithm may shrink, and when it shrinks its BODY scrolls while its
+   * title stays put. Exactly ONE section in the column may set it.
    */
   fill?: boolean;
 }
 
-/** Full-width section header. A flat row, not a card lid: hover is color
- *  only. `px-4` is the column's one left edge: the rows below use it too. */
-const HEADER_CLASS = cn(
-  'flex min-h-11 w-full items-center justify-between gap-2 px-4 py-2 text-left',
-  'transition-colors duration-(--duration-fast) ease-out',
-  // The same hover fill as the rows below: one hover token per column.
-  'hover:bg-accent',
-);
-
-function CardTitleRow({
-  title,
-  count,
-  indicator,
-  subtitle,
-  chevron,
-}: {
-  title: string;
-  count?: number;
-  indicator?: ReactNode;
-  subtitle?: ReactNode;
-  chevron: ReactNode;
-}) {
-  return (
-    <>
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="flex min-w-0 items-baseline gap-1.5">
-          <span className="text-foreground truncate text-sm font-semibold">{title}</span>
-          {typeof count === 'number' && count > 0 && (
-            <CountBadge count={count} />
-          )}
-          {/* `self-center`, against the row's `items-baseline`: a badge has a
-              baseline to sit on and an indicator is a glyph, which would
-              otherwise hang its bottom edge off the title's baseline and read
-              a pixel or two low. */}
-          {indicator && <span className="flex shrink-0 self-center">{indicator}</span>}
-        </span>
-        {subtitle}
-      </span>
-      {chevron}
-    </>
-  );
-}
-
 export function PanelCard({
   title,
-  count,
   indicator,
   subtitle,
   children,
-  emptyArt,
   emptyText,
   emptyActions,
   isEmpty,
-  defaultExpanded = false,
-  contentClassName = 'px-4 pb-4',
+  contentClassName = 'pb-3',
   headerAction,
   fill = false,
 }: PanelCardProps) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
-  const reduce = useReducedMotion();
-  const transition = reduce ? { duration: 0 } : { duration: 0.2, ease: 'easeOut' as const };
-
-  // `defaultExpanded` can flip true after mount (e.g. "auto-open Outputs the
-  // moment a run finishes with something to show"). One-way sync: force open
-  // when that happens, but never fight a user's manual collapse afterwards.
-  const [prevDefaultExpanded, setPrevDefaultExpanded] = useState(defaultExpanded);
-  if (defaultExpanded !== prevDefaultExpanded) {
-    setPrevDefaultExpanded(defaultExpanded);
-    if (defaultExpanded) setExpanded(true);
-  }
-
   return (
-    // A section of the docked column, not a card: no fill, no radius, no box.
-    // Sections divide with one hairline under each, the way the column itself
-    // is divided from the chat by one hairline (`panel-chrome.ts`).
-    <Disclosure
-      open={expanded}
-      onOpenChange={setExpanded}
+    <section
+      aria-label={title}
       className={cn(
-        // `last:border-b-0`: dividers sit BETWEEN sections, no stray rule
-        // under the last one.
-        'text-foreground border-border border-b last:border-b-0',
+        'text-foreground group/section',
         fill ? 'flex min-h-0 flex-col' : 'shrink-0',
       )}
-      transition={transition}
     >
-      <DisclosureTrigger>
-        {/* `div`, not `button`: `DisclosureTrigger` already clones its role
-            ("button"), tabIndex, and Enter/Space handling onto whatever child
-            it's given, so a real `<button>` here bought nothing but blocked
-            `headerAction` from ever being a real `<button>` too (nesting one
-            inside another is invalid HTML). Restructuring the trigger this
-            way — rather than faking the action as a styled `span[role=button]`
-            — keeps both controls semantically real. */}
-        <div className={cn(HEADER_CLASS, 'cursor-pointer')}>
-          <CardTitleRow
-            title={title}
-            count={count}
-            indicator={indicator}
-            subtitle={subtitle}
-            chevron={
-              <span className="flex shrink-0 items-center gap-0.5">
-                {headerAction && (
-                  // Isolated from the toggle on both input paths: `stopPropagation`
-                  // on click covers the mouse/tap case, and on keydown stops the
-                  // Enter/Space that activates the nested button from *also*
-                  // bubbling up into the trigger's own Enter/Space handler.
-                  <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                    {headerAction}
-                  </span>
-                )}
-                <m.span
-                  animate={{ rotate: expanded ? 90 : 0 }}
-                  transition={transition}
-                  className="text-muted-foreground shrink-0"
-                >
-                  <CaretRightSolidIcon className="size-4" />
-                </m.span>
-              </span>
-            }
-          />
-        </div>
-      </DisclosureTrigger>
-      <DisclosureContent
-        className={cn(fill && 'flex min-h-0 flex-col')}
-        contentClassName={contentClassName}
-      >
-        {isEmpty && !emptyArt ? (
-          // Compact empty: one line in the section's own left edge, plus its
-          // action. The illustrated `Empty` below stays for callers that pass
-          // art; the session column's sections pass none.
-          <div className="flex flex-col items-start gap-2 px-4">
+      {/* Between sections only: the first section draws no rule above it. */}
+      <div className="border-border mx-3 border-t group-first/section:hidden" aria-hidden />
+      <header className="flex min-h-8 shrink-0 items-center justify-between gap-2 px-3 pt-4 pb-1.5">
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="flex min-w-0 items-center gap-2">
+            <h3 className="text-foreground truncate text-sm font-medium">{title}</h3>
+            {indicator && <span className="flex shrink-0">{indicator}</span>}
+          </span>
+          {subtitle}
+        </span>
+        {headerAction && <span className="flex shrink-0 items-center">{headerAction}</span>}
+      </header>
+      <div className={cn(fill && 'flex min-h-0 flex-col', contentClassName)}>
+        {isEmpty ? (
+          <div className="flex flex-col items-start gap-2 px-3">
             {emptyText && <p className="text-muted-foreground text-sm text-pretty">{emptyText}</p>}
             {emptyActions}
           </div>
-        ) : isEmpty ? (
-          <Empty className="flex-none gap-3 rounded-none border-none p-0 text-center">
-            {emptyArt && <EmptyMedia className="mb-0">{emptyArt}</EmptyMedia>}
-            {emptyText && <EmptyDescription className="text-pretty">{emptyText}</EmptyDescription>}
-            {emptyActions && (
-              <EmptyContent className="w-full max-w-none">{emptyActions}</EmptyContent>
-            )}
-          </Empty>
         ) : (
           children
         )}
-      </DisclosureContent>
-    </Disclosure>
+      </div>
+    </section>
   );
 }

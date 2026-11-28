@@ -222,3 +222,19 @@ describe('ProfileTabView — a person with no workspace', () => {
     expect(out).not.toMatch(/\blogin\b/i);
   });
 });
+
+
+describe('ProfileTabView — injected deletion plan compatibility', () => {
+  test('names deleted, left and blocked workspaces and disables confirmation', () => {
+    const out = renderToStaticMarkup(<ProfileTabView showDeleteDialog deleteConfirmText="delete"
+      deletionPlan={{ deleteNames: ['Synthetic Solo'], leaveNames: ['Synthetic Member'], blockers: [{ name: 'Synthetic Shared', memberCount: 3 }] }} />);
+    for (const text of ['Synthetic Solo', 'Synthetic Member', 'Synthetic Shared', '3 members', 'Hand these over first']) expect(out).toContain(text);
+    expect(out).toMatch(/<button[^>]*disabled[^>]*>Delete account<\/button>/);
+    expect(out).not.toContain('Your billing records');
+  });
+  test('an absent plan retains the generic deletion consequences', () => {
+    const out = renderToStaticMarkup(<ProfileTabView showDeleteDialog />);
+    expect(out).toContain('Every agent you own is deleted');
+    expect(out).toContain('Your billing records are kept as long as the law requires');
+  });
+});

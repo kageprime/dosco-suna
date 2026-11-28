@@ -179,7 +179,7 @@ What gets recorded, and who can read it, are two different answers. Kortix write
 
 ## Where the agent runs, and what our docs leave out
 
-Sessions run on Platinum sandboxes. On a self-hosted install the instance runs the platform, API and database included. It has to be reachable from the internet so those sandboxes can call back ([self-hosting](https://kortix.com/docs/host)). One isolated sandbox per session. Each session has its own isolated machine and branch.
+Sessions run on [Platinum](https://www.platinum.dev) sandboxes. On a self-hosted install the instance runs the platform, API and database included. It has to be reachable from the internet so those sandboxes can call back ([self-hosting](https://kortix.com/docs/host)). One isolated sandbox per session. Each session has its own isolated machine and branch.
 
 What the docs leave unsaid matters as much as what they state. No outbound allowlist is documented for a sandbox's own traffic. The network rule that does exist is narrower. Connector calls refuse private and internal addresses, and a self-hosted instance can allow internal hosts by listing them in `KORTIX_CONNECTOR_EGRESS_ALLOW_HOSTS`.
 

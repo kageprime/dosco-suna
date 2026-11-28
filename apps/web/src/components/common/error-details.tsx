@@ -29,7 +29,7 @@ export function ErrorDetails({ error }: { error: Error & { digest?: string } }) 
           <summary className="text-muted-foreground cursor-pointer text-[10px] tracking-wide uppercase outline-none select-none">
             {tI18nComplete.raw('texte551641242ce')}
           </summary>
-          <pre className="border-border/60 bg-background/60 text-muted-foreground mt-1.5 max-h-36 overflow-auto rounded-2xl border p-2 font-mono text-[10px] leading-relaxed wrap-break-word whitespace-pre-wrap">
+          <pre className="border-border bg-background/60 text-muted-foreground mt-1.5 max-h-36 overflow-auto rounded-2xl border p-2 font-mono text-[10px] leading-relaxed wrap-break-word whitespace-pre-wrap">
             {stack}
           </pre>
         </details>

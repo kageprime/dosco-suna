@@ -14,10 +14,12 @@ import {
   partStatus,
   ToolOutcomeContext,
   ToolRunningContext,
+  ToolSurfaceContext,
   useToolIndent,
   useToolOpen,
 } from '../shared/infrastructure';
 import { ToolRegistry } from '../shared/registry';
+import { SolidCheckIcon } from '../../../internal/icons/solid-check-icon';
 import { ToolResultCard } from '../shared/result-card';
 import type { ToolProps } from '../shared/types';
 import { useTranslations } from '../../../i18n';
@@ -30,7 +32,6 @@ import {
   CaretRightIcon,
   ChartBarIcon,
   ChatsCircleIcon,
-  CheckIcon,
   GitPullRequestIcon,
   SunDimIcon,
   HandPointingIcon,
@@ -42,7 +43,9 @@ import {
   type Icon,
 } from '@phosphor-icons/react';
 import { useContext, useMemo } from 'react';
-import { MULTI_AGENT_ICON, multiAgentBody, PeerSendRow, runningKey } from './multi-agent-tool-bodies';
+import { AgentChip } from '../../agents/agent-surface';
+import { peerHandleLabel } from '@kortix/shared';
+import { MULTI_AGENT_ICON, multiAgentBody, PeerSendRow, peerReceiverId, runningKey } from './multi-agent-tool-bodies';
 import { parsePeerSend, toolCallConnectorSignIns } from '@kortix/sdk';
 import { useSessionConnectRequests } from '../../prompts/session-connect-card';
 import {
@@ -111,7 +114,8 @@ function StatusMark({ status }: { status: KortixCardStatus }) {
   const t = useTranslations('tools.kortixAction.status');
   const glyph =
     status === 'done' ? (
-      <CheckIcon aria-hidden className="text-kortix-green size-3.5 shrink-0" />
+      // Done is a resting state: meta ink, never green (green means running).
+      <SolidCheckIcon aria-hidden className="text-muted-foreground size-3.5 shrink-0" />
     ) : status === 'running' ? (
       // The thing the tool started runs on (a session). No spinner: the call itself is over.
       <StatusDot tone="success" />
@@ -150,9 +154,7 @@ function CardTrigger({
           {title}
         </TextShimmer>
       ) : (
-        <span className="text-foreground min-w-0 truncate" title={title}>
-          {title}
-        </span>
+        <span className="text-foreground min-w-0 truncate">{title}</span>
       )}
       {subtitle && (
         <span className="text-muted-foreground min-w-0 flex-1 truncate" title={subtitle}>
@@ -167,11 +169,17 @@ function CardTrigger({
 const ROW_CLASS = 'flex min-w-0 items-center gap-2 rounded-sm px-2 py-1.5 text-xs';
 
 function CardRowLine({ row }: { row: KortixCardRow }) {
+  // A row titled with an agent handle (`@pricing-scout`) is an agent: its chip, as everywhere else.
+  const handle = row.title.startsWith('@') ? row.title.slice(1) : null;
   const body = (
     <>
-      <span className="text-foreground min-w-0 truncate font-medium" title={row.title}>
-        {row.title}
-      </span>
+      {handle ? (
+        <AgentChip handle={handle} name={peerHandleLabel(handle).replace(/^@/, '')} className="shrink" />
+      ) : (
+        <span className="text-foreground min-w-0 truncate font-medium" title={row.title}>
+          {row.title}
+        </span>
+      )}
       {row.detail ? (
         <span className="text-muted-foreground min-w-0 flex-1 truncate" title={row.detail}>
           {row.detail}
@@ -179,11 +187,15 @@ function CardRowLine({ row }: { row: KortixCardRow }) {
       ) : (
         <span className="flex-1" />
       )}
-      {row.badge && (
-        <Badge variant={badgeVariant(row.badge)} size="sm" className="shrink-0">
-          {row.badge}
-        </Badge>
-      )}
+      {/* A state word keeps its hue as a badge; any other word (a role, a kind) is plain text. */}
+      {row.badge &&
+        (badgeVariant(row.badge) === 'muted' ? (
+          <span className="text-muted-foreground shrink-0">{row.badge}</span>
+        ) : (
+          <Badge variant={badgeVariant(row.badge)} size="sm" className="shrink-0">
+            {row.badge}
+          </Badge>
+        ))}
       {row.href && <CaretRightIcon aria-hidden className="text-muted-foreground size-3 shrink-0" />}
     </>
   );
@@ -277,6 +289,8 @@ function DeniedNotice({ error }: { error?: KortixToolError }) {
 function CardLinks({ links }: { links: KortixCardLink[] }) {
   const t = useTranslations('tools.kortixAction');
   const indent = useToolIndent();
+  // In the side panel the links sit under the rows: start them on the rows' text edge.
+  const panel = useContext(ToolSurfaceContext) === 'panel';
   const external = links.filter((link) => link.external);
   const internal = links.filter((link) => !link.external);
   const internalButtons = internal.map((link) => (
@@ -285,7 +299,7 @@ function CardLinks({ links }: { links: KortixCardLink[] }) {
     </Button>
   ));
   return (
-    <div className={cn('flex flex-wrap items-center gap-1.5', indent && 'mt-1.5', indent)}>
+    <div className={cn('flex flex-wrap items-center gap-1.5', indent && 'mt-1.5', indent, panel && 'px-2')}>
       {external.map((link) => (
         <Button key={`${link.label}-${link.href}`} asChild size="xs">
           <a href={link.href} target="_blank" rel="noopener noreferrer" title={t('opensInNewTab')}>
@@ -317,6 +331,7 @@ function SettledTrigger({
   );
 }
 
+/** Kortix platform calls (agents, sessions, access, connectors). In the side panel they are the same flat rows as every other call. */
 export function KortixActionTool(props: ToolProps) {
   const { call, defaultOpen, forceOpen, locked } = props;
   const t = useTranslations('tools.kortixAction');
@@ -364,7 +379,7 @@ export function KortixActionTool(props: ToolProps) {
   // A message to another agent is one plain row with the receiver's face, sent or not.
   if (multi === 'send_message') {
     const send = parsePeerSend(result.data);
-    if (send) return <PeerSendRow send={send} defaultOpen={defaultOpen} forceOpen={forceOpen} locked={locked} />;
+    if (send) return <PeerSendRow send={send} receiverId={peerReceiverId(result.data)} defaultOpen={defaultOpen} forceOpen={forceOpen} locked={locked} />;
   }
   const denied = card.status === 'denied';
   // A multi-agent result draws its own body from `data`; the card's rows would say it twice.

@@ -12,7 +12,6 @@ import {
   SessionDeleteResultSchema,
   SessionPromptListSchema,
   SessionStartResultSchema,
-  SessionTranscriptSyncEnvelopeSchema,
   SessionTurnStatusSchema,
 } from '@kortix/api-contract';
 import { flow } from '../core/flow';
@@ -1022,7 +1021,6 @@ flow(
       'POST /v1/workspaces/:projectId/sessions/:sessionId/restore',
       'GET /v1/workspaces/:projectId/sessions',
       'GET /v1/workspaces/:projectId/sessions/:sessionId',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/message-authors',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/model-usage',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/prompts',
@@ -1206,7 +1204,7 @@ flow(
 
     await ctx.step('its content reads → 404 for the owner and a member, as the read of it (KRTX-2275); a prompt → 409 Session is deleted', async () => {
       for (const who of [owner, ctx.client.as(member)]) {
-        (await who.get(`${sessionRoute}/transcript`, { params, query: { shape: 'sync', history: 'true' } })).status(404);
+        (await who.get(`${sessionRoute}/log`, { params })).status(404);
         (await who.get(`${sessionRoute}/message-authors`, { params })).status(404);
         (await who.get(`${sessionRoute}/model-usage`, { params })).status(404);
         (await who.get(`${sessionRoute}/prompts`, { params })).status(404);
@@ -1291,13 +1289,8 @@ flow(
       }
     });
 
-    await ctx.step('the saved transcript and the stored file read back intact', async () => {
-      (await owner.get(`${sessionRoute}/transcript`, { params, query: { shape: 'sync', history: 'true' } }))
-        .status(200)
-        .body()
-        .has('$.source', 'mirror')
-        .has('$.message_count', 2)
-        .schema(SessionTranscriptSyncEnvelopeSchema);
+    await ctx.step('the stored log and the stored file read back intact', async () => {
+      (await owner.get(`${sessionRoute}/log`, { params })).status(200).body().has('$.messages.length', 2);
       const file = (await owner.get(download, { params: { ...params, attachmentId } })).status(200);
       if (file.text() !== contents) throw new Error('the restored file bytes differ');
     });
@@ -1683,7 +1676,7 @@ flow(
     requires: ['database'],
     routes: [
       'POST /v1/workspaces/:projectId/sessions/:sessionId/recover',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
       'DELETE /v1/workspaces/:projectId/sessions/:sessionId',
       'POST /v1/accounts/tokens',
     ],
@@ -1753,13 +1746,14 @@ flow(
     };
     const recover = (id: string, who = owner) =>
       who.post('/v1/workspaces/:projectId/sessions/:sessionId/recover', {}, { params: { projectId: project.id, sessionId: id } });
-    const transcriptMessages = async (id: string) =>
-      (await owner.get('/v1/workspaces/:projectId/sessions/:sessionId/transcript', {
+    const transcriptMessages = async (id: string) => {
+      const r = await owner.get('/v1/workspaces/:projectId/sessions/:sessionId/log', {
         params: { projectId: project.id, sessionId: id },
-        query: { shape: 'sync', history: 'true' },
-      }))
-        .status(200)
-        .json<{ messages?: unknown[] }>().messages?.length ?? 0;
+      });
+      // A session with nothing stored has no log (`session_log_missing`): no messages.
+      if (r.statusCode === 404) return 0;
+      return r.status(200).json<{ messages?: unknown[] }>().messages?.length ?? 0;
+    };
 
     const fromLog = await lostSession('log');
     await ctx.step('a lost session with a session log → 200; the row is retired and the session restores from its log', async () => {
@@ -3352,15 +3346,25 @@ flow(
         if (second.cursor) throw new Error('the last page carries a cursor');
       });
 
-      await ctx.step('a deleted session keeps its place: the manager inventory lists the tombstone where the session was', async () => {
+      await ctx.step('a deleted session keeps its timestamp but leaves normal lists and remains restorable', async () => {
         const deleted = live[5]!;
         (await ctx.client
           .as(reader)
           .del('/v1/workspaces/:projectId/sessions/:sessionId', { params: { projectId: trash.id, sessionId: deleted } })
         ).status(200);
         const inventory = await list(ctx.client.as(ctx.P.OWNER), trash.id, { scope: 'project', limit: '10' });
-        expectIds(inventory.rows, live.slice(0, 10), 'manager inventory');
-        if (!inventory.rows[5]!.deleted_at) throw new Error('the deleted session carries no deleted_at');
+        expectIds(inventory.rows, [...live.slice(0, 5), ...live.slice(6, 11)], 'manager inventory');
+        const removed = await list(ctx.client.as(ctx.P.OWNER), trash.id, { scope: 'project', deleted: 'only', limit: '200' });
+        if (removed.rows.some((row) => !row.deleted_at)) throw new Error('recently deleted contains a live session');
+        // The seeded newer tombstones fill page 1; page through to the deletion.
+        let deletedRow = removed.rows.find((row) => row.session_id === deleted);
+        let cursor = removed.cursor;
+        while (!deletedRow && cursor) {
+          const page = await list(ctx.client.as(ctx.P.OWNER), trash.id, { scope: 'project', deleted: 'only', limit: '200', cursor });
+          deletedRow = page.rows.find((row) => row.session_id === deleted);
+          cursor = page.cursor;
+        }
+        if (!deletedRow?.deleted_at) throw new Error('Recently deleted lost the deleted session');
         const visible = await list(ctx.client.as(reader), trash.id, { limit: '50' });
         expectIds(visible.rows, [...live.slice(0, 5), ...live.slice(6, 51)], 'owner after delete');
       });

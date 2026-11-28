@@ -433,42 +433,12 @@ const BANNED_PATTERNS = [
 /** Spacing steps. Width is `calc(var(--spacing) * step)`; the px is measured. */
 const SPACING_STEPS = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 8, 10, 12, 16, 20, 24] as const;
 
-const SHADOW_SCALE: ReadonlyArray<{
-  label: string;
-  cssVar: string;
-  use: string;
-  twClass?: string;
-}> = [
-  {
-    label: 'shadow-xs',
-    twClass: 'shadow-xs',
-    cssVar: '--shadow-xs',
-    use: 'Raised chips and slider thumbs',
-  },
-  {
-    label: 'shadow-sm',
-    twClass: 'shadow-sm',
-    cssVar: '--shadow-sm',
-    use: 'Sticky bars',
-  },
-  {
-    label: 'shadow-md',
-    twClass: 'shadow-md',
-    cssVar: '--shadow-md',
-    use: 'Dropdowns, selects, popovers',
-  },
-  {
-    label: 'shadow-lg',
-    twClass: 'shadow-lg',
-    cssVar: '--shadow-lg',
-    use: 'Modals, sheets, toasts',
-  },
-  {
-    label: 'shadow-xl',
-    twClass: 'shadow-xl',
-    cssVar: '--shadow-xl',
-    use: 'Command palette, floating windows',
-  },
+// Three steps, no more: there is no shadow-lg, shadow-xl or shadow-2xl. Each
+// step is a smooth stack of faint layers (packages/ui/src/styles/theme.css).
+const SHADOW_SCALE: ReadonlyArray<{ label: string; use: string; twClass: string }> = [
+  { label: 'shadow-xs', twClass: 'shadow-xs', use: 'Dropdowns, selects, popovers, hover cards, raised chips, slider thumbs' },
+  { label: 'shadow-sm', twClass: 'shadow-sm', use: 'Sticky bars' },
+  { label: 'shadow-md', twClass: 'shadow-md', use: 'Modals, sheets, the command palette' },
 ];
 
 const TOC_SECTIONS = [
@@ -1577,7 +1547,7 @@ export default function BrandPage() {
                 <Spec
                   id="elevation-ladder"
                   name="Ladder"
-                  about="Shadow means floats above the page: in-flow panels stay flat with a border. An overlay pairs its shadow with a hairline, because a shadow is invisible on black."
+                  about="Shadow means floats above the page: in-flow panels stay flat with a border. Three steps only: xs, sm, md, each a smooth stack of faint layers. A floating panel pairs shadow-xs with the hairline border, because a shadow is invisible on black."
                 >
                   <DemoContainer>
                     <div className="mb-6 grid gap-6 sm:grid-cols-2">
@@ -1589,8 +1559,8 @@ export default function BrandPage() {
                       </div>
                       <div className="space-y-3">
                         <h3 className="text-sm font-medium">Above the page</h3>
-                        <div className="bg-popover border-border rounded-md border p-6 text-sm shadow-md">
-                          Floating panel · hairline + shadow
+                        <div className="bg-popover border-border rounded-md border p-6 text-sm shadow-xs">
+                          Floating panel · hairline + shadow-xs
                         </div>
                       </div>
                     </div>
@@ -1603,7 +1573,6 @@ export default function BrandPage() {
                                 'bg-popover border-border flex h-28 items-center justify-center rounded-md border',
                                 s.twClass,
                               )}
-                              style={s.twClass ? undefined : { boxShadow: `var(${s.cssVar})` }}
                             >
                               <span className="text-muted-foreground font-mono text-xs">
                                 {s.label}
@@ -1611,7 +1580,7 @@ export default function BrandPage() {
                             </div>
                             <div className="space-y-2">
                               <p className="text-foreground text-sm">{s.use}</p>
-                              <CopyValue value={s.cssVar} />
+                              <CopyValue value={s.twClass} />
                             </div>
                           </div>
                         ))}

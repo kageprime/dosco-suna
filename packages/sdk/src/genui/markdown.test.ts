@@ -33,6 +33,11 @@ describe('markdown fallback', () => {
     expect(md).toContain('Source: places tool');
   });
 
+  test('a Marker links to its OpenStreetMap pin', () => {
+    const md = genuiToMarkdown('```openui\nroot = Map([p], "places tool")\np = Marker(48.85, -2.35, "Center")\n```');
+    expect(md).toContain('([map](https://www.openstreetmap.org/?mlat=48.85&mlon=-2.35#map=15/48.85/-2.35))');
+  });
+
   test('Steps become a numbered list without photos; text lines collapse to one line', () => {
     const md = genuiToMarkdown(
       '```openui\nroot = Steps([a, b, c])\na = Step("Home → Central Station", "Take a taxi or the bus.", "https://example.com/p/a.jpg", "about 20 min")\nb = Step("Central Station → Airport One", "Take the airport train\\nto Terminal 2.", null, "about 35 min")\nc = Step("Hub Airport", "Change planes inside the international transfer area.")\n```',

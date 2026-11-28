@@ -273,6 +273,46 @@ export function parseMergeTreeConflictPaths(stdout: string): string[] {
   return conflicts;
 }
 
+/** The head or the base branch moved after the merge was checked: nothing was merged. */
+export class HeadMovedError extends Error {
+  readonly code = 'CR_HEAD_MOVED';
+
+  constructor(readonly expected: string, readonly actual: string) {
+    super('The change request or its base branch moved after it was checked. Nothing was merged. Retry the merge.');
+    this.name = 'HeadMovedError';
+  }
+}
+
+/**
+ * The commit `mergeBranches` would land for `baseSha` and `headSha`, built in
+ * the store without moving any ref: `headSha` itself on a fast-forward, a new
+ * merge commit otherwise, null when the merge conflicts (it would not land).
+ * What a merge is allowed to do is decided on this commit, never on the
+ * change request's own diff: a merge can also undo what the base did since the
+ * branch point (a `kortix.yaml` added beside the base's `kortix.yml` wins).
+ */
+export async function wouldBeMergeCommit(
+  project: GitBackedProject,
+  repoPath: string,
+  baseSha: string,
+  headSha: string,
+): Promise<string | null> {
+  validateSha(baseSha);
+  validateSha(headSha);
+  const mergeBase = await runGit(['merge-base', baseSha, headSha], repoPath, false)
+    .then((r) => r.stdout.trim() || null)
+    .catch(() => null);
+  if (mergeBase === baseSha) return headSha;
+  await ensureMergeObjects(repoPath, mergeBase, baseSha, headSha);
+  const result = await runMergeTree(project, repoPath, baseSha, headSha);
+  if (result.exitCode !== 0) return null;
+  const treeSha = result.stdout.split('\n')[0]?.trim();
+  if (!treeSha || !/^[0-9a-f]{40}$/.test(treeSha)) throw new Error('merge-tree did not return a valid tree SHA');
+  const identity = { GIT_AUTHOR_NAME: 'Kortix', GIT_AUTHOR_EMAIL: 'noreply@kortix.ai', GIT_COMMITTER_NAME: 'Kortix', GIT_COMMITTER_EMAIL: 'noreply@kortix.ai' };
+  const commit = await runGit(['commit-tree', treeSha, '-p', baseSha, '-p', headSha, '-m', 'classify'], repoPath, false, null, identity);
+  return commit.stdout.trim();
+}
+
 export class MergeConflictError extends Error {
   readonly code = 'MERGE_CONFLICT';
 
@@ -333,9 +373,9 @@ async function ensureMergeObjects(repoPath: string, mergeBase: string | null, ba
  * conflict. Any other exit is a failure (an object the store could not
  * fetch, a bad ref) and must not read as "conflicts" with an empty list.
  */
-async function runMergeTree(project: GitBackedProject, repoPath: string, baseRef: string, headRef: string) {
+async function runMergeTree(project: GitBackedProject, repoPath: string, baseRev: string, headRev: string) {
   const result = await runGitCapture(
-    ['merge-tree', '--write-tree', '--name-only', `refs/heads/${baseRef}`, `refs/heads/${headRef}`],
+    ['merge-tree', '--write-tree', '--name-only', baseRev, headRev],
     repoPath,
     project.gitAuthToken,
     undefined,
@@ -377,7 +417,7 @@ export async function previewMerge(
   const canFastForward = mergeBase === baseSha && !isUpToDate;
 
   await ensureMergeObjects(repoPath, mergeBase, baseSha, headSha);
-  const result = await runMergeTree(project, repoPath, baseRef, headRef);
+  const result = await runMergeTree(project, repoPath, `refs/heads/${baseRef}`, `refs/heads/${headRef}`);
 
   let canMerge = true;
   if (result.exitCode !== 0) {
@@ -423,6 +463,12 @@ export async function mergeBranches(
     getMergeBase(project, baseRef, headRef),
   ]);
 
+  if (options.expectedHeadSha && options.expectedHeadSha !== headSha) {
+    throw new HeadMovedError(options.expectedHeadSha, headSha);
+  }
+  if (options.expectedBaseSha && options.expectedBaseSha !== baseShaBefore) {
+    throw new HeadMovedError(options.expectedBaseSha, baseShaBefore);
+  }
   if (baseShaBefore === headSha) {
     throw new Error('Branches already point at the same commit');
   }
@@ -445,7 +491,9 @@ export async function mergeBranches(
 
   // 3-way merge.
   await ensureMergeObjects(repoPath, mergeBase, baseShaBefore, headSha);
-  const mergeTreeResult = await runMergeTree(project, repoPath, baseRef, headRef);
+  // The commits resolved above, never the refs again: a fetch between the two
+  // reads would merge a tree the caller did not check.
+  const mergeTreeResult = await runMergeTree(project, repoPath, baseShaBefore, headSha);
   if (mergeTreeResult.exitCode !== 0) {
     throw new MergeConflictError(parseMergeTreeConflictPaths(mergeTreeResult.stdout));
   }

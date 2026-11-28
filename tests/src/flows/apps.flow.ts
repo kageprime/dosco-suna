@@ -1743,6 +1743,14 @@ flow(
         }
       });
 
+      await ctx.step("volume create refuses retention 0 and 61 before provider IO", async () => {
+        for (const retention of [0, 61]) {
+          (await owner.post("/v1/workspaces/:projectId/apps/:appId/volumes", { name: "data", size_gb: 10, snapshot_retention_days: retention }, { params: app() }))
+            .status(400).body().has("$.code", "volume_retention_invalid");
+        }
+        (await owner.get("/v1/workspaces/:projectId/apps/:appId/volumes", { params: app() })).status(200).body().has("$.volumes", []);
+      });
+
       await ctx.step("every volume route on an unknown volume → 404 volume_not_found", async () => {
         const unknown = vol(UNKNOWN_ID);
         (await owner.patch("/v1/workspaces/:projectId/apps/:appId/volumes/:volumeId", { size_gb: 20 }, { params: unknown }))

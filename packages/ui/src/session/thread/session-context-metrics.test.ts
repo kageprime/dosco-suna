@@ -9,7 +9,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { ModelPricingLookup, SessionLogBlock, SessionLogMessage, SessionLogThread } from '@kortix/sdk';
 import type { ProviderListResponse } from '@kortix/sdk/react';
-import { estimateBreakdown } from './session-context-modal';
+import { estimateBreakdown, estimateSkills } from './session-context-modal';
 import { getSessionContextMetrics, sessionStartedAt } from './session-context-metrics';
 
 // ─── fixtures ────────────────────────────────────────────────────────────────
@@ -309,6 +309,66 @@ describe('estimateBreakdown', () => {
   test('non-countable blocks contribute nothing', () => {
     const segments = estimateBreakdown([assistant({}, [step(), text('')])], 100);
     expect(segments).toEqual([{ key: 'other', tokens: 100, width: 100, percent: 100 }]);
+  });
+});
+
+// ─── estimateSkills ──────────────────────────────────────────────────────────
+
+describe('estimateSkills', () => {
+  const done = (t: string) => ({ content: [{ type: 'text' as const, text: t }], is_error: false });
+
+  test('no skill use → empty list', () => {
+    expect(estimateSkills([user([text('hi')]), assistant({}, [tool({ input: { command: 'ls' } })])])).toEqual([]);
+  });
+
+  test('a skill tool call, a read of a SKILL.md and a /skill message each count, by tokens', () => {
+    const envelope = '<skill name="testing" location="/x/testing/SKILL.md">\n' + 's'.repeat(81) + '\n</skill>';
+    const messages = [
+      user([text(envelope)]),
+      assistant({}, [
+        // opencode's skill tool: no args key → 16 chars an input key, plus the document.
+        tool({ name: 'skill', kind: 'skill', input: { name: 'pdf' }, result: done('p'.repeat(184)) }),
+        // pi reads a skill as a file; `filePath` and `file_path` name it the same way.
+        tool({ name: 'read', kind: 'read', input: { path: '/opt/skills/engineering/SKILL.md' }, result: done('e'.repeat(384)) }),
+        tool({ name: 'read', kind: 'read', input: { filePath: 'skills/pdf/SKILL.md' }, result: done('p'.repeat(184)) }),
+        // Not a skill: another file in a skill folder, and an ordinary read.
+        tool({ name: 'read', kind: 'read', input: { path: '/opt/skills/engineering/references/a.md' }, result: done('x'.repeat(400)) }),
+        tool({ name: 'read', kind: 'read', input: { path: 'README.md' }, result: done('x'.repeat(400)) }),
+      ]),
+    ];
+    expect(estimateSkills(messages)).toEqual([
+      { name: 'pdf', tokens: 100, uses: 2 },
+      { name: 'engineering', tokens: 100, uses: 1 },
+      { name: 'testing', tokens: 36, uses: 1 },
+    ]);
+  });
+
+  test('a skill call still running counts once; one with no name or that failed is skipped', () => {
+    const failed = { content: [], is_error: true, error: { message: 'e'.repeat(40) } };
+    const messages = [
+      assistant({}, [
+        tool({ name: 'skill', kind: 'skill', status: 'running', input: { name: 'pdf' } }),
+        tool({ name: 'skill', kind: 'skill', status: 'error', input: { name: 'docx' }, result: failed }),
+        tool({ name: 'read', kind: 'read', status: 'error', input: { path: 'skills/xlsx/SKILL.md' }, result: failed }),
+        tool({ name: 'skill', kind: 'skill', input: {}, result: done('x'.repeat(40)) }),
+        tool({ name: 'skill', kind: 'skill', input: { name: '  ' }, result: done('x'.repeat(40)) }),
+      ]),
+    ];
+    expect(estimateSkills(messages)).toEqual([{ name: 'pdf', tokens: 4, uses: 1 }]);
+  });
+
+  test('scaled like the breakdown: a skill never shows more of the context than the context holds', () => {
+    // The reviewer's case: a 4000-char skill read when the model reported only
+    // 100 input tokens (history compacted or served from cache).
+    const messages = [
+      assistant({}, [tool({ name: 'read', kind: 'read', input: { path: 'skills/pdf/SKILL.md' }, result: done('p'.repeat(3984)) })]),
+    ];
+    const [skill] = estimateSkills(messages, 100);
+    const [tools] = estimateBreakdown(messages, 100);
+    expect(skill).toEqual({ name: 'pdf', tokens: 100, uses: 1, percent: 100 });
+    expect(skill?.tokens).toBe(tools?.tokens);
+    // Room to spare: the estimate stands as is.
+    expect(estimateSkills(messages, 4000)).toEqual([{ name: 'pdf', tokens: 1000, uses: 1, percent: 25 }]);
   });
 });
 

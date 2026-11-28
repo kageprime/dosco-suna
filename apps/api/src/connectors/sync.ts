@@ -29,6 +29,7 @@ import { extractProjectPolicies } from '../projects/policies';
 import { hideSupersededSlack } from './channel-rules';
 import {
   confineSharedProjectSecretToConnector,
+  websiteLoginIdentifiers,
   getProjectSecretValueForConsumer,
 } from '../projects/secrets';
 import { SecretUndecryptableError } from '../secrets/undecryptable';
@@ -36,6 +37,7 @@ import { type GitTriggerSpec, extractTriggers, readManifest, runtimeManifest } f
 import { syncDeclaredApps } from '../apps/app-manifest';
 import { reconcileProjectTriggerRuntime } from '../projects/trigger-runtime-catalog';
 import { gateTriggerSetup, reconcileEventSubscriptions } from '../projects/surface';
+import { recordAuditEvent } from '../shared/audit';
 import { db } from '../shared/db';
 import { isUniqueViolation } from '../shared/postgres-errors';
 import { ensureChannelConnectorDeclared, removeChannelConnectorDeclared } from './channel-manifest';
@@ -609,10 +611,31 @@ async function syncProjectConnectorsFenced(
 
   // A connector binding is server-side by definition. Convert legacy runtime
   // rows before catalog discovery or a concurrent sandbox start can read them.
+  // A website login is never a connector credential: kortix.yaml (which an
+  // agent can edit) naming one must not move a person's password to the
+  // connector's host. The connector reader refuses a `browser` row anyway;
+  // this refuses the binding out loud and leaves the login untouched.
+  const bindings = specs.flatMap((spec) => (spec.auth.secret ? [{ slug: spec.slug, identifier: spec.auth.secret }] : []));
+  const loginNames = await websiteLoginIdentifiers(projectId, [...new Set(bindings.map((b) => b.identifier))]);
+  for (const binding of bindings.filter((b) => loginNames.has(b.identifier))) {
+    errors.push({
+      slug: binding.slug,
+      error: `auth.secret ${binding.identifier} is a website login, which only the sandbox browser may use. Store this connector's credential under another name.`,
+    });
+    await recordAuditEvent({
+      accountId,
+      projectId,
+      actorType: 'system',
+      source: 'connector_sync',
+      action: 'secret.consumer.denied',
+      outcome: 'denied',
+      resourceType: 'project_secret',
+      metadata: { name: binding.identifier, connector: binding.slug, requested_consumer: 'connector', configured_consumer: 'browser', reason: 'website_login_binding' },
+    });
+  }
   await Promise.all(
-    specs
-      .map((spec) => spec.auth.secret)
-      .filter((identifier): identifier is string => Boolean(identifier))
+    [...new Set(bindings.map((b) => b.identifier))]
+      .filter((identifier) => !loginNames.has(identifier))
       .map((identifier) => confineSharedProjectSecretToConnector(projectId, identifier)),
   );
 

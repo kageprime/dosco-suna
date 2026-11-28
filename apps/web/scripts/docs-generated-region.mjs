@@ -18,6 +18,9 @@ const platformDefaults = new Map(
  * A default read from deployment config is off somewhere, so it counts as off.
  */
 export function onByDefault(flag) {
+  // `chrome` graduated (2026-11-24): no flag, on wherever the server offers Kortix in Chrome
+  // (kortix.com). `kortix chrome` and the kortix-chrome skill keep the name as a box token.
+  if (flag === 'chrome') return true;
   const value = platformDefaults.get(flag);
   if (value === undefined) throw new Error(`feature flag ${flag} is not in apps/api/src/feature-flags/registry.ts`);
   return value === 'true';

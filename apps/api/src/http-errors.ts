@@ -57,6 +57,7 @@ import {
 import {
   isPlatinumSandboxNotRunningError,
   PlatinumExecOutcomeUnknownError,
+  PlatinumExecOutputTooLargeError,
 } from './shared/platinum';
 
 // The typed branch handlers keep every ladder branch verbatim (comment,
@@ -758,6 +759,13 @@ function handleUnhandledError(err: Error, c: Context): Response {
       errorType: 'manifest_invalid',
     });
     return c.json({ error: `kortix.yaml is not valid YAML (${err.message}).`, code: 'manifest_invalid' }, 409);
+  }
+  if (err instanceof PlatinumExecOutputTooLargeError) {
+    appLogger.warn('Sandbox exec output exceeded provider response limit', { method, path, status: 413 });
+    return c.json(
+      { error: true, code: 'sandbox_exec_output_too_large', message: err.message, status: 413 },
+      413,
+    );
   }
   if (err instanceof PlatinumExecOutcomeUnknownError) {
     // Preserve ambiguity without a retry hint: the provider may have executed the write.

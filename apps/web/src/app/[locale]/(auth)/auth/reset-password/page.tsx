@@ -10,11 +10,13 @@ import { ConnectingScreen } from '@/components/dashboard/connecting-screen';
 import { Button } from '@kortix/ui/button';
 import { Input } from '@kortix/ui/input';
 import { FieldError, FieldLabel } from '@kortix/ui/internal/auth/auth-primitives';
+import { useDoscoAuthFrame } from '@/features/auth/dosco-auth-frame';
 import { AuthCardShell, BackToSignIn } from '@kortix/ui/internal/auth/auth-card-shell';
 import { resetPassword } from '../actions';
 
 function ResetPasswordContent() {
   const t = useTranslations('auth.passwordReset');
+  const frame = useDoscoAuthFrame();
   const router = useRouter();
   const searchParams = useSearchParams();
   const code = searchParams.get('code');
@@ -51,6 +53,7 @@ function ResetPasswordContent() {
   if (!code && !success) {
     return (
       <AuthCardShell
+        frame={frame}
         title={t('expired.title')}
         description={t('expired.description')}
         footer={<BackToSignIn />}
@@ -65,6 +68,7 @@ function ResetPasswordContent() {
   if (success) {
     return (
       <AuthCardShell
+        frame={frame}
         title={t('success.title')}
         description={t('success.description')}
         footer={<BackToSignIn />}
@@ -78,11 +82,14 @@ function ResetPasswordContent() {
 
   return (
     <AuthCardShell
+        frame={frame}
       title={t('form.title')}
       description={t('form.description')}
       footer={<BackToSignIn />}
     >
-      <form onSubmit={handleSubmit} className="space-y-5">
+      {/* POST: a submit before hydration is native, and a GET would put the
+          new password in the URL (KRTX-1850). */}
+      <form method="post" onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-3">
           <FieldLabel htmlFor="password">{t('form.newPassword')}</FieldLabel>
           <Input

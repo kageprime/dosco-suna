@@ -371,6 +371,12 @@ import { publicResponsesApp, registerPublicResponseRoutes } from './public-respo
 registerPublicResponseRoutes();
 app.route('/v1/public/responses', publicResponsesApp); // GET /v1/public/responses/:token
 
+// QualiLoop test endpoint — secret-gated (X-Agent-Secret), off unless
+// QUALILOOP_AGENT_SECRET and QUALILOOP_KORTIX_PROJECT_ID are set. See qualiloop/.
+import { qualiloopApp, registerQualiloopRoutes } from './qualiloop';
+registerQualiloopRoutes();
+app.route('/v1/qualiloop', qualiloopApp); // POST /v1/qualiloop/chat
+
 // Artifact content — PUBLIC, capability-gated. A signed view token (minted by
 // /v1/projects/:id/artifacts*) or a public artifact's id is the capability;
 // every page is served as a CSP sandbox. See artifacts/content-routes.ts.

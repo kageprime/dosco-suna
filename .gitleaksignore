@@ -171,3 +171,8 @@ d61aa124384b7232c32c08d17d566e797f142133:apps/cli/src/__tests__/plan.blackbox.te
 # value Harbor ships in its own open-source client (src/harbor/auth/constants.py).
 # It reads public eval tasks; it is not a Kortix credential.
 6093ff1aa5ad5338b4aa0af63221a870cf702001:apps/api/src/projects/evals/hub.ts:generic-api-key:22
+# apps/cli/src/__tests__/secrets-browser-plugin.test.ts holds a SYNTHETIC test
+# password ('synthetic-pw-…', with quote and brace characters to test JSON
+# escaping) that a fake API returns to the CLI's agent-browser plugin. It is no
+# credential anywhere.
+248a69bbc5f339dc154a8e75336b2a890efdff02:apps/cli/src/__tests__/secrets-browser-plugin.test.ts:generic-api-key:8

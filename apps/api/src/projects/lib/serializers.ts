@@ -41,6 +41,7 @@ import { probeProjectSecret } from '../secrets/envelope';
 import { secretStrategyLockHolds } from '../../secrets/strategy';
 import { isDeprecatedProvider } from '../../platform/providers/deprecated';
 import { driveStorageAvailable } from '../../drives/volumes';
+import { workspaceVolumesEnabled } from '../../platform/services/workspace-volume';
 import { projectsView } from '../../workspaces/rows';
 
 export const CODEX_AUTH_JSON_SECRET_NAME = 'CODEX_AUTH_JSON';
@@ -370,6 +371,12 @@ export function serializeProject(
     // and mobile builds show the bell, Web Push and session follow only while they read true.
     // `pooled_provider_secrets` graduated on 2026-11-12 and stays `true`: older web, SDK,
     // CLI and terminal UI builds show named keys and session key selection only while they read true.
+    // `secrets_egress` (Network-Enforced Secrets) graduated on 2026-11-23 and stays `true`:
+    // older web, SDK and CLI builds offer the enforced exposure only while they read true.
+    // `workspace_volume` (stateless sandboxes) graduated on 2026-11-23 and stays, equal to
+    // whether new sessions get a /workspace volume, for older web, SDK and CLI builds.
+    // `chrome` (Kortix in Chrome) graduated on 2026-11-24 and stays, equal to whether the API
+    // serves /v1/chrome: older web, SDK and CLI builds show its surfaces only while they read true.
     experimental: {
       ...resolveFeatureFlags(row.metadata),
       apps: true,
@@ -383,11 +390,14 @@ export function serializeProject(
       meta_agent: true,
       notification_center: true,
       pooled_provider_secrets: true,
+      secrets_egress: true,
       warm_sessions: false,
       volumes: driveStorageAvailable(),
       drives: driveStorageAvailable(),
       artifacts: driveStorageAvailable(),
       artifact_comments: false,
+      workspace_volume: workspaceVolumesEnabled(),
+      chrome: config.KORTIX_CHROME_ENABLED,
       project_channels: resolveFeatureFlag(row.metadata, 'chat'),
     },
     experimental_features: buildFeatureFlagCatalog(row.metadata),

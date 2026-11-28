@@ -760,6 +760,36 @@ flow(
         if (otherAgent.status !== 403) throw new Error(`another agent's query: expected 403, got ${otherAgent.status}`);
       });
 
+      // D3 of the per-agent config release plan: pi reads the root AGENTS.md
+      // and the agent's local pi packages from the release.
+      await ctx.step('a session without repository access also receives the root AGENTS.md and the local pi package its agent enables, and no repo-scoped tree', async () => {
+        const manifest = MANIFEST.replace('agents:\n', 'tools:\n  lookup_order: tools/lookup_order.ts\n  hidden_tool: tools/hidden.ts\nextensions:\n  audit:\n    pi: extensions/audit/index.ts\nagents:\n')
+          .replace('    skills: none\n    tools: all\n', '    skills: none\n    extensions: [audit]\n    tools:\n      exclude: [hidden_tool]\n');
+        await fixture.commit(
+          {
+            'kortix.yaml': manifest,
+            'AGENTS.md': 'Project rules for every agent.\n',
+            'extensions/audit/index.ts': 'export default () => {}\n',
+            'extensions/audit/package.json': '{"name":"audit"}\n',
+          },
+          'AGENTS.md and a local pi package',
+        );
+        const restricted = await fixture.mint({ repositoryAccess: false, agentName: 'reviewer' });
+        const r = await fixture.descriptor(restricted.secret, restricted.sessionId, { accept: ['config-release-v3'] });
+        if (r.status !== 200) throw new Error(`expected 200, got ${r.status}: ${JSON.stringify(r.body)}`);
+        const d = r.body as Descriptor;
+        const paths = d.files?.map(([path]) => path).join(',');
+        const expected = 'AGENTS.md,extensions/audit/index.ts,extensions/audit/package.json,tools/lib/client.ts,tools/lookup_order.ts';
+        if (paths !== expected) throw new Error(`restricted files: ${paths}`);
+        const query = d.archive!.url.slice(d.archive!.url.indexOf('?'));
+        if (query !== `?commit=${d.source_commit}&agent=reviewer`) throw new Error(`archive url ${d.archive!.url}`);
+        const download = await fixture.download(restricted.secret, d.config_tree_id!, query);
+        if (download.status !== 200) throw new Error(`download: expected 200, got ${download.status}`);
+        await assertArchiveMatches(d, download.bytes);
+        const repoScoped = await fixture.download(restricted.secret, d.config_tree_id!, `${query}&scope=repo`);
+        if (repoScoped.status !== 403) throw new Error(`the repo-scoped query: expected 403, got ${repoScoped.status}`);
+      });
+
       await ctx.step('the release is the base commit\'s whole tree: an unregistered skill folder and any other file ship at their repository paths', async () => {
         const tip = await fixture.commit(
           {
@@ -1771,7 +1801,7 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
       ...GIT_PROXY,
     ],
   },
@@ -1996,7 +2026,7 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
       ...GIT_PROXY,
     ],
   },
@@ -2214,7 +2244,7 @@ flow(
       'POST /v1/workspaces/:projectId/sessions',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
       ...GIT_PROXY,
     ],
   },
@@ -2505,7 +2535,7 @@ harnessFlow(
       'POST /v1/workspaces/:projectId/sessions/:sessionId/start',
       'POST /v1/workspaces/:projectId/sessions/:sessionId/prompts',
       'GET /v1/workspaces/:projectId/sessions/:sessionId/turn',
-      'GET /v1/workspaces/:projectId/sessions/:sessionId/transcript',
+      'GET /v1/workspaces/:projectId/sessions/:sessionId/log',
       ...GIT_PROXY,
     ],
   },

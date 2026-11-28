@@ -495,6 +495,13 @@ export async function postPrompt(
     /** Hand the message to the RUNNING turn (`POST .../steer`) instead of
      *  starting one. Kortix route only; throws {@link SteerNotTaken}. */
     steer?: boolean;
+    /**
+     * The name of the person who wrote this prompt (`promptAuthorName`,
+     * KRTX-5121): the box puts it above the message for the model. A steer
+     * carries it in its body (it goes to the box directly); a prompt hands it
+     * to the proxy (`promptAuthor`), which drops a client's `author`.
+     */
+    author?: string | null;
   },
 ): Promise<'accepted' | 'deduplicated' | 'failed' | 'unreachable'> {
   const parts: PromptPartWire[] =
@@ -560,6 +567,7 @@ export async function postPrompt(
         ...(overrides?.variant ? { variant: overrides.variant } : {}),
         directory,
         ...(prompt?.noReply ? { no_reply: true } : {}),
+        ...(prompt?.steer && prompt.author ? { author: { name: prompt.author } } : {}),
       }),
     );
     prompt?.onBodyBytes?.(body.byteLength);
@@ -601,7 +609,7 @@ export async function postPrompt(
       config.KORTIX_URL ?? '',
       undefined,
       undefined,
-      { record: prompt?.sandboxRecord, promptSource: prompt?.source },
+      { record: prompt?.sandboxRecord, promptSource: prompt?.source, promptAuthor: prompt?.author ?? null },
     );
   };
   try {

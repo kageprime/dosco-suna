@@ -1,0 +1,1 @@
+I run a small online shop. Save our refund policy as a skill our support agent follows: refunds within 30 days with a receipt, store credit after that, and no refunds on sale items. Then create a support-replies agent that drafts replies to customers with that policy. It must never send anything itself, and it gets none of our secrets.

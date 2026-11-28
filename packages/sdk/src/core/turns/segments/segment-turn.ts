@@ -15,6 +15,7 @@ import {
   isNoGroupActivityTool,
   isStandaloneActivityTool,
 } from './session-activity-groups';
+import { retriedAgentFailures } from './retried-agent-failures';
 import { partStartsConnectorSignIn } from './sign-in-call';
 
 export type Segment =
@@ -58,6 +59,7 @@ export function segmentTurn(parts: ReadonlyArray<Part>, opts: SegmentTurnOptions
       .map((p) => p.callID),
   );
 
+  const retried = retriedAgentFailures(parts as ReadonlyArray<Part & { callID?: string }>);
   const flush = () => {
     if (pending.length > 0) {
       segments.push({ kind: 'burst', parts: pending });
@@ -70,6 +72,8 @@ export function segmentTurn(parts: ReadonlyArray<Part>, opts: SegmentTurnOptions
     // split a run of groupable tool calls — otherwise consecutive shells
     // fragment into inconsistent singles instead of one "Ran N commands" group.
     if (isInvisibleActivityPart(part)) continue;
+    // A colleague start the model retried shows once, as the retry.
+    if (isToolPart(part) && retried.has(part.callID)) continue;
 
     if (isTextPart(part)) {
       flush();

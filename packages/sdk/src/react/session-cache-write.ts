@@ -148,6 +148,7 @@ export function applyToCachedSessionShape(cached: unknown, update: ProjectSessio
     // cached list, and most of them do not hold that session.
     let changed = false;
     const pages = cached.pages.map((page) => {
+      if (!Array.isArray(page?.items)) return page;
       const items = update(page.items);
       if (items === page.items) return page;
       changed = true;

@@ -88,6 +88,17 @@ It takes about 2.5 min. It names each red check, and you fix each one on
 each) for failures this script finds in minutes (the learnings ledger,
 2026-11-14).
 
+The script runs no DB suite and only a few package tests. When the last
+nightly is red, or `dev` moved since it ran, also run the contract lanes on
+the `dev` SHA you promote (about 15 min) and fix every red lane first:
+
+```bash
+gh workflow run tests.yml --repo kortix-ai/CompanyOS --ref dev
+```
+
+v0.16.5 found 6 reds this way that the script missed (the learnings ledger,
+2026-11-24).
+
 ### Step 3 — one dispatch: Promote to Production
 
 Write the title and notes (Step 7 shows how), then:

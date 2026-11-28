@@ -108,7 +108,9 @@ const TooltipContent = React.forwardRef<
   const slot = asChildRender(asChild, children);
   return (
     <TooltipPortal keepMounted={forceMount}>
-      <TooltipPrimitive.Positioner {...positioner} {...FLOATING_LAYER_ATTR} className="z-[9999]">
+      {/* Above every dialog level (`dialogContentZ` is 9999 + 20 per nested dialog): a tooltip
+          inside a nested dialog drew under it at 9999. */}
+      <TooltipPrimitive.Positioner {...positioner} {...FLOATING_LAYER_ATTR} className="z-[100000]">
         <TooltipPrimitive.Popup
           ref={ref}
           data-slot="tooltip-content"
@@ -116,7 +118,7 @@ const TooltipContent = React.forwardRef<
           // panels: the tooltip paints on the frame it mounts and unmounts on the
           // frame it closes. The hover delay lives on `TooltipProvider`, not here.
           className={cn(
-            'bg-foreground text-background ring-foreground/5 z-[9999] overflow-hidden rounded-sm p-1 px-2 text-[length:var(--text-xs,0.8125rem)] ring-[1px]',
+            'bg-foreground text-background ring-foreground/5 overflow-hidden rounded-sm p-1 px-2 text-[length:var(--text-xs,0.8125rem)] ring-[1px]',
             className,
           )}
           {...props}

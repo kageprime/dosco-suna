@@ -47,7 +47,7 @@ export function SessionListBackgroundTool({ call, defaultOpen, forceOpen, locked
       locked={locked}
     >
       {workers.length > 0 ? (
-        <div data-scrollable className="divide-border/20 max-h-56 divide-y overflow-auto">
+        <div data-scrollable className="divide-border max-h-56 divide-y overflow-auto">
           {workers.map((w) => (
             <div key={w.id} className="flex items-center gap-2 px-3 py-1.5">
               <StatusDot

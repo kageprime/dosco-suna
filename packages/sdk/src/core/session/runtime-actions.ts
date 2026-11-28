@@ -8,8 +8,6 @@
 
 import { ApiError } from '../http/api/errors';
 import { authenticatedFetch } from '../http/auth';
-import { querySuffix } from '../http/url';
-import type { SessionLogPage } from '../session-log/source';
 import type { SessionLogMessage } from '../session-log/types';
 import { RuntimeNotReadyError } from '../runtime/runtime-not-ready-error';
 import { getActiveRuntimeUrl } from './server-store/active';
@@ -104,31 +102,6 @@ export async function activeRuntimeAction(method: string, path: string, body?: u
       ...(body === undefined ? {} : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
     }),
   );
-}
-
-/**
- * The box's newest page of a thread (`GET /kortix/runtime/log`, `RUNTIME_LOG_CAPABILITY`): ahead
- * of the API's copy while a turn runs. Null when the box refuses it, the read fails, or the answer
- * is not a whole page (an older box answers no session record or thread heads).
- */
-export async function readRuntimeLogPage(
-  runtimeUrl: string,
-  fetch: typeof globalThis.fetch,
-  query: { thread?: string; limit?: number },
-): Promise<SessionLogPage | null> {
-  const params = new URLSearchParams();
-  if (query.thread) params.set('thread', query.thread);
-  if (query.limit !== undefined) params.set('limit', String(query.limit));
-  try {
-    const response = await fetch(new Request(`${runtimeUrl.replace(/\/$/, '')}/kortix/runtime/log${querySuffix(params)}`, { method: 'GET' }));
-    if (!response.ok) return null;
-    const page = (await response.json()) as Partial<SessionLogPage> | null;
-    const whole = !!page && typeof page.session === 'object' && page.session !== null && Array.isArray(page.threads)
-      && Array.isArray(page.messages) && typeof page.thread_id === 'string';
-    return whole ? (page as SessionLogPage) : null;
-  } catch {
-    return null;
-  }
 }
 
 /** An `ApiError` that carries the action route's own message and status. */

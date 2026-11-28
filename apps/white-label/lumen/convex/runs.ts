@@ -584,17 +584,18 @@ async function ingestRow(ctx: MutationCtx, c: Ctx, value: any, problems: string[
   const documentId = ctx.db.normalizeId("documents", value.doc_id);
   if (!review || !documentId || !c.allowed.has(documentId)) return void problems.push(`doc_id ${value.doc_id} is not a document of this batch`);
   const keys = new Set(c.run.columnKeys ?? review.columns.map((col) => col.key));
-  for (const col of review.columns.filter((x) => keys.has(x.key))) {
+  const columns = review.columns.filter((x) => keys.has(x.key));
+  for (const col of columns) {
+    if (!value.cells?.[col.key]) problems.push(`row ${value.doc_id}: no cell for column ${col.key}`);
+  }
+  if (problems.length) return;
+  for (const col of columns) {
     const cell = value.cells?.[col.key];
     const row = await ctx.db
       .query("reviewCells")
       .withIndex("by_review_doc_col", (q) => q.eq("reviewId", review._id).eq("documentId", documentId).eq("columnKey", col.key))
       .unique();
     if (!row) continue;
-    if (!cell) {
-      problems.push(`row ${value.doc_id}: no cell for column ${col.key}`);
-      continue;
-    }
     const citations = await cite(ctx, c, cell.citations);
     const supported = citations.some((x) => x.status !== "unverified");
     const state = cell.not_found ? "not_found" : supported ? "filled" : "needs_review";
@@ -730,13 +731,13 @@ export const ingestResult = internalMutation({
     } else if (got === "issues") await ingestIssues(ctx, c, value, files);
     else if (got === "diligence-report") await ingestReport(ctx, c, value, files);
     else if (got === "draft") await ingestDraft(ctx, c, value, files, problems);
-    if (problems.length && got === "draft") return problems;
     if (c.unverified) await event(ctx, run._id, "citations", `${c.unverified} citation${c.unverified === 1 ? "" : "s"} not found in the source`, batchId);
     const old = await ctx.db.query("runFiles").withIndex("by_batch_path", (q) => q.eq("batchId", batchId).eq("path", path)).unique();
-    const fileRow = { batchId, path, version, status: "accepted" as const, errors: problems.length ? problems : undefined };
+    const status = problems.length ? "rejected" as const : "accepted" as const;
+    const fileRow = { batchId, path, version, status, errors: problems.length ? problems : undefined };
     if (old) await ctx.db.patch(old._id, fileRow);
     else await ctx.db.insert("runFiles", fileRow);
-    await ctx.db.patch(batchId, { lastProgressAt: Date.now(), waitingSince: undefined });
+    if (!problems.length) await ctx.db.patch(batchId, { lastProgressAt: Date.now(), waitingSince: undefined });
     return problems;
   },
 });

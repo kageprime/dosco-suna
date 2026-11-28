@@ -147,7 +147,7 @@ export function ProjectSelectorView(props: ProjectSelectorViewProps) {
         : [t('createTitle'), t('createBody')];
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-lg flex-col px-6 py-20">
+    <main data-shadows="none" className="mx-auto flex min-h-svh w-full max-w-lg flex-col px-6 py-20">
       <AccountTopBar
         email={email}
         name={props.name}
@@ -401,7 +401,7 @@ function InviteRow({
   const role = KNOWN_ROLES.has(invite.initial_role) ? t(`role.${invite.initial_role}`) : null;
 
   return (
-    <li className="bg-popover flex items-center gap-3 rounded-md border px-4 py-3" data-testid="selector-invite">
+    <li className="bg-popover flex items-center gap-3 border-strong rounded-md px-4 py-3" data-testid="selector-invite">
       <EntityAvatar label={title} size="lg" />
       <div className="min-w-0 flex-1 space-y-0.5">
         <p className="text-foreground truncate text-sm font-medium">{title}</p>
@@ -453,7 +453,7 @@ function WorkspaceRowLink({
         : t('setupRequired');
     return (
       <li
-        className="bg-popover flex items-center gap-3 rounded-md border px-4 py-2.5"
+        className="bg-popover flex items-center gap-3 border-strong rounded-md px-4 py-2.5"
         data-testid="selector-project"
         data-state={row.state}
       >
@@ -482,7 +482,7 @@ function WorkspaceRowLink({
         href={`/workspaces/${project.project_id}${connectComputer ? '/settings/computer' : ''}`}
         onClick={(event) => onOpen(event, row)}
         data-testid="selector-project"
-        className="group bg-popover hover:bg-hover focus-visible:ring-ring duration-fast flex items-center gap-3 rounded-md border px-4 py-2.5 transition-colors outline-none focus-visible:ring-2"
+        className="group bg-popover hover:bg-hover focus-visible:ring-ring duration-fast flex items-center gap-3 border-strong rounded-md px-4 py-2.5 transition-colors outline-none focus-visible:ring-2"
       >
         <EntityAvatar label={project.name} glyph={project.icon_glyph} emoji={project.icon} size="md" />
         <span className="min-w-0 flex-1 space-y-0.5">

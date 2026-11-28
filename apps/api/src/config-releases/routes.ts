@@ -36,7 +36,7 @@ import { sandboxTokenMayActOnSession } from '../projects/lib/sandbox-token-sessi
 import { repositoryAccessFromSessionMetadata } from '../projects/lib/session-sandbox-metadata';
 import { isUuid } from '../shared/validate';
 import { db } from '../shared/db';
-import { buildConfigRelease, CONFIG_RELEASE_FORMAT_V2, CONFIG_RELEASE_FORMAT_V3, type ConfigReleaseFormat } from './builder';
+import { archiveQueryVariant, buildConfigRelease, CONFIG_RELEASE_FORMAT_V2, CONFIG_RELEASE_FORMAT_V3, type ConfigReleaseFormat } from './builder';
 import { BaseRefUnresolvedError, governanceForDaemon, resolveDesiredRelease } from './desired';
 import { notePublishedTip } from './publish';
 import { ownerMayUseAgent, repointSessionAgentToDeclaredDefault } from './repoint';
@@ -299,9 +299,10 @@ export function registerConfigReleaseRoutes(): void {
       ...auth,
       request: {
         params: z.object({ workspaceId: z.string(), configTreeId: z.string() }),
-        // Set on a composed release tree (an agent variant's plugin selection):
-        // the commit it is rebuilt from when the store cannot serve it.
-        query: z.object({ commit: z.string().optional() }),
+        // Set on a composed release tree: the commit it is rebuilt from when
+        // the store cannot serve it, and for a one-agent release the agent
+        // (`agent`) and, for a `repo-agent` release, `scope=repo`.
+        query: z.object({ commit: z.string().optional(), agent: z.string().optional(), scope: z.enum(['repo']).optional() }),
       },
       responses: {
         200: { description: 'The config archive', content: { 'application/gzip': { schema: z.any() } } },
@@ -320,11 +321,13 @@ export function registerConfigReleaseRoutes(): void {
         const resolved = await sandboxSession(c, projectId, null);
         if (!resolved.ok) return c.json({ error: resolved.error }, resolved.status);
         // A session without repository access receives only its agent's
-        // tools-only release (`toolsRelease`), and no other tree.
+        // `agent:<name>` release (`agentRelease`), and no other tree.
         // A previous-repository session receives every archive: it is the
         // project's config, which is what every session of the project runs.
         project = resolved.value.project;
         if (!repositoryAccessFromSessionMetadata(resolved.value.session.metadata)) {
+          // A repo-scoped tree (`repo-agent:<name>`) takes whole folders: never for this session.
+          if (c.req.query('scope') !== undefined) return c.json({ error: 'repository access withheld' }, 403);
           const agent = resolved.value.session.agentName;
           const commit = c.req.query('commit') ?? '';
           const release = agent && c.req.query('agent') === agent && HEX40.test(commit)
@@ -355,7 +358,7 @@ export function registerConfigReleaseRoutes(): void {
         () => refreshMirror(repo, true),
         {},
         c.req.query('commit') ?? null,
-        c.req.query('agent') ?? null,
+        archiveQueryVariant(c.req.query('agent'), c.req.query('scope')),
       );
     },
   );

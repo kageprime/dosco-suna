@@ -70,3 +70,14 @@ describe('failureSupersededByTurn', () => {
     expect(failureSupersededByTurn({ message_id: 'm', ended_at: ENDED, error: null }, [turn('n')])).toBe(false);
   });
 });
+
+describe('failurePredatesModelChange', () => {
+  test('a confirmed change retires old failures but keeps new or undated failures', async () => {
+    const { failurePredatesModelChange } = await import('./persisted-turn-failure');
+    expect(failurePredatesModelChange('2026-01-01T00:00:00Z', Date.parse('2026-01-02T00:00:00Z'))).toBe(true);
+    expect(failurePredatesModelChange('2026-01-03T00:00:00Z', Date.parse('2026-01-02T00:00:00Z'))).toBe(false);
+    expect(failurePredatesModelChange(null, 1)).toBe(false);
+    expect(failurePredatesModelChange('invalid', 1)).toBe(false);
+    expect(failurePredatesModelChange('2026-01-01T00:00:00Z', undefined)).toBe(false);
+  });
+});

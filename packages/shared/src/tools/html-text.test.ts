@@ -35,3 +35,12 @@ test('markup stripping and one-pass entity decoding', () => {
   expect(stripMarkupForToolOutput(' A <b>B</b> <!--x--> C ')).toBe('A B C');
   expect(decodeHtmlEntitiesOnce('&amp;lt; &#x1F642; &unknown; &abcdefghijklmnop;')).toBe('&lt; 🙂 &unknown; &abcdefghijklmnop;');
 });
+
+test('entity decoding looks at most 16 characters ahead, so a page of 2 MB of & decodes in linear time', () => {
+  expect(decodeHtmlEntitiesOnce(`&${'x'.repeat(20)};&amp;`)).toBe(`&${'x'.repeat(20)};&`);
+  const page = '&'.repeat(2 * 1024 * 1024);
+  const started = performance.now();
+  expect(decodeHtmlEntitiesOnce(page)).toBe(page);
+  // Rescanning to the end of the body for every & took ~29 s here.
+  expect(performance.now() - started).toBeLessThan(2_000);
+});

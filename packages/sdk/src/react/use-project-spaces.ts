@@ -6,6 +6,7 @@ import {
   addWorkspaceSpaceMembers,
   joinWorkspaceSpace,
   leaveWorkspaceSpace,
+  listWorkspaceSpaceActivity,
   listWorkspaceSpaceMembers,
   removeWorkspaceSpaceMember,
   createWorkspaceSpace,
@@ -269,6 +270,20 @@ export function useWorkspaceSpaceMembers(projectId: Id, spaceId: Id) {
 
 /** @deprecated Use `useWorkspaceSpaceMembers`. Kept permanently. */
 export const useProjectSpaceMembers = useWorkspaceSpaceMembers;
+
+/**
+ * A channel's activity lines (who joined, who was added, agents added or
+ * removed), newest first. Under the spaces key, so every channel change
+ * (agents, members) refetches it.
+ */
+export function useWorkspaceSpaceActivity(projectId: Id, spaceId: Id) {
+  return useQuery({
+    queryKey: qk.project.spaceActivity(projectId ?? '', spaceId ?? ''),
+    queryFn: () => listWorkspaceSpaceActivity(projectId as string, spaceId as string),
+    enabled: !!projectId && !!spaceId,
+    ...contract('inventory'),
+  });
+}
 
 /** Add people to a channel in one request (see `addProjectSpaceMembers`); refetches the spaces list, the members under it. */
 export function useAddWorkspaceSpaceMembers(projectId: string, spaceId: string) {

@@ -1,0 +1,1 @@
+I run a 4-person marketing agency and want Kortix set up for us. Create a content-writer agent that drafts social posts and gets none of our secrets or connectors. Every Monday at 09:00 Berlin time, have the worker write a client report to Reports/weekly.md in my Drive. And invite ana@example.test as a member.

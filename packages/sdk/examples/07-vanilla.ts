@@ -5,16 +5,14 @@
  * → classifyTurn. Zero React, zero DOM, zero Node-specific API beyond
  * `process.env` and `console`.
  *
- * One correction vs. the naive guess: `session.transcript()` is the *compact
- * server-side* transcript read (`core/rest/projects-client/sessions.ts`'s
- * `getSessionTranscript`) — it returns a pre-flattened
- * `{ role, text, tools, files, error }` shape (text + tool names only, no
- * parts), which is NOT what `classifyTurn` classifies and doesn't typecheck
- * against it. `classifyTurn` (`core/turns/classify.ts`) takes a
- * `MessageWithParts` (`{ info: Message; parts: Part[] }`) — a message of the
- * Kortix transcript (`kortix.transcript.v1`). To render with `classifyTurn`,
- * read the session's messages, exactly like `examples/04-render-transcript.ts`
- * does: `session.messages()`.
+ * One correction vs. the naive guess: `session.log()` is the *stored* session
+ * log (`kortix.session/2`, `getSessionLogPage`): threads, messages and blocks,
+ * which is NOT what `classifyTurn` classifies and doesn't typecheck against
+ * it. `classifyTurn` (`core/turns/classify.ts`) takes a `MessageWithParts`
+ * (`{ info: Message; parts: Part[] }`) — a message of the Kortix transcript
+ * (`kortix.transcript.v1`). To render with `classifyTurn`, read the session's
+ * messages, exactly like `examples/04-render-transcript.ts` does:
+ * `session.messages()`.
  *
  * Run:
  *   KORTIX_API_URL=http://localhost:8008/v1 KORTIX_API_KEY=kortix_pat_... \

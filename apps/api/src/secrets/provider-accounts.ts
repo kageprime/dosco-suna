@@ -158,6 +158,10 @@ export async function reconnectProviderAccount(input: {
     active: true,
     cooldownUntil: null,
     needsReauthAt: null,
+    // A provider refusal (a Claude account's 403 reason) belongs to the old login.
+    verifyStatus: null,
+    verifyMessage: null,
+    verifiedAt: null,
     // A reconnect may sign in someone else: the old login's usage and identity go.
     usage: null,
     usageCheckedAt: null,

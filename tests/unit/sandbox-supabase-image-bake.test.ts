@@ -51,16 +51,18 @@ describe('run_sandbox_dev: the baked Supabase images are loaded, not just carrie
     // `studio` is the web dashboard, `imgproxy` serves storage image transforms.
     // Excluding them is what lets the sandbox image stop baking them (376 MB:
     // studio 314 MB + imgproxy 62 MB, measured via `crane manifest`
-    // linux/amd64). If this list changes, the image's fetch_image list in
+    // linux/amd64). `postgrest` is excluded because nothing calls the Data
+    // API (flow SEC-K). If this list changes, the image's fetch_image list in
     // kortix-ai/company `.kortix/Dockerfile.dev` must change with it.
-    expect(devLocal).toContain('supabase start -x studio,imgproxy');
+    expect(devLocal).toContain('supabase start -x studio,imgproxy,postgrest');
   });
 
   it('keeps the services the API and auth flows actually depend on', () => {
-    // A regression here would silently remove Postgres, auth, REST, storage or
-    // the mail catcher the signup flows read.
+    // A regression here would silently remove Postgres, auth, storage, the
+    // gateway or the mail catcher the signup flows read. PostgREST is
+    // excluded on purpose: nothing calls the Data API (flow SEC-K).
     const excluded = devLocal.match(/supabase start -x ([a-z0-9,-]+)/)?.[1] ?? '';
-    for (const required of ['postgres', 'gotrue', 'postgrest', 'storage-api', 'kong', 'mailpit']) {
+    for (const required of ['postgres', 'gotrue', 'storage-api', 'kong', 'mailpit']) {
       expect(excluded.split(',')).not.toContain(required);
     }
   });

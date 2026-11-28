@@ -11,6 +11,12 @@ export function bindProjectCore(projectId: string) {
       createController: (options?: Parameters<typeof createPromptAttachmentController>[1]) =>
         createPromptAttachmentController(projectId, options),
     },
+    /** Speech-to-text for a composer: one recorded clip in, its text out, billed per minute from credits. */
+    dictation: {
+      info: () => P.getDictationInfo(projectId),
+      transcribe: (...args: DropFirst<Parameters<typeof P.transcribeDictation>>) =>
+        P.transcribeDictation(projectId, ...args),
+    },
     get: (opts?: Parameters<typeof P.getProject>[1]) => P.getProject(projectId, opts),
     detail: () => P.getWorkspaceDetail(projectId),
     skills: {

@@ -66,18 +66,22 @@ export interface ImageWindowResult {
   keptBytes: number;
 }
 
-const IMAGE_PART_TYPES = new Set(['image_url', 'input_image', 'image']);
+const BINARY_PART_TYPES = new Set(['image_url', 'input_image', 'image', 'file', 'input_audio', 'file_data']);
+
+/** Shared binary classifier; routing and pruning still accept only image types. */
+export function isBinaryPart(part: unknown): boolean {
+  return typeof part === 'string' && BINARY_PART_TYPES.has(part);
+}
+
+export function isImagePart(part: unknown): boolean {
+  if (!part || typeof part !== 'object') return false;
+  const type = String((part as { type?: unknown }).type);
+  return isBinaryPart(type) && (type === 'image' || type === 'image_url' || type === 'input_image');
+}
 
 /** No count: a dropped image reads the same at every step, so the prefix before the cut stays cached. */
 export const IMAGE_WINDOW_NOTICE = '[image omitted by gateway: an older image was removed; the most recent are kept]';
 
-function isImagePart(part: unknown): boolean {
-  return (
-    !!part &&
-    typeof part === 'object' &&
-    IMAGE_PART_TYPES.has(String((part as { type?: unknown }).type))
-  );
-}
 
 /**
  * The base64 bytes one image part puts on the wire: a `data:` URL (chat

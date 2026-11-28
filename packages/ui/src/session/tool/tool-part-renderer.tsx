@@ -12,6 +12,7 @@ import {
   StalePendingContext,
   ToolActivateContext,
   ToolDurationContext,
+  ToolStartedAtContext,
   ToolNavigationContext,
   ToolOutcomeContext,
   ToolRunningContext,
@@ -21,17 +22,17 @@ import {
 } from './shared/infrastructure';
 import { ToolRegistry } from './shared/registry';
 import { ToolError } from './tool-error';
+import { parseErrorContent } from './shared/error-and-connector';
 import { type InlinePermissionReply, replyToInlinePermission } from './inline-permission-reply';
 import { errorToast } from '../../primitives/toast';
 import { cn } from '../../lib/utils';
-import { partError, partMetadata, partStreamingInput } from './shared/infrastructure-parts';
+import { firstMeaningfulLine, partError, partMetadata, partStreamingInput } from './shared/infrastructure-parts';
 import { kortixCardTool, parseKortixToolResult } from './tools/kortix-tool-card';
 import { isWorkflowTool, parseWorkflowRun } from './tools/workflow-run';
 import {
   PERMISSION_LABELS,
   type PermissionRequest,
   type QuestionRequest,
-  getChildSessionId,
   shouldShowToolPart,
 } from '../../internal/session-types';
 import {
@@ -136,6 +137,7 @@ function ToolPartRendererImpl({
   disableNavigation = false,
 }: ToolPartRendererProps & { sessionId?: string }) {
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  const tAgent = useTranslations('tools.agent');
   // One open block per call object (`sessionLogOpenCall` caches it), so the memos
   // below and the renderers' own memos hold while the call is unchanged.
   const call = sessionLogOpenCall(given);
@@ -186,12 +188,11 @@ function ToolPartRendererImpl({
   // below left the child thread unopenable from the session UI, which is
   // exactly what a failed subagent looked like to a reader (KRTX-1746).
   // TaskTool draws `state.error` itself, so the failure reason stays on the
-  // row too. Only the task tool takes this route: the other errored tools have
-  // no child thread to lose, and the generic card is the only renderer that
-  // shows the error text of a tool that does not draw it itself.
+  // row too. A call that failed before any child existed takes the same route:
+  // the agent row names the agent it tried to start (`market-scout`) and says
+  // why, where the generic card said only "Agent failed".
   const errorStr = partError(call);
-  const childBearingTaskError =
-    errorStr !== undefined && toolKind(call.name) === 'task' && Boolean(getChildSessionId(call));
+  const childBearingTaskError = errorStr !== undefined && toolKind(call.name) === 'task';
   // A failed codemode script keeps its partial output and the calls it made before
   // the failure: its own row draws them, with the error. The image card draws its
   // failure (with the Connect ChatGPT action) and a stop in place of the image.
@@ -230,7 +231,11 @@ function ToolPartRendererImpl({
             <BasicTool
               trigger={{
                 title: display,
-                subtitle: tI18nComplete.raw('text5d28a90f4498'),
+                // "failed · The project policy denies this workflow call.": the
+                // reason is the one thing the reader opens the row for.
+                subtitle: POLICY_DENIED.test(errorStr.trim())
+                  ? tAgent('policyBlocked')
+                  : [tI18nComplete.raw('text5d28a90f4498'), errorReason(errorStr)].filter(Boolean).join(' · '),
                 args: server ? [server] : undefined,
               }}
               badge="error"
@@ -290,6 +295,7 @@ function ToolPartRendererImpl({
       <ToolRunningContext.Provider value={isRunning}>
         <ToolOutcomeContext.Provider value={outcome}>
           <ToolDurationContext.Provider value={toolDurationMs}>
+            <ToolStartedAtContext.Provider value={call.started_at}>
             <StalePendingContext.Provider value={isStalePending}>
               <BoundActivateContext.Provider value={boundActivate}>
                 <div className={cn('relative', fillsPanel && 'h-full')}>
@@ -315,6 +321,7 @@ function ToolPartRendererImpl({
                 </div>
               </BoundActivateContext.Provider>
             </StalePendingContext.Provider>
+            </ToolStartedAtContext.Provider>
           </ToolDurationContext.Provider>
         </ToolOutcomeContext.Provider>
       </ToolRunningContext.Provider>
@@ -361,3 +368,13 @@ function ToolPartRendererGuard(props: ToolPartRendererProps & { sessionId?: stri
 
 export const ToolPartRenderer = memo(ToolPartRendererGuard);
 ToolPartRenderer.displayName = 'ToolPartRenderer';
+
+/** The runtime's policy refusal (`decide` in pi `runtime.ts`): a block, not a failure. */
+const POLICY_DENIED = /^The project policy denies this [\w./-]+ call\.?$/;
+
+/** One short line that says why a call failed: a JSON or traceback error reads as its summary. */
+function errorReason(error: string): string {
+  const { summary } = parseErrorContent(error);
+  const line = firstMeaningfulLine(summary || error, 140);
+  return /^[[{]$/.test(line) ? '' : line;
+}

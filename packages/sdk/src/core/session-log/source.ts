@@ -9,7 +9,7 @@
  * stream serves `schema=v2` for every daemon (it converts the v1 frames of a daemon that
  * does not list `session.log.v2`).
  *
- * THE PAGE LOADER reads `GET /v1/projects/:p/sessions/:s/log?thread=&before_seq=&limit=`
+ * THE PAGE LOADER reads `GET /v1/projects/:p/sessions/:s/log?thread=&before_seq=&limit=&live=`
  * (`@kortix/api-contract/session-log` `SessionLogPageSchema`). `SessionLogPage` is that
  * schema's type, written out because this package has no zod; `contract-drift.test.ts` holds
  * the two equal at typecheck. `SessionLogPage` and `SessionLogPageQuery` are public (the types of
@@ -33,6 +33,12 @@ export interface SessionLogPage {
   messages: SessionLogMessage[];
   /** Older messages exist: ask again with `before_seq` = the first message's `seq`. */
   has_more: boolean;
+  /**
+   * Who answered a `live` read: `'box'`, the session's running box (every message up to now);
+   * `'store'`, the API's stored log, which lags a running box by its journal. Absent from an API
+   * that predates `live`: read it as `'store'`.
+   */
+  source?: 'box' | 'store';
 }
 
 export interface SessionLogPageQuery {
@@ -40,6 +46,12 @@ export interface SessionLogPageQuery {
   thread?: string;
   before_seq?: number;
   limit?: number;
+  /**
+   * Ask for the newest page as the session's running box holds it. The API reads the box and
+   * answers its stored log when the box is not running or does not answer in time; `source`
+   * says which. Ignored with `before_seq`.
+   */
+  live?: boolean;
 }
 
 /** Fetches one page. The answer is validated by the caller, so it is `unknown` here. */
@@ -56,6 +68,7 @@ export const loadSessionLogPage: LoadSessionLogPage = async (projectId, sessionI
   if (query.thread !== undefined) search.set('thread', query.thread);
   if (query.before_seq !== undefined) search.set('before_seq', String(query.before_seq));
   if (query.limit !== undefined) search.set('limit', String(query.limit));
+  if (query.live) search.set('live', '1');
   const qs = search.toString();
   const response = await backendApi.get<unknown>(
     `/workspaces/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}/log${qs ? `?${qs}` : ''}`,

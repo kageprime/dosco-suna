@@ -1397,6 +1397,12 @@
     "saving": "Enregistrement…",
     "openError": "Impossible d’ouvrir cet artefact",
     "more": "Actions de l’artefact",
-    "unavailable": "Les artefacts ne sont pas disponibles dans cet espace de travail"
+    "unavailable": "Les artefacts ne sont pas disponibles dans cet espace de travail",
+    "moveToFolder": "Déplacer vers un dossier",
+    "folderRoot": "Aucun dossier",
+    "movedToFolder": "Déplacé vers {{name}}",
+    "moveFailed": "Impossible de déplacer l’artefact",
+    "emptyFolder": "Aucun artefact dans ce dossier",
+    "emptyUnfiled": "Aucun artefact sans dossier"
   }
 }

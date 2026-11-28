@@ -314,7 +314,8 @@ describe('nothing re-hard-codes the band', () => {
 
   test('the collapsed shell opener paints above page titlebar drag regions', () => {
     const layout = shell.slice(shell.indexOf('const ProjectSheelLayout ='));
-    expect(layout.indexOf('{desktopShell && !isExpanded && (')).toBeGreaterThan(
+    // `!rail`: with the icon rail (`sidebar_rail`) the rail carries the toggle and this opener stands down.
+    expect(layout.indexOf('{desktopShell && !isExpanded && !rail && (')).toBeGreaterThan(
       layout.indexOf('{children}'),
     );
     expect(control).toContain('[-webkit-app-region:no-drag]');

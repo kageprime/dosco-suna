@@ -211,6 +211,44 @@ describe.skipIf(!databaseUrl)('audit archive — export, verify, remove (real Po
     for (const [k, object] of clean.objects) expect(Buffer.compare(object.body, objects.get(k)!.body)).toBe(0);
   });
 
+  test('an exact full-part cursor with no new rows marks the account done and preserves the manifest', async () => {
+    const week = weekStartOf(new Date(Date.now() - 180 * DAY));
+    const at = new Date(new Date(`${week}T00:00:00Z`).getTime() + DAY).toISOString();
+    await seed(A1, 'exact.boundary', at, 2);
+    const clean = fakeStore();
+    const whole = await exportWeek(deps(clean, { partRows: 2 }), week);
+    // Recreate the durable state of a worker interrupted after committing the last full part,
+    // before it can discover that the account has no more rows.
+    const objectKey = [...clean.objects.keys()].find((key) => !key.includes('_manifest'));
+    if (!objectKey) throw new Error('missing data part');
+    const object = clean.objects.get(objectKey);
+    if (!object) throw new Error('missing stored part');
+    await q(`UPDATE kortix.audit_archive_chunks SET status = 'exporting' WHERE week_start = $1`, [week]);
+    await q(`INSERT INTO kortix.audit_archive_parts
+      (object_key, week_start, account_id, part, row_count, byte_count, sha256, checksum_sum,
+       first_occurred_at, last_occurred_at, last_event_id, account_done)
+      SELECT $1, $2::date, $3::uuid, 0, 2, $4, $5,
+        sum((('x' || substr(md5(event_id::text), 1, 15))::bit(60)::bigint)::numeric),
+        min(occurred_at), max(occurred_at),
+        (array_agg(event_id ORDER BY occurred_at DESC, event_id DESC))[1], false
+      FROM kortix.audit_events WHERE account_id = $3 AND occurred_at >= $2::date AND occurred_at < $2::date + 7`,
+      [objectKey, week, A1, object.body.length,
+       createHash('sha256').update(object.body).digest('hex')]);
+    const resumed = fakeStore();
+    for (const [key, value] of clean.objects) resumed.objects.set(key, value);
+    let doneAtManifest = false;
+    const put = resumed.putLocked.bind(resumed);
+    resumed.putLocked = async (input) => {
+      expect(input.key).toContain('_manifest'); // no empty or replacement data part
+      doneAtManifest = (await q(`SELECT account_done FROM kortix.audit_archive_parts WHERE object_key = $1`, [objectKey])).rows[0].account_done;
+      return put(input);
+    };
+    const result = await exportWeek(deps(resumed, { partRows: 2 }), week);
+    expect(doneAtManifest).toBe(true);
+    expect(result).toEqual(whole);
+    expect(resumed.objects.get(whole.manifestKey)?.body).toEqual(clean.objects.get(whole.manifestKey)?.body);
+  });
+
   test('an export that reaches its deadline stops between pages with its progress saved, and the next run finishes the week', async () => {
     const w6 = weekStartOf(new Date(Date.now() - 140 * DAY));
     await seed(A3, 'partition.w6', new Date(new Date(`${w6}T00:00:00Z`).getTime() + DAY).toISOString(), 7);

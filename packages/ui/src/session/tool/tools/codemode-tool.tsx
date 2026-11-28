@@ -21,7 +21,7 @@ import { ToolRegistry } from '../shared/registry';
 import type { ToolProps } from '../shared/types';
 import { useTranslations } from '../../../i18n';
 import { cn } from '../../../lib/utils';
-import { getToolPrimaryArg } from '@kortix/sdk';
+import { getToolPrimaryArg, parseKortixToolResult } from '@kortix/sdk';
 import { CheckIcon, CodeIcon, MinusIcon, ProhibitIcon, WarningIcon } from '@phosphor-icons/react';
 import { useContext } from 'react';
 
@@ -87,6 +87,61 @@ export function scriptCalls(metadata: Record<string, unknown>): ScriptCall[] {
 /** The script's result without pi's `Script completed|failed`, `Wall time` and `Output:` header lines. */
 export function scriptResult(text: string): string {
   return text.replace(/^Script (?:completed|failed)\n(?:Wall time [^\n]*\n)?(?:Output:\n)?/, '').trim();
+}
+
+/** One Kortix tool result a script printed: its card's title line and its rows. */
+export interface ScriptCard {
+  title: string;
+  rows: string[];
+}
+
+/**
+ * A script that returns Kortix tool results (`text(await tools.task_stop(…))`)
+ * prints them as escaped JSON. Read each one as its card: the title ("faq-writer
+ * had already ended") and every row under it, so a list keeps its entries.
+ * Null when the output is anything else, or when a card carries a link or a
+ * change the summary would drop.
+ */
+export function scriptCards(result: string): ScriptCard[] | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(result);
+  } catch {
+    return null;
+  }
+  const items = Array.isArray(value) ? value : [value];
+  const cards: ScriptCard[] = [];
+  for (const item of items) {
+    const raw = typeof item === 'string' ? item : JSON.stringify(item);
+    const parsed = parseKortixToolResult(raw);
+    if (!parsed) return null;
+    const { card } = parsed;
+    // The parser caps a card's rows: a longer list keeps the original output, so no row is lost.
+    if (rawRowCount(raw) !== card.rows.length) return null;
+    // A link (a sign-in, a row's session URL) or a setting change is an action or
+    // a fact the summary would drop: the original output stays.
+    if (card.links.length > 0 || card.changes.length > 0 || card.rows.some((row) => row.href)) return null;
+    cards.push({
+      title: card.subtitle ? `${card.title} · ${card.subtitle}` : card.title,
+      rows: card.rows.map((row) => [row.title, row.detail, row.badge].filter(Boolean).join(' · ')),
+    });
+  }
+  return cards.length ? cards : null;
+}
+
+/** How many rows the card had before parsing. */
+function rawRowCount(raw: string): number {
+  try {
+    const rows = (JSON.parse(raw) as { card?: { rows?: unknown } }).card?.rows;
+    return Array.isArray(rows) ? rows.length : 0;
+  } catch {
+    return -1;
+  }
+}
+
+/** The cards as plain text, for the copy button. */
+export function scriptCardsText(cards: ScriptCard[]): string {
+  return cards.map((card) => [card.title, ...card.rows.map((row) => `  ${row}`)].join('\n')).join('\n');
 }
 
 function formatDuration(ms: number): string {
@@ -159,6 +214,7 @@ export function CodemodeTool({ call, defaultOpen, forceOpen, locked }: ToolProps
   const failed = status === 'error';
   const live = running && !failed && status !== 'completed';
   const result = scriptResult(failed ? (partError(call) ?? '') : partOutput(call));
+  const cards = failed ? null : scriptCards(result);
   const names = [...new Set(calls.map((c) => c.name))].join(' · ');
   const summary = calls.length ? `${t('calls', { count: calls.length })}${names ? ` · ${names}` : ''}` : '';
 
@@ -179,7 +235,7 @@ export function CodemodeTool({ call, defaultOpen, forceOpen, locked }: ToolProps
       <div className={cn(indent && 'mt-1.5', indent)}>
         <div className={cn('relative overflow-hidden', frame)}>
           {calls.length > 0 && (
-            <div className={cn(paneInset, 'border-border/60 border-b')}>
+            <div className={cn(paneInset, 'border-border border-b')}>
               <CallList calls={calls} />
             </div>
           )}
@@ -204,22 +260,37 @@ export function CodemodeTool({ call, defaultOpen, forceOpen, locked }: ToolProps
             </div>
           )}
           {(result || status === 'completed') && (
-            <div className="border-border/60 relative border-t">
+            <div className="border-border relative border-t">
               <div data-scrollable className="max-h-80 overflow-auto">
-                <div
-                  className={cn(
-                    'font-mono text-xs leading-relaxed wrap-break-word whitespace-pre-wrap',
-                    failed ? 'text-foreground' : 'text-muted-foreground',
-                    paneInset,
-                    'pr-11',
-                  )}
-                >
-                  {result || t('noOutput')}
-                </div>
+                {cards ? (
+                  <ul data-slot="script-card-lines" className={cn('text-foreground flex flex-col gap-2 text-sm', paneInset, 'pr-11')}>
+                    {cards.map((card, index) => (
+                      <li key={index} className="flex min-w-0 flex-col gap-0.5 wrap-break-word">
+                        <span>{card.title}</span>
+                        {card.rows.map((row, rowIndex) => (
+                          <span key={rowIndex} className="text-muted-foreground text-xs">
+                            {row}
+                          </span>
+                        ))}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div
+                    className={cn(
+                      'font-mono text-xs leading-relaxed wrap-break-word whitespace-pre-wrap',
+                      failed ? 'text-foreground' : 'text-muted-foreground',
+                      paneInset,
+                      'pr-11',
+                    )}
+                  >
+                    {result || t('noOutput')}
+                  </div>
+                )}
               </div>
               {result && (
                 <div className="absolute top-2 right-2">
-                  <CopyButton code={result} className="text-muted-foreground hover:text-foreground" />
+                  <CopyButton code={cards ? scriptCardsText(cards) : result} className="text-muted-foreground hover:text-foreground" />
                 </div>
               )}
             </div>

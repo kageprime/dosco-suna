@@ -141,6 +141,15 @@ describe('the /model-defaults scope → preference key mapping', () => {
     ]);
   });
 
+  test('PUT a retired managed model → 409 model_retired, nothing written', async () => {
+    for (const model of ['kimi-k3', 'kortix/kimi-k3']) {
+      const response = await send('PUT', '/model-defaults', { scope: 'project', model });
+      expect(response.status).toBe(409);
+      expect((await response.json()).code).toBe('model_retired');
+    }
+    expect(upserts).toEqual([]);
+  });
+
   const cleared: Array<[string, string, Record<string, unknown>]> = [
     ['account', 'scope=account', { scope: 'account', scopeKey: undefined, projectId: undefined }],
     ['project', 'scope=project', { scope: 'project', scopeKey: PROJECT_ID, projectId: undefined }],

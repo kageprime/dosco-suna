@@ -105,8 +105,8 @@ and the Limited Use statement. Change that section and this table together.
 
 ## Test instructions tab
 
-The reviewer signs in at kortix.com with a reviewer account whose project has the `chrome` flag
-on. The credentials go into this tab only, never into git, Slack or a PR.
+The reviewer signs in at kortix.com with a reviewer account. Every kortix.com project has Kortix in
+Chrome (no feature flag since 2026-11-24). The credentials go into this tab only, never into git, Slack or a PR.
 
 The reviewer account exists on prod since 2026-11-20: a password user with the Credits tier
 (Kortix models need it), non-expiring credits, and a workspace named "Chrome review". A person
@@ -114,7 +114,7 @@ sets its password and pastes it here. To make another one: create the user with 
 API (`email_confirm: true`, no password), sign in once with an admin magic link to create the
 workspace (`POST /v1/projects/provision` with `new_workspace: true`), then use the admin API:
 `POST /v1/admin/api/accounts/:id/tier` (`credits`) and `POST /v1/admin/api/accounts/:id/credits`.
-The `chrome` flag is on by default. After a test run, delete the test connection
+After a test run, delete the test connection
 (`DELETE /v1/chrome/connections/:id`) so the reviewer sees only their own browser.
 
 ```text

@@ -5,6 +5,7 @@
 export * from './accounts';
 export * from './workspaces';
 export * from './spaces';
+export * from './agent-directory';
 export * from './projects';
 export * from './skills';
 export * from './github';
@@ -48,7 +49,6 @@ export * from './presentations';
 export * from './review';
 export * from './review-items';
 export * from './sandbox-shares';
-export * from './public-session-shares';
 export * from './session-reminders';
 export * from './runtime-triggers';
 export * from './rooms';
@@ -83,6 +83,7 @@ export type {
 export * from './model-access';
 export * from './custom-llm-providers';
 export * from './session-attachments';
+export * from './dictation';
 export * from './project-agents';
 
 export * from './change-request-recovery';

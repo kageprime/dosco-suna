@@ -20,3 +20,8 @@ export const Binary = {
 		return { found: false, index: left };
 	},
 };
+
+/** Lexicographic compare, as upstream's `cmp` (`server-session.ts:28`). */
+export function compareStrings(a: string, b: string): number {
+	return a < b ? -1 : a > b ? 1 : 0;
+}

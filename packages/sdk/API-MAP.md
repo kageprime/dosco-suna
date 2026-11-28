@@ -108,10 +108,10 @@ Every `Project*`/`Account*` name stays permanently; exact equivalents carry `@de
 | commit + push | `POST .../sessions/:sid/commit-push` |
 | sharing (project) | `GET/PUT .../sessions/:sid/sharing` |
 | finalized LLM + compute cost | `GET /v1/usage/session-costs/:sid?project_id=:id` → `projects-client/session-costs.ts`, facade `session(pid,sid).cost()` ✅ |
-| transcript | `GET .../sessions/:sid/transcript` → `projects-client/sessions.ts`'s `getSessionTranscript` ✅, facade `session(pid,sid).transcript()` ✅ (previously listed ✅ here with no client fn behind it — that was false; now genuinely wired) |
+| session log (the saved transcript) | `GET .../sessions/:sid/log?thread=&before_seq=&limit=` → `projects-client/sessions.ts`'s `getSessionLogPage` ✅, facade `session(pid,sid).log(query)` ✅. The v1 `GET .../transcript` and its `getSessionTranscript` / `getSessionTranscriptSync` / `transcript()` / `transcriptSync()` were removed in the session-log major |
 | preview candidates (live ports) | `GET .../sessions/:sid/previews` |
 | public shares | `GET/POST/DELETE .../sessions/:sid/public-shares[/:id]` |
-| public transcript share (`{ transcript: true }`, one live link per session; `findActiveTranscriptShare`) + anonymous read (`getPublicSessionShare`, `getPublicSessionShareMessages`, by `share_id` or `kps_` token) | `POST .../sessions/:sid/public-shares` · `GET /v1/public/session-shares/:ref[/messages]` |
+| public transcript share | Removed. The API removed public transcript sharing (KRTX-2358); the SDK removed `findActiveTranscriptShare`, `getPublicSessionShare` and `getPublicSessionShareMessages` in the session-log major |
 
 ### 5b. Token minting (CLI PATs) — Kortix-as-a-Backend-critical  ✅
 | op | REST | SDK |

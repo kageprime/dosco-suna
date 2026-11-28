@@ -8,8 +8,12 @@
  *   1. the session's selected accounts (`session_provider_secret_pools`);
  *   2. the personal-key owner's own newest account (not for a gateway API key);
  *   3. the accounts shared with the project that the principal may use.
- * A resting account (after a rate or usage limit) and one refused by Anthropic
- * (needs reconnection) are skipped.
+ * Skipped: a resting account (after a rate or usage limit), one whose token
+ * Anthropic refused (401: needs reconnection), and one Anthropic forbade (403,
+ * for example when its organization turned Claude Code off) within the last
+ * `CLAUDE_FORBIDDEN_HOLD_SECONDS`. After that hold the forbidden account is
+ * tried once more; the first answer it gets clears the 403 reason
+ * (`recordSubscriptionUsage` with `served`), a new 403 restarts the hold.
  */
 import { createHash } from 'node:crypto';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
@@ -64,6 +68,38 @@ function accountsResting(subject: string, retryAfterSeconds: number | undefined)
     'Choose another model, or connect another Claude account.', undefined, retryAfterSeconds);
 }
 
+/** How long a Claude account Anthropic forbade (403) is skipped before one more try. */
+export const CLAUDE_FORBIDDEN_HOLD_SECONDS = 15 * 60;
+
+/** Anthropic's 403 when the account's Claude organization turned Claude Code off. */
+const ORGANIZATION_TURNED_OFF = /organization has disabled/i;
+
+interface ForbiddenAccount {
+  label: string;
+  /** Anthropic's words in its 403 (`verify_message`). */
+  message: string;
+}
+
+/** Every usable account Anthropic forbids: name them, Anthropic's reason, and the fix. */
+function forbiddenAccounts(forbidden: ForbiddenAccount[], scope: 'selected' | 'shared' | 'own'): GatewayResolutionError {
+  const named = forbidden.slice(0, 3).map((account) => `"${account.label}"`);
+  const more = forbidden.length > 3 ? ` and ${forbidden.length - 3} more` : '';
+  const first = forbidden[0]!;
+  const sameReason = forbidden.every((account) => account.message === first.message);
+  const message = forbidden.length === 1
+    ? `Anthropic refuses the Claude account ${named[0]}: ${first.message}`
+    : sameReason
+      ? `Anthropic refuses ${forbidden.length} Claude accounts (${named.join(', ')}${more}): ${first.message}`
+      : `Anthropic refuses ${forbidden.length} Claude accounts (${named.join(', ')}${more}). For ${named[0]} it says: ${first.message}`;
+  const other = scope === 'selected' ? 'select another Claude account for this session'
+    : scope === 'own' ? 'connect another Claude account'
+    : 'share another Claude account with everyone in this workspace';
+  const suggestion = forbidden.every((account) => ORGANIZATION_TURNED_OFF.test(account.message))
+    ? `An admin of ${forbidden.length === 1 ? 'its' : 'their'} Claude organization must turn Claude Code back on, or ${other}.`
+    : `${other[0]!.toUpperCase()}${other.slice(1)}.`;
+  return new GatewayResolutionError('provider_reauth_required', message, suggestion);
+}
+
 const notConnected = () => new GatewayResolutionError('provider_not_connected',
   'Connect Claude to use this model.', 'Sign in with Claude under Models → Providers → Anthropic, then retry.');
 
@@ -81,23 +117,46 @@ function needsReconnection(labels: string[], scope: 'selected' | 'shared' | 'own
   return new GatewayResolutionError('provider_reauth_required', message, suggestion);
 }
 
-/** The accounts among `secrets` that Anthropic has not refused, with their tokens. */
-async function usable(accountId: string, secrets: ResolvedAccountSecret[]): Promise<{ credentials: ClaudeCredential[]; refused: string[] }> {
-  if (!secrets.length) return { credentials: [], refused: [] };
-  const flagged = new Set((await db.select({ secretId: accountSecretResources.secretId })
+interface UsableAccounts {
+  credentials: ClaudeCredential[];
+  /** Labels of the accounts whose token Anthropic refused (401) or Kortix cannot read. */
+  refused: string[];
+  /** The accounts Anthropic forbade (403) within the hold. */
+  forbidden: ForbiddenAccount[];
+}
+
+/** The accounts among `secrets` that Anthropic neither refused nor forbade, with their tokens. */
+async function usable(accountId: string, secrets: ResolvedAccountSecret[]): Promise<UsableAccounts> {
+  if (!secrets.length) return { credentials: [], refused: [], forbidden: [] };
+  const flagged = new Map((await db.select({
+    secretId: accountSecretResources.secretId,
+    needsReauth: sql<boolean>`${accountSecretResources.needsReauthAt} is not null`,
+    verifyMessage: accountSecretResources.verifyMessage,
+  })
     .from(accountSecretResources)
     .where(and(
       eq(accountSecretResources.accountId, accountId),
       inArray(accountSecretResources.secretId, secrets.map((secret) => secret.secretId)),
-      sql`${accountSecretResources.needsReauthAt} is not null`,
-    ))).map((row) => row.secretId));
+      sql`(${accountSecretResources.needsReauthAt} is not null or (${accountSecretResources.verifyStatus} = 'invalid'
+        and ${accountSecretResources.verifiedAt} > now() - make_interval(secs => ${CLAUDE_FORBIDDEN_HOLD_SECONDS})))`,
+    ))).map((row) => [row.secretId, row]));
   const credentials: ClaudeCredential[] = [];
   const refused: string[] = [];
+  const forbidden: ForbiddenAccount[] = [];
   for (const secret of secrets) {
-    if (flagged.has(secret.secretId) || !secret.value) refused.push(secret.label);
+    const flag = flagged.get(secret.secretId);
+    if (flag?.needsReauth || !secret.value) refused.push(secret.label);
+    else if (flag) forbidden.push({ label: secret.label, message: flag.verifyMessage || 'Anthropic answered 403 Forbidden.' });
     else credentials.push({ secretId: secret.secretId, label: secret.label, token: secret.value });
   }
-  return { credentials, refused };
+  return { credentials, refused, forbidden };
+}
+
+/** The usable accounts, or why none is: a refused token first (a reconnect fixes it), then a 403. */
+function usableOrWhy(accounts: UsableAccounts, scope: 'selected' | 'shared' | 'own'): ClaudeCredential[] | GatewayResolutionError {
+  if (accounts.credentials.length) return accounts.credentials;
+  if (accounts.refused.length) return needsReconnection(accounts.refused, scope);
+  return forbiddenAccounts(accounts.forbidden, scope);
 }
 
 async function sharedCredentials(principal: ClaudeAccountPrincipal, probe?: boolean): Promise<ClaudeCredential[] | GatewayResolutionError | null> {
@@ -107,10 +166,7 @@ async function sharedCredentials(principal: ClaudeAccountPrincipal, probe?: bool
     providerId: CLAUDE_ACCOUNT.providerId, name: CLAUDE_ACCOUNT.name,
     sessionId: principal.sessionId, probe,
   });
-  if (shared.secrets.length) {
-    const { credentials, refused } = await usable(principal.accountId, shared.secrets);
-    return credentials.length ? credentials : needsReconnection(refused, 'shared');
-  }
+  if (shared.secrets.length) return usableOrWhy(await usable(principal.accountId, shared.secrets), 'shared');
   if (shared.coolingDown) return accountsResting('All Claude accounts shared with this project', shared.retryAfterSeconds);
   return null;
 }
@@ -135,22 +191,21 @@ export async function resolveClaudeCredentials(principal: ClaudeAccountPrincipal
           : new GatewayResolutionError('provider_not_connected', 'No usable Claude account is selected for this session.',
             'Select a Claude account you may use in session settings.');
       }
-      const { credentials, refused } = await usable(principal.accountId, pool.secrets);
-      if (credentials.length) return credentials;
-      throw needsReconnection(refused, 'selected');
+      const selected = usableOrWhy(await usable(principal.accountId, pool.secrets), 'selected');
+      if (Array.isArray(selected)) return selected;
+      throw selected;
     }
   }
   if (principal.personalUserId && !principal.keyId) {
     const own = await resolveDefaultProviderAccountSecret(principal.accountId, principal.projectId, principal.personalUserId, CLAUDE_ACCOUNT);
-    if (own && !own.restingSeconds && !own.needsReauth && own.value) {
-      return [{ secretId: own.secretId, label: own.label, token: own.value }];
-    }
+    const ready = own && !own.restingSeconds && !own.needsReauth && own.value ? usableOrWhy(await usable(principal.accountId, [own]), 'own') : null;
+    if (Array.isArray(ready)) return ready;
     if (own) {
-      // Resting or refused: an account shared with the project may serve instead.
+      // Resting, refused or forbidden: an account shared with the project may serve instead.
       const shared = await sharedCredentials(principal, options.probe);
       if (Array.isArray(shared)) return shared;
       if (own.restingSeconds) throw accountsResting('Your Claude accounts', own.restingSeconds);
-      throw needsReconnection([own.label], 'own');
+      throw ready ?? needsReconnection([own.label], 'own');
     }
   }
   const shared = await sharedCredentials(principal, options.probe);
@@ -158,14 +213,19 @@ export async function resolveClaudeCredentials(principal: ClaudeAccountPrincipal
   throw shared ?? notConnected();
 }
 
-/** Whether a request with this principal has a Claude account to use now. */
-export async function hasClaudeCredential(principal: ClaudeAccountPrincipal): Promise<boolean> {
+/** Why a request with this principal has no Claude account to use now, or null when it has one. */
+export async function claudeCredentialProblem(principal: ClaudeAccountPrincipal): Promise<GatewayResolutionError | null> {
   try {
-    return (await resolveClaudeCredentials(principal, { probe: true })).length > 0;
+    return (await resolveClaudeCredentials(principal, { probe: true })).length > 0 ? null : notConnected();
   } catch (err) {
-    if (err instanceof GatewayResolutionError) return false;
+    if (err instanceof GatewayResolutionError) return err;
     throw err;
   }
+}
+
+/** Whether a request with this principal has a Claude account to use now. */
+export async function hasClaudeCredential(principal: ClaudeAccountPrincipal): Promise<boolean> {
+  return (await claudeCredentialProblem(principal)) === null;
 }
 
 /** The Claude accounts `userId` may use in the project (their own and shared ones), without values. */
@@ -203,6 +263,38 @@ export async function markClaudeAccountRefused(accountId: string, secretId: stri
     .set({ needsReauthAt: sql`coalesce(${accountSecretResources.needsReauthAt}, now())` })
     .where(and(eq(accountSecretResources.accountId, accountId), eq(accountSecretResources.secretId, secretId)));
   logger.warn('[claude-accounts] Anthropic refused a Claude account; it needs reconnection', { secretId });
+  return true;
+}
+
+/**
+ * Anthropic forbade this account (403): store its words as the account's
+ * verification (`invalid`), which the account list shows and which skips the
+ * account for `CLAUDE_FORBIDDEN_HOLD_SECONDS`. Each new 403 restarts the hold.
+ * Only when the stored token is still the forbidden one: a reconnect since
+ * then wins.
+ */
+export async function markClaudeAccountForbidden(accountId: string, secretId: string, failedKeySha256: string, message: string): Promise<boolean> {
+  // `updated_at` as text: a JS Date drops the microseconds, so it would never compare equal.
+  const [row] = await db.select({ valueEnc: accountSecretResources.valueEnc, updatedAt: sql<string>`${accountSecretResources.updatedAt}::text` })
+    .from(accountSecretResources).where(and(
+      eq(accountSecretResources.accountId, accountId),
+      eq(accountSecretResources.secretId, secretId),
+      eq(accountSecretResources.providerId, CLAUDE_ACCOUNT.providerId),
+    )).limit(1);
+  if (!row) return false;
+  const current = readAccountSecret(accountId, secretId, row.valueEnc);
+  if (!current || sha256(current) !== failedKeySha256) return false;
+  const [marked] = await db.update(accountSecretResources)
+    .set({ verifyStatus: 'invalid', verifyMessage: message.slice(0, 500), verifiedAt: sql`now()` })
+    // A reconnect between the read and this write bumps `updated_at`: the new token stays unmarked.
+    .where(and(
+      eq(accountSecretResources.accountId, accountId),
+      eq(accountSecretResources.secretId, secretId),
+      sql`${accountSecretResources.updatedAt} = ${row.updatedAt}::timestamptz`,
+    ))
+    .returning({ secretId: accountSecretResources.secretId });
+  if (!marked) return false;
+  logger.warn('[claude-accounts] Anthropic forbade a Claude account; it is skipped for a while', { secretId });
   return true;
 }
 

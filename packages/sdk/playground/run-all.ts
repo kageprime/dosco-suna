@@ -11,42 +11,7 @@
  * Run (from packages/sdk):  bun run playground/run-all.ts
  */
 import { makeKortix, pickProjectId, run } from "./_shared";
-
-const SCRIPTS = [
-  "projects/01-list-projects.ts",
-  "sessions/02-list-sessions.ts",
-  "sessions/03-create-session.ts",
-  "chat/04-send-and-stream.ts",
-  "agents/05-list-agents.ts",
-  "agents/06-create-agent.ts",
-  "agents/07-use-agent.ts",
-  "skills/08-list-skills.ts",
-  "skills/09-create-skill.ts",
-  "commands/10-list-commands.ts",
-  "commands/11-create-command.ts",
-  "env/12-env-and-secrets.ts",
-  "channels/13-slack-status.ts",
-  "accounts/15-accounts-and-tokens.ts",
-  "billing/16-billing.ts",
-  "gateway/17-gateway-observability.ts",
-  "connectors/19-connectors.ts",
-  "access/20-access-and-policies.ts",
-  "git/21-files-and-git.ts",
-  "review/22-review-and-changes.ts",
-  "sandbox/23-sandbox.ts",
-  "triggers/24-triggers.ts",
-  "apps/25-apps.ts",
-  "audit/26-audit.ts",
-  "session-extras/27-session-lifecycle.ts",
-  "channels/28-email-and-meet.ts",
-  "github/29-github.ts",
-  "sessions/30-session-crud.ts",
-  "session-extras/31-files-deep.ts",
-  "env/32-personal-secrets.ts",
-  "projects/33-models-and-search.ts",
-  "server/34-server-scoped.ts",
-  "session-extras/35-shares.ts",
-];
+import { SCRIPTS } from "./scripts";
 
 run("run-all", async () => {
   const kortix = makeKortix();

@@ -26,7 +26,7 @@ import { parseLocalhostUrl } from '@kortix/sdk';
 import { useRuntimeConnectionStore } from '@kortix/sdk/react';
 import { useSyncExternalStore } from 'react';
 import type { OutputItem } from '../shared/derive-panels';
-import { PanelCard } from './panel-card';
+import { PANEL_ROW, PANEL_ROW_ICON, PanelCard } from './panel-card';
 
 function portOf(url: string | undefined): number {
   return parseLocalhostUrl(url ?? '')?.port ?? 0;
@@ -67,31 +67,16 @@ export function AppsCard({
   return (
     <PanelCard
       title={tI18nComplete.raw('text324b134f57c7')}
-      count={apps.length}
       isEmpty={apps.length === 0}
-      // The payoff: if the agent got something running, that is the single most
-      // interesting fact in the panel. It should not take a click to learn it.
-      defaultExpanded={apps.length > 0}
       emptyText={tI18nComplete.raw('texte0687cb3046c')}
-      contentClassName="pb-2"
     >
       <ul className="flex flex-col gap-0">
         {apps.map((app) => {
           const port = portOf(app.url);
           return (
-            <li key={app.url}>
-              <button
-                type="button"
-                onClick={() => onOpenApp(app)}
-                className={cn(
-                  'hover:bg-accent flex w-full items-center gap-2.5 px-4 py-2 text-left',
-                  // Full-width row: the brand's full-width press value (0.998),
-                  // shared with the Outputs and Context rows. The background
-                  // change carries the press; the scale only confirms it.
-                  'transition-[background-color,transform] active:scale-[0.998]',
-                )}
-              >
-                <span className="flex size-7 shrink-0 items-center justify-center" aria-hidden>
+            <li key={app.url} className="flex">
+              <button type="button" onClick={() => onOpenApp(app)} className={PANEL_ROW}>
+                <span className={PANEL_ROW_ICON} aria-hidden>
                   <span className="relative flex size-2">
                     {sandboxAlive && (
                       <span className="bg-kortix-green absolute inline-flex size-2 animate-ping rounded-full opacity-60 motion-reduce:animate-none" />
@@ -104,7 +89,7 @@ export function AppsCard({
                     />
                   </span>
                 </span>
-                <span className="text-foreground min-w-0 flex-1 truncate text-sm">{app.name}</span>
+                <span className="text-foreground min-w-0 flex-1 truncate">{app.name}</span>
                 {!sandboxAlive && (
                   <span className="text-muted-foreground shrink-0 text-xs">
                     {tI18nComplete.raw('text8322e87d2458')}

@@ -10,22 +10,8 @@
  */
 import { randomUUID } from 'node:crypto';
 import { flow } from '../core/flow';
-import type { FlowContext } from '../core/types';
+import { openDb } from '../fixtures/agent-principals';
 import { lockProjectFirst } from '../fixtures/token-binding-lock';
-
-type Db = {
-  query<T = Record<string, unknown>>(text: string, values?: unknown[]): Promise<{ rows: T[] }>;
-  end(): Promise<void>;
-};
-
-async function openDb(ctx: FlowContext): Promise<Db> {
-  const { Client } = await import('pg');
-  const databaseUrl = ctx.env.databaseUrl as string;
-  const local = databaseUrl.includes('localhost') || databaseUrl.includes('127.0.0.1');
-  const db = new Client({ connectionString: databaseUrl, ssl: local ? false : { rejectUnauthorized: false } });
-  await db.connect();
-  return db as unknown as Db;
-}
 
 type Hit = { path: string; name: string; kind: string; snippet: string | null; access: string };
 type Page = { hits: Hit[]; next_cursor: string | null };

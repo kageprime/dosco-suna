@@ -8,7 +8,7 @@
 // which checks every citation before a value reaches the UI. The browser is
 // never in the loop: polling is Convex scheduled functions only.
 
-import { createProjectSession, getSessionTranscript, getSessionTurn, listDriveFolder, readDriveFile, uploadDriveFile } from "@kortix/sdk";
+import { createProjectSession, getSessionLogPage, getSessionTurn, listDriveFolder, readDriveFile, uploadDriveFile } from "@kortix/sdk";
 import Ajv2020 from "ajv/dist/2020";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
@@ -34,14 +34,23 @@ export const STALL_MS = 5 * 60_000;
 const HEARTBEAT_MS = 2 * 60_000;
 
 /**
- * A fingerprint of the session's transcript tail: it changes when a message
- * starts, grows, ends, or a tool call starts or finishes. Null when the read
- * cannot tell (no live transcript): Lumen then never reads the turn as stalled.
+ * A fingerprint of the session log's newest 3 messages (`GET …/log?limit=3`): it changes
+ * when a message starts, grows, ends, or a tool call starts or finishes. The daemon journals a
+ * running turn every few seconds, so a working agent moves it. Null when the read cannot tell:
+ * no stored log yet (a 404: the box has journaled nothing, as when it never took the prompt)
+ * or a failed read. Lumen then never reads the turn as stalled; the no-progress limit applies.
  */
 async function transcriptSig(f: FirmContext, sessionId: string): Promise<string | null> {
-  const t = await asFirm(f.secret, () => getSessionTranscript(f.projectId, sessionId, { limit: 3, chars: 4000 })).catch(() => null);
-  if (!t?.available) return null;
-  return JSON.stringify([t.message_count, t.messages.map((m) => [m.created, m.completed, m.text.length, m.tools.map((x) => x.status)])]);
+  const page = await asFirm(f.secret, () => getSessionLogPage(f.projectId, sessionId, { limit: 3 })).catch(() => null);
+  if (!page) return null;
+  return JSON.stringify(
+    page.messages.map((m) => [
+      m.message_id,
+      m.status,
+      m.blocks.length,
+      m.blocks.map((b) => (b.type === "text" || b.type === "reasoning" ? b.text.length : b.type === "tool_call" ? b.status : b.type)),
+    ]),
+  );
 }
 
 /** The run's folder: fixed at prepare (`runs.driveDir`); a run from before that field kept the firm's Runs folder. */
@@ -351,8 +360,8 @@ export const poll = internalAction({
       const rejected: string[] = [];
       let waiting = false;
       for (const f of files) {
-        // Each version is read once. A rejected file is reported once; the agent's next write is a new version.
-        if (seen.get(f.path)?.version === f.version) continue;
+        // Accepted versions are immutable; rejected versions remain repairable on every poll.
+        if (seen.get(f.path)?.version === f.version && seen.get(f.path)?.status === "accepted") continue;
         let value: unknown;
         try {
           value = await asOperator(() => readJson(driveId, `${dir}/${f.path}`));
@@ -381,7 +390,9 @@ export const poll = internalAction({
         }
         const problems = await ctx.runMutation(internal.runs.ingestResult, { batchId, path: f.path, version: f.version, value, files: stored });
         rejected.push(...problems);
-        seen.set(f.path, { version: f.version, status: "accepted" });
+        const status = problems.length ? "rejected" : "accepted";
+        if (problems.length) await ctx.runMutation(internal.runs.recordFile, { batchId, path: f.path, version: f.version, status, errors: problems });
+        seen.set(f.path, { version: f.version, status });
       }
       const accepted = new Set([...seen].filter(([, s]) => s.status === "accepted").map(([p]) => p));
       const owed = missing({ run, batch }, accepted);

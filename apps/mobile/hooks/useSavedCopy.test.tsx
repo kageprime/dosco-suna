@@ -179,7 +179,8 @@ describe('useSavedCopy reads the session log first (P8)', () => {
     expect(view.empty).toBe(false);
     expect(reads()).toEqual([
       'http://test.local/v1/workspaces/p1/sessions/s-log-child/log?limit=40',
-      `http://test.local/v1/workspaces/p1/sessions/s-log-child/log?thread=${child!.thread_id}&limit=40`,
+      // The SDK reads the thread's newest page with `live=1` (#13050): the box answers when it runs.
+      `http://test.local/v1/workspaces/p1/sessions/s-log-child/log?thread=${child!.thread_id}&limit=40&live=1`,
     ]);
   });
 

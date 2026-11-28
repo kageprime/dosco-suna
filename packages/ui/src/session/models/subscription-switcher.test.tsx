@@ -236,6 +236,20 @@ describe('SubscriptionSwitcher', () => {
     expect(html.match(/Not reported|Needs reconnection/g)).toHaveLength(2);
   });
 
+  test('a Claude login Anthropic forbade (403) reads Refused by Anthropic instead of its stale usage', () => {
+    const forbidden = { status: 'invalid', message: 'Your organization has disabled Claude subscription access for Claude Code.', checked_at: '2026-11-25T13:53:12Z' };
+    const { client } = harness({
+      logins: [
+        { ...withWeekly('login-a', 18), verification: forbidden },
+        withWeekly('login-b', 25),
+      ],
+    });
+    const html = mountStatic(client, 's');
+    expect(html).toContain('Refused by Anthropic');
+    expect(html).not.toContain('Weekly · 18%');
+    expect(html).toContain('Weekly · 25%');
+  });
+
   test('a save in flight marks the row it applies, and only that row', async () => {
     const put = Promise.withResolvers<void>();
     const { client, calls } = harness({ logins: [withWeekly('login-a', 42), withWeekly('login-b', 4)], holdPut: put.promise });

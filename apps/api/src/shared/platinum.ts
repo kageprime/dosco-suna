@@ -160,17 +160,27 @@ export function platinumOriginForRegion(region: string): string {
   return regionalOriginFor(region) ?? new URL(platinumBase()).origin;
 }
 
+/** The configured origin (`PLATINUM_API_URL`): the home control plane. */
+export function platinumHomeOrigin(): string {
+  return new URL(platinumBase()).origin;
+}
+
 /**
  * The control plane of one region, for a call that must reach that region
- * itself (a `regions=local` listing): learned from a box there, else
+ * itself (a `regions=local` listing, a volume): learned from a box there, else
  * Platinum's regional name `https://<region>.<PLATINUM_API_URL host>`
- * (us-east.api.platinum.dev). Null when the key may not go there.
+ * (us-east.api.platinum.dev). A deployment whose `PLATINUM_API_URL` already is
+ * that region's control plane gets the configured origin: the regional name
+ * of us-east.api.platinum.dev is us-east.us-east.api.platinum.dev, which does
+ * not resolve. Null when the key may not go there.
  */
 export function platinumRegionControlPlane(region: string): string | null {
   const learned = regionOrigins.get(region);
   if (learned) return learned;
   if (!/^[a-z]{2,8}-[a-z]{2,12}$/.test(region)) return null;
-  return acceptedPlatinumOrigin(`https://${region}.${new URL(platinumBase()).hostname}`);
+  const base = new URL(platinumBase());
+  if (base.hostname.startsWith(`${region}.`)) return base.origin;
+  return acceptedPlatinumOrigin(`https://${region}.${base.hostname}`);
 }
 
 // The calls that name their region in the body and act in it: a create, both
@@ -373,6 +383,14 @@ export function platinumRateLimitWaitMs(err: unknown, { fallbackMs = 1_000, maxM
   return seconds === undefined ? fallbackMs : Math.min(Number(seconds) * 1_000, maxMs);
 }
 
+/** Exec output can exceed the provider response limit after the command ran. */
+export class PlatinumExecOutputTooLargeError extends PlatinumHttpError {
+  constructor() {
+    super('The sandbox provider could not return the command output because it exceeded the response limit. The command may have run; inspect its effects before running it again. Redirect large output to a file.', 413);
+    this.name = 'PlatinumExecOutputTooLargeError';
+  }
+}
+
 /** A timed-out exec may already have run. Never replay it automatically. */
 export class PlatinumExecOutcomeUnknownError extends PlatinumHttpError {
   constructor() {
@@ -445,8 +463,9 @@ export async function platinumJsonResponse<T>(
         text,
       );
     }
-    if (res.status === 504 && method === 'POST' && /^\/v1\/sandboxes\/[^/]+\/exec$/.test(path)) {
-      throw new PlatinumExecOutcomeUnknownError();
+    if (method === 'POST' && /^\/v1\/sandboxes\/[^/]+\/exec$/.test(path)) {
+      if (res.status === 504) throw new PlatinumExecOutcomeUnknownError();
+      if (res.status === 413) throw new PlatinumExecOutputTooLargeError();
     }
     // Surface Retry-After (seconds) on a 429 so poll-error classification can
     // honor it (PHASE 2 rate-limit handling). Harmless suffix for other callers.

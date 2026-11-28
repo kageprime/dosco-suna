@@ -185,6 +185,7 @@ interface Subpath {
 }
 
 const SUBPATH_TIERS: Subpath[] = [
+  { name: './iam-actions', file: 'iam-actions.ts', tier: 'isomorphic-core' },
   { name: './server', file: 'node/server.ts', tier: 'node-allowed' },
   { name: './genui', file: 'genui/index.ts', tier: 'isomorphic-core' },
   { name: './genui/fence', file: 'genui/fence-entry.ts', tier: 'isomorphic-core' },

@@ -414,7 +414,7 @@ describe('BashTool trigger renders the title the helper answers (W9)', () => {
       '<span class="min-w-0 truncate text-foreground">Install the workspace dependencies</span>',
     );
     // The command is not replaced by the summary, only demoted.
-    expect(html).toContain('font-mono">pnpm install</span>');
+    expect(html).toContain('>pnpm install</span>');
     expect(html).not.toContain('Ran command');
   });
 
@@ -446,7 +446,7 @@ describe('BashTool trigger renders the title the helper answers (W9)', () => {
     expect(html).not.toContain('run the unit suite');
     expect(html).not.toContain('Run the unit suite');
     // The failure's own command still shows, so the row is not just a verdict.
-    expect(html).toContain('font-mono">bun test</span>');
+    expect(html).toContain('>bun test</span>');
   });
 
   test('a RUNNING call is unchanged — the description titles a settled row only', () => {
@@ -748,7 +748,7 @@ describe('BashTool command card de-nests on the panel (gate finding 5, fourth ca
   test('panel: the hairline BETWEEN the two panes stays — it is not the frame', () => {
     // The de-nest drops edges the row card can redraw. This one separates the
     // command from what it printed, which nothing outside the card can say.
-    expect(render('panel')).toContain('border-border/60 border-t');
+    expect(render('panel')).toContain('border-border border-t');
   });
 });
 

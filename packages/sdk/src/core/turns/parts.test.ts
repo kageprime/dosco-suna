@@ -47,6 +47,28 @@ describe('shouldShowToolPart', () => {
     expect(shouldShowToolPart(part('oc-kortix-agents', { action: 'get' }))).toBe(false);
   });
 
+  test('listing the models an agent can run is not a step the person reads: it stays out of the transcript', () => {
+    expect(shouldShowToolPart(block('kortix_agents', { action: 'models' }))).toBe(false);
+    expect(shouldShowToolPart(part('oc-kortix-agents', { action: 'models' }))).toBe(false);
+  });
+
+  test('reading a session that has not answered yet is not a step the person reads: it stays out of the transcript', () => {
+    const card = (answer: string) =>
+      JSON.stringify({ ok: true, tool: 'kortix_sessions', action: 'read', card: { title: answer ? 'Latest answer' : 'No answer yet' }, data: { session_id: 's1', answer } });
+    const read = (output: string) =>
+      ({ type: 'tool_call', id: 'b1', call_id: 'c1', name: 'kortix_sessions', kind: 'other', input: { action: 'read' }, status: 'complete', result: { content: [{ type: 'text', text: output }], is_error: false } }) as never;
+    expect(shouldShowToolPart(read(card('')))).toBe(false);
+    expect(shouldShowToolPart({ tool: 'kortix_sessions', state: { input: { action: 'read' }, output: card('') } } as never)).toBe(false);
+    expect(shouldShowToolPart(read(card('Saved the comparison.')))).toBe(true);
+    // Still running: no answer yet, so it stays out instead of showing and then vanishing.
+    expect(shouldShowToolPart({ type: 'tool_call', id: 'b2', call_id: 'c2', name: 'kortix_sessions', kind: 'other', input: { action: 'read' }, status: 'running' } as never)).toBe(false);
+    // A read that failed (session not found, no permission) is news: it shows.
+    expect(
+      shouldShowToolPart({ type: 'tool_call', id: 'b3', call_id: 'c3', name: 'kortix_sessions', kind: 'other', input: { action: 'read' }, status: 'error', result: { content: [], is_error: true } } as never),
+    ).toBe(true);
+    expect(shouldShowToolPart({ tool: 'kortix_sessions', state: { status: 'error', input: { action: 'read' }, error: 'not found' } } as never)).toBe(true);
+  });
+
   test('a change to an agent, and every other tool, still shows', () => {
     expect(shouldShowToolPart(block('kortix_agents', { action: 'update' }))).toBe(true);
     expect(shouldShowToolPart(part('kortix_sessions', { action: 'list' }))).toBe(true);

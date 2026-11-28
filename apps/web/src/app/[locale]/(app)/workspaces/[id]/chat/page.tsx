@@ -13,17 +13,19 @@ import { FeatureGateScreen } from '@kortix/ui/customize/shared/feature-gate-scre
 import { SpaceView } from '@kortix/ui/workspace';
 
 /**
- * /workspaces/[id]/chat — Chat (flag `chat`): the person's chat with
- * Kortix. Every message is a thread; Kortix's newest reply shows under it.
+ * /workspaces/[id]/chat — Chat (flag `channels`; `chat` resolves with it): the
+ * person's chat with Kortix. Every message is a thread; Kortix's newest reply
+ * shows under it.
  */
 export default function OneChatPage() {
   const { id } = useParams<{ id: string }>();
   const tI18nComplete = useTranslations('hardcodedUi.i18nComplete');
+  const tFlag = useTranslations('settings.featureFlags.flags.channels');
   const flag = useFeatureFlag(id, 'chat');
   const beforeSend = useProjectSendGate(id);
   if (flag.isLoading) return null;
   if (!flag.enabled) {
-    return <FeatureGateScreen featureKey="chat" featureName="Chat" description={tI18nComplete.raw('textfe0dab79db43')} />;
+    return <FeatureGateScreen featureKey="channels" featureName={tFlag('name')} description={tI18nComplete.raw('textfe0dab79db43')} />;
   }
   return (
     <SpaceView

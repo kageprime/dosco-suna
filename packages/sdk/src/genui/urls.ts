@@ -18,3 +18,6 @@ export function safeUrl(raw: unknown): string | null {
   if (url.username || url.password) return null;
   return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null;
 }
+
+export const osmLink = (lat: unknown, lng: unknown): string =>
+  `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=15/${lat}/${lng}`;

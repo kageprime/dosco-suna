@@ -41,8 +41,12 @@ export interface NewWorkspaceCaller {
   userId: string;
   email: string | null;
   authType: string | undefined;
-  /** A project-scoped, session-bound or agent token: not a person acting freely. */
+  /** A project-scoped, session-bound or agent token, or an OAuth token whose
+   *  consent named one workspace: not a person acting freely. */
   scopedCredential: boolean;
+  /** An App viewer token (`apps/viewer.ts`): the App's code acting for its
+   *  viewer, never the person. Absent = false. */
+  oauthAppViewer?: boolean;
 }
 
 export type NewWorkspaceAccount =
@@ -163,26 +167,29 @@ async function chooseOrCreate(
 }
 
 /**
- * Who may create a workspace: a person (a browser JWT or an unscoped PAT),
- * never an API key, a service account, a project/session/agent token or an
- * impersonating operator. `null` when the caller may. Runs before the request
- * checks: authorization is decided before input validation.
+ * Who may create a workspace: a person (a browser JWT, an unscoped PAT, or an
+ * OAuth token whose consent chose "All my workspaces"), never an API key, a
+ * service account, a project/session/agent token, an OAuth token bound to one
+ * workspace, an App viewer token or an impersonating operator. `null` when the
+ * caller may. Runs before the request checks: authorization is decided before
+ * input validation.
  */
 export function newWorkspaceCallerDenial(caller: NewWorkspaceCaller): ProvisionResult | null {
   if (impersonatedAccountFor(caller.userId)) {
     return { status: 403, body: { error: 'Impersonated requests cannot create a workspace', code: 'impersonation_invalid' } };
   }
-  const person = caller.authType === 'supabase' || caller.authType === 'pat';
-  if (!person || caller.scopedCredential) {
-    return {
-      status: 403,
-      body: {
-        error: 'Only a person creates a workspace: sign in, or use an unscoped personal access token',
-        code: 'new_workspace_requires_person',
-      },
-    };
-  }
-  return null;
+  const oauth = caller.authType === 'oauth' && !caller.oauthAppViewer;
+  const person = caller.authType === 'supabase' || caller.authType === 'pat' || oauth;
+  if (person && !caller.scopedCredential) return null;
+  return {
+    status: 403,
+    body: {
+      error: oauth
+        ? 'This connection reaches one workspace, so it cannot create a workspace. Reconnect the app and choose All my workspaces, or create the workspace in the web app'
+        : 'Only a person creates a workspace: sign in, or use an unscoped personal access token',
+      code: 'new_workspace_requires_person',
+    },
+  };
 }
 
 /**

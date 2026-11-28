@@ -29,7 +29,6 @@ import {
   deleteSessionPrompt,
   editSessionPrompt,
   interruptSessionPrompt,
-  findActiveTranscriptShare,
   getTurnShare,
   shareTurn,
   unshareTurn,
@@ -42,8 +41,6 @@ import {
   getSessionOpenBundle,
   getSessionParticipants,
   getSessionPreviewCandidates,
-  getSessionTranscript,
-  getSessionTranscriptSync,
   getSessionTurn,
   getSessionModelUsage,
   getSessionUsage,
@@ -342,45 +339,6 @@ function share(overrides: Partial<SessionPublicShare>): SessionPublicShare {
   };
 }
 
-test('findActiveTranscriptShare returns the newest live transcript share', () => {
-  const now = new Date('2026-09-26T00:00:00.000Z');
-  const shares = [
-    share({ share_id: 'preview', resource_type: 'preview', port: 3000 }),
-    share({ share_id: 'old', created_at: '2026-09-01T00:00:00.000Z' }),
-    share({
-      share_id: 'new',
-      created_at: '2026-09-20T00:00:00.000Z',
-      expires_at: '2026-10-01T00:00:00.000Z',
-    }),
-    share({
-      share_id: 'revoked',
-      created_at: '2026-09-25T00:00:00.000Z',
-      revoked_at: '2026-09-25T01:00:00.000Z',
-    }),
-    share({
-      share_id: 'expired',
-      created_at: '2026-09-24T00:00:00.000Z',
-      expires_at: '2026-09-25T00:00:00.000Z',
-    }),
-  ];
-  expect(findActiveTranscriptShare(shares, now)?.share_id).toBe('new');
-});
-
-test('findActiveTranscriptShare is null when no transcript share is live', () => {
-  const now = new Date('2026-09-26T00:00:00.000Z');
-  expect(findActiveTranscriptShare([], now)).toBeNull();
-  expect(
-    findActiveTranscriptShare(
-      [
-        share({ resource_type: 'file', file_path: '/workspace/a.md' }),
-        share({ revoked_at: '2026-09-02T00:00:00.000Z' }),
-        share({ expires_at: '2026-09-26T00:00:00.000Z' }),
-      ],
-      now,
-    ),
-  ).toBeNull();
-});
-
 test('revokeSessionPublicShare DELETEs the specific share', async () => {
   nextResponse = { status: 200, body: { share: { share_id: 'SH1' } } };
   await revokeSessionPublicShare('P1', 'S1', 'SH1');
@@ -576,92 +534,6 @@ test('getSessionAudit can poll approvals without refetching historical events', 
   expect(last().url).toBe(
     'http://test.local/workspaces/P1/sessions/S1/audit?limit=1000&cursor=14%7Cevent-14&include_events=false',
   );
-});
-
-test('getSessionTranscript builds the query string from limit/chars options', async () => {
-  nextResponse = {
-    status: 200,
-    body: {
-      available: true,
-      reason: null,
-      runtime_session_id: 'ocs-1',
-      message_count: 0,
-      messages: [],
-    },
-  };
-  await getSessionTranscript('P1', 'S1', { limit: 5, chars: 200 });
-  expect(last().url).toContain('/workspaces/P1/sessions/S1/transcript?limit=5&chars=200');
-
-  await getSessionTranscript('P1', 'S1');
-  expect(last().url).toBe('http://test.local/workspaces/P1/sessions/S1/transcript');
-});
-
-test('getSessionTranscriptSync pages older windows with the previous window cursor', async () => {
-  // The mirror retains a whole history and every reader asks for a tail, so
-  // without a cursor everything before that tail is stored and unreachable.
-  nextResponse = {
-    status: 200,
-    body: {
-      available: true,
-      reason: null,
-      source: 'mirror',
-      complete: false,
-      captured_at: '2026-09-21T00:00:00.000Z',
-      runtime_session_id: 'ocs-1',
-      message_count: 40,
-      total: 242,
-      next_cursor: 'msg_older',
-      messages: [],
-    },
-  };
-  const envelope = await getSessionTranscriptSync('P1', 'S1', {
-    limit: 40,
-    before: 'msg_tail',
-  });
-  expect(last().url).toContain('before=msg_tail');
-  expect(last().url).toContain('shape=sync');
-  // `complete: false` says the window is partial; these two say by how much and
-  // how to reach the rest.
-  expect(envelope.total).toBe(242);
-  expect(envelope.next_cursor).toBe('msg_older');
-});
-
-test("getSessionTranscriptSync reads a sub-agent's own window with `child`", async () => {
-  nextResponse = {
-    status: 200,
-    body: {
-      available: false,
-      reason: null,
-      source: 'none',
-      complete: false,
-      captured_at: null,
-      runtime_session_id: 'ses_sub',
-      message_count: 0,
-      messages: [],
-    },
-  };
-  await getSessionTranscriptSync('P1', 'S1', { limit: 40, child: 'ses_sub' });
-  expect(last().url).toContain('child=ses_sub');
-  await getSessionTranscriptSync('P1', 'S1', { limit: 40 });
-  expect(last().url).not.toContain('child=');
-});
-
-test('getSessionTranscriptSync omits the cursor on a first window', async () => {
-  nextResponse = {
-    status: 200,
-    body: {
-      available: false,
-      reason: null,
-      source: 'none',
-      complete: false,
-      captured_at: null,
-      runtime_session_id: null,
-      message_count: 0,
-      messages: [],
-    },
-  };
-  await getSessionTranscriptSync('P1', 'S1', { limit: 40 });
-  expect(last().url).not.toContain('before=');
 });
 
 test('getSessionTurn hits GET /projects/:id/sessions/:id/turn', async () => {
@@ -1730,12 +1602,13 @@ test('getSessionOpenBundle hits GET /projects/:id/sessions/:sid/snapshot', async
   expect(bundle.observed_at).toBe('now');
 });
 
-test('getSessionOpenBundle asks for the transcript window it was given', async () => {
+test('getSessionOpenBundle always asks for the transcript pointer only', async () => {
   nextResponse = { status: 200, body: { observed_at: 'now' } };
-  await getSessionOpenBundle('P1', 'S1', { transcript: 0 });
-  // `transcript=0` is the POINTER-only read a client with a warm store wants.
-  // Omitting the parameter would silently ask for 40 messages it already has.
-  expect(last().url).toContain('snapshot?transcript=0');
+  await getSessionOpenBundle('P1', 'S1');
+  // `transcript=0`: the leg is the pointer (`requested: false`), the only shape
+  // `SessionOpenBundleTranscript` has. An API older than the v1 removal answers a
+  // 40-message v1 window without it.
+  expect(last().url).toBe('http://test.local/workspaces/P1/sessions/S1/snapshot?transcript=0');
 });
 
 test('getSessionOpenBundle throws when the response is unsuccessful', async () => {

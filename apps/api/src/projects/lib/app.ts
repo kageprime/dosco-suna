@@ -15,8 +15,6 @@ import {
   SessionPromptListSchema as ContractSessionPromptListSchema,
   SessionPromptSchema as ContractSessionPromptSchema,
   SessionSnapshotSchema as ContractSessionSnapshotSchema,
-  SessionTranscriptSchema as ContractSessionTranscriptSchema,
-  SessionTranscriptSyncEnvelopeSchema as ContractSessionTranscriptSyncEnvelopeSchema,
   SessionTurnStatusSchema as ContractSessionTurnStatusSchema,
   TriggerListSchema as ContractTriggerListSchema,
   TriggerRunListSchema as ContractTriggerRunListSchema,
@@ -84,13 +82,6 @@ export const TriggerFireResultSchema = z
     run_id: z.string().nullable().optional(),
   })
   .openapi('TriggerFireResult');
-
-export const SessionTranscriptReadSchema = z
-  .union([
-    ContractSessionTranscriptSchema.openapi('SessionTranscript'),
-    ContractSessionTranscriptSyncEnvelopeSchema.openapi('SessionTranscriptSyncEnvelope'),
-  ])
-  .openapi('SessionTranscriptRead');
 
 export const SessionTurnStatusSchema = ContractSessionTurnStatusSchema.openapi('SessionTurnStatus');
 

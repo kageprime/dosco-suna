@@ -187,7 +187,7 @@ flow("ADM-7", { domain: "admin", routes: ["GET /v1/admin/api/provider-analytics"
       const r = await ctx.client
         .withBearer(ctx.env.adminToken!, "ADMIN_TOKEN")
         .get("/v1/admin/api/provider-analytics", { query: { days: "7" } });
-      r.status(200).body().exists("$.totals").exists("$.providers");
+      r.status(200).body().exists("$.totals").exists("$.providers").exists("$.wakes").exists("$.totals.wakes");
     });
   }
 });

@@ -67,7 +67,8 @@ export function SpaceAvatar({
       </span>
     );
   }
-  // A space wears its own mark, never an agent's: agents are its members.
-  const slug = `space:${space?.space_id ?? label}`;
+  // A chat with one agent (a DM, an agent chat) wears that agent's face, the same mark as its sidebar
+  // row, its welcome and its messages. Any other space wears its own mark: agents are its members.
+  const slug = space?.kind === 'dm' && space.dm_agent_name ? space.dm_agent_name : `space:${space?.space_id ?? label}`;
   return <AgentMark slug={slug} size={s.mark} tile={s.tile} label={label} className={cn(size !== 'sm' && 'rounded-md', className)} />;
 }

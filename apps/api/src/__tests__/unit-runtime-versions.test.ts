@@ -16,6 +16,7 @@ import {
 } from '@kortix/shared';
 import { CODEX_USER_AGENT } from '../llm-gateway/credentials/codex-core';
 import {
+  AGENT_BROWSER_PLUGIN_CONFIG_B64,
   PLATFORM_DEFAULT_USER_DOCKERFILE,
   buildLayeredDockerfile,
 } from '../snapshots/dockerfile-layer';
@@ -64,6 +65,34 @@ describe('runtime version drift guards', () => {
     expect(dockerfile).not.toMatch(/ARG OPENCODE_VERSION=/);
     expect(dockerfile).not.toMatch(/ARG AGENT_BROWSER_VERSION=/);
     expect(dockerfile).not.toMatch(/ARG PLAYWRIGHT_VERSION=/);
+  });
+
+  // Website logins reach a page only through the `kortix` agent-browser
+  // credential plugin. Both images must configure it identically and keep the
+  // daemon from closing an idle browser (agent-browser 0.32+ default: 1 h).
+  test('both sandbox images configure the kortix credential plugin', () => {
+    const config = JSON.parse(atob(AGENT_BROWSER_PLUGIN_CONFIG_B64));
+    expect(config.plugins).toEqual([
+      { name: 'kortix', command: '/usr/local/bin/kortix', args: ['secrets', 'browser-plugin'], capabilities: ['credential.read'] },
+    ]);
+    const merged = buildLayeredDockerfile({
+      userDockerfile: PLATFORM_DEFAULT_USER_DOCKERFILE,
+      agentBrowserVersion: AGENT_BROWSER_VERSION,
+      agentBinaryPath: 'kortix-agent.gz',
+      cliBinaryPath: 'kortix.gz',
+      entrypointScriptPath: 'kortix-entrypoint',
+      machineDocPath: 'MACHINE.md',
+      slackCliPath: 'kortix-slack-cli',
+      managedSkillsPath: 'managed-skills',
+    });
+    for (const dockerfile of [merged, readRepoFile('apps/sandbox/Dockerfile')]) {
+      expect(dockerfile).toContain(
+        `RUN printf %s ${AGENT_BROWSER_PLUGIN_CONFIG_B64} | base64 -d > /home/kortix/.agent-browser/config.json`,
+      );
+      expect(dockerfile).toContain('agent-browser plugin list 2>&1 | grep -q kortix');
+      expect(dockerfile).toContain('AGENT_BROWSER_IDLE_TIMEOUT_MS=0');
+      expect(dockerfile).toContain('AGENT_BROWSER_NO_VERSION_CHECK=1');
+    }
   });
 
   test('generated snapshot Dockerfile uses canonical runtime pins', () => {

@@ -766,6 +766,11 @@ describe('cloudSpawnSession — names, teammates, forks', () => {
     expect(subagentContextFrom(JSON.stringify({ 'kortix.subagent.depth': 1, 'kortix.front.thread': 1 }))).toEqual({ depth: 1 })
   })
 
+  test('subagentContextFrom marks an agent chat thread only for the boolean true', () => {
+    expect(subagentContextFrom(JSON.stringify({ 'kortix.agent_chat': true }))).toEqual({ depth: 0, agentChat: true })
+    expect(subagentContextFrom(JSON.stringify({ 'kortix.agent_chat': 'true' }))).toEqual({ depth: 0 })
+  })
+
   test('subagentContextFrom marks a space watcher only for the boolean true', () => {
     expect(subagentContextFrom(JSON.stringify({ 'kortix.watcher': true }))).toEqual({ depth: 0, watcher: true })
     expect(subagentContextFrom(JSON.stringify({ 'kortix.watcher': 'true' }))).toEqual({ depth: 0 })

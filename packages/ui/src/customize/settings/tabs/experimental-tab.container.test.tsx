@@ -105,7 +105,7 @@ const click = async (el: Element) => {
 const switchOf = (key: string) => document.querySelector(`[aria-labelledby="feature-flag-${key}"]`);
 
 test('an override equal to the default offers no reset', async () => {
-  await mount([flag({ key: 'chat', name: 'Spaces', enabled: true, default_enabled: true })]);
+  await mount([flag({ key: 'channels', name: 'Channels', enabled: true, default_enabled: true })]);
   expect([...document.querySelectorAll('button')].some((b) => b.textContent?.trim() === 'Reset to default')).toBe(false);
 });
 
@@ -117,29 +117,4 @@ test('Reset sends enabled: null, and its switch shows the platform default while
 
   expect(patches).toEqual([{ feature: 'reminders', enabled: null }]);
   expect(switchOf('reminders')?.getAttribute('aria-checked')).toBe('true');
-});
-
-test('a Channels reset that keeps Channels as it is sends at once, with no dialog', async () => {
-  // An override equal to the default offers no reset, so the reset that keeps
-  // Channels in place is the one from a server that sends no default.
-  const patches = await mount([flag({ key: 'chat', name: 'Spaces', enabled: true, default_enabled: undefined })]);
-
-  await click(button('Reset to default'));
-
-  expect(document.body.textContent).not.toContain('Turn off Spaces?');
-  expect(patches).toEqual([{ feature: 'chat', enabled: null }]);
-});
-
-test('a Channels reset that turns Channels off asks first, and sends only on confirm', async () => {
-  const patches = await mount([flag({ key: 'chat', name: 'Spaces', enabled: true, default_enabled: false })]);
-
-  await click(button('Reset to default'));
-
-  expect(document.body.textContent).toContain('Turn off Spaces?');
-  expect(patches).toEqual([]);
-
-  await click(button('Turn off'));
-
-  expect(patches).toEqual([{ feature: 'chat', enabled: null }]);
-  expect(switchOf('chat')?.getAttribute('aria-checked')).toBe('false');
 });

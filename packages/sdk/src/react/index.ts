@@ -200,7 +200,7 @@ export {
 } from './use-calendar';
 export { useRoom, useRoomConversations, useRoomMessages, useRoomThread, useRooms, useSpaceRoom } from './use-rooms';
 export { usePeerMessages, useReachableAgents, useSessionWorkflows, useTeamTasks, useTeammates } from './use-multi-agent';
-export { prefetchArtifact, useArtifact, useArtifactMutations, useArtifactText, useArtifactTypes, useArtifactVersions, useArtifacts } from './use-artifacts';
+export { useArtifactFolders, useArtifactFolderMutations, prefetchArtifact, useArtifact, useArtifactMutations, useArtifactText, useArtifactTypes, useArtifactVersions, useArtifacts } from './use-artifacts';
 export {
   useApproveCaptureDevice,
   useApproveCaptureEnrollment,
@@ -305,6 +305,7 @@ export {
   useJoinWorkspaceSpace, useJoinProjectSpace,
   useLeaveWorkspaceSpace, useLeaveProjectSpace,
   useWorkspaceSpaceMembers, useProjectSpaceMembers,
+  useWorkspaceSpaceActivity,
   useRemoveWorkspaceSpaceMember, useRemoveProjectSpaceMember,
   useCreateWorkspaceSpace, useCreateProjectSpace,
   useMarkChannelsOnboarding,
@@ -322,6 +323,8 @@ export {
   useWorkspaceSpaceProactive, useProjectSpaceProactive,
   useSetWorkspaceSpaceProactive, useSetProjectSpaceProactive,
 } from './use-project-spaces';
+// Agent directory (`channels`): the workspace's agents a person can message.
+export { useSetWorkspaceAgentPaused, useWorkspaceAgentDirectory } from './use-workspace-agent-directory';
 // Session groups (`session_groups`): the project's shared folders of sessions.
 export {
   useCreateWorkspaceSessionGroup, useCreateProjectSessionGroup,

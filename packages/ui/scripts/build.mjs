@@ -119,7 +119,9 @@ for (const file of emitted) {
 }
 
 const cache = join(PKG_DIR, 'node_modules', '.cache', 'kortix-ui-vendor');
-const vendorTypes = join(DIST, '_vendor', 'shared');
+// Shared declarations can reference the dependency-free SDK IAM literals.
+// Preserve their packages-relative paths so those relative imports still resolve.
+const vendorTypes = join(DIST, '_vendor', 'shared', 'src');
 if (values.size > 0) {
   rmSync(cache, { recursive: true, force: true });
   mkdirSync(cache, { recursive: true });
@@ -177,8 +179,8 @@ if (typeSpecs.size > 0) {
         noEmit: false,
         declaration: true,
         emitDeclarationOnly: true,
-        rootDir: join(SHARED_DIR, 'src'),
-        outDir: vendorTypes,
+        rootDir: join(PKG_DIR, '..'),
+        outDir: join(DIST, '_vendor'),
       },
       include: [],
       files: [...typeSpecs].map(sharedSource),

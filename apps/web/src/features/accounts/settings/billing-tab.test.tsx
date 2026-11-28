@@ -257,7 +257,7 @@ describe('BillingTab — cancel control on a subscribed account', () => {
     const html = renderPlan();
     expect(html).toContain('>Credits</p>');
     expect(html).toContain('$100/mo');
-    expect(html).toContain('10,000 credits / month');
+    expect(html).toContain('10,500 credits / month');
     expect(html).toContain('Update plan');
     expect(html).toContain('Cancel subscription');
   });

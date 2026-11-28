@@ -74,7 +74,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { haptics } from '@/lib/haptics';
-import { ChatsTeardropIcon, GlobeIcon, XCircleIcon } from '@/lib/icons';
+import { ChatsTeardropIcon, GlobeIcon, XCircleIcon, XIcon } from '@/lib/icons';
+import { Icon } from '@/components/ui/icon';
 import { useChangeRequestDiff, useChangeRequestMergePreview } from '@/lib/projects/hooks';
 import { hasMergeConflicts, resolveConflictsPrompt } from '@/lib/review/change-request-recovery';
 import { changeRequestWebUrl, reviewDetailRows, splitFilePath } from '@/lib/review/review-detail';
@@ -114,11 +115,15 @@ const PILL = 44;
 const FOOTER_TOP = 12;
 
 /** The sheet's content clears this much bottom so the footer never covers it. */
-const verdictFooterHeight = (showFooter: boolean, count: number, bottomPadding: number) =>
-  showFooter ? FOOTER_TOP + (count > 2 ? count * (PILL + 12) - 12 : PILL) + bottomPadding : 0;
+const verdictFooterHeight = (showFooter: boolean, _count: number, bottomPadding: number) =>
+  showFooter ? FOOTER_TOP + PILL + bottomPadding : 0;
 
-/** The pinned verdict row: two verdicts share one row, 50/50, the primary on
- * the right (Request changes · Merge); three stack, primary first. */
+/**
+ * The pinned verdict row, always one row, the primary on the right (thumb
+ * side): Request changes · Approve. Dismiss is not a third pill: it is the
+ * round ✕ that leads the row, the quiet way out (Jay, 2026-11-23). Three
+ * stacked full-width pills read as a form, not a decision.
+ */
 function VerdictFooter({
   footerProps,
   item,
@@ -140,20 +145,36 @@ function VerdictFooter({
 }) {
   // The sheet's own surface: none on the iOS 26 native glass.
   const background = useSheetSurface() ?? undefined;
+  // `verdicts` lists the primary first. Dismiss is always the round ✕, even
+  // alone (a decision answers from its option rows).
+  const dismiss = verdicts.includes('dismiss') ? ('dismiss' as const) : null;
+  const rest = verdicts.filter((verdict) => verdict !== dismiss);
+  const primary = rest[0];
+  const pills = [...rest].reverse();
   return (
     <SheetFooter {...footerProps}>
       <View
-        className={verdicts.length > 2 ? 'gap-3 px-4' : 'flex-row-reverse gap-3 px-4'}
+        className="flex-row items-center gap-3 px-4"
         style={{ backgroundColor: background, paddingTop: FOOTER_TOP, paddingBottom: bottomPadding }}>
-        {verdicts.map((verdict, index) => {
+        {dismiss ? (
+          <Button
+            variant="secondary"
+            size="icon-lg"
+            className="rounded-full"
+            onPress={() => onVerdict(dismiss)}
+            accessibilityLabel={reviewVerdictLabel(item.kind, dismiss)}>
+            <Icon as={XIcon} size={18} className="text-foreground" />
+          </Button>
+        ) : null}
+        {pills.map((verdict) => {
           // A conflicted change cannot merge: its primary resolves instead.
           const resolves = conflicted && verdict === 'approve';
           return (
             <Button
               key={verdict}
-              variant={verdict === 'dismiss' ? 'ghost' : index === 0 ? 'default' : 'secondary'}
+              variant={verdict === primary ? 'default' : 'secondary'}
               size="lg"
-              className={verdicts.length > 2 ? 'rounded-full' : 'flex-1 rounded-full'}
+              className="flex-1 rounded-full"
               disabled={resolves && !originSessionId}
               onPress={() => (resolves ? resolveConflicts() : onVerdict(verdict))}>
               <Text numberOfLines={1}>
@@ -208,7 +229,7 @@ function ConfirmVerdictDialog({
 
 /** The aligned label · value rows: agent, risk, or a change's number, branch,
  * size and merge state. */
-function DetailRows({ rows }: { rows: ReturnType<typeof reviewDetailRows> }) {
+export function DetailRows({ rows }: { rows: ReturnType<typeof reviewDetailRows> }) {
   if (rows.length === 0) return null;
   return (
     <SettingsGroup title="Details">
@@ -255,15 +276,21 @@ function RequestChangesComposer({
           <Text>Cancel</Text>
         </Button>
         <Button size="lg" className="flex-1 rounded-full" disabled={!feedback.trim()} onPress={() => onSend(feedback.trim())}>
-          <Text>Send</Text>
+          <Text>Send to agent</Text>
         </Button>
       </View>
     </View>
   );
 }
 
+/** The sheet's handle: open and close, and open on "What should change?". */
+export interface ReviewDetailSheetRef extends SheetRef {
+  /** Opens with the Request changes composer up (the deck's left swipe). */
+  openSendBack: () => void;
+}
+
 export const ReviewDetailSheet = React.forwardRef<
-SheetRef, ReviewDetailSheetProps>(
+ReviewDetailSheetRef, ReviewDetailSheetProps>(
   ({ projectId, item, onDismiss, onOpenSession }, ref) => {
     const modalRef = React.useRef<BottomSheetModal>(null);
     const { height } = useWindowDimensions();
@@ -313,6 +340,11 @@ SheetRef, ReviewDetailSheetProps>(
     }, []);
     React.useImperativeHandle(ref, () => ({
       open: () => {
+        presentedRef.current = true;
+        modalRef.current?.present();
+      },
+      openSendBack: () => {
+        setAskingFeedback(true);
         presentedRef.current = true;
         modalRef.current?.present();
       },

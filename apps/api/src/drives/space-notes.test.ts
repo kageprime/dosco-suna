@@ -136,4 +136,16 @@ describe('renderDriveNotes', () => {
     expect(shared).toContain('A shared Drive is seen by everyone who may use this agent.');
     expect(text).not.toContain('`remember`');
   });
+
+  test('a drive on a shared volume is described as live, with no conflict copies; a block drive keeps the conflict copy text', () => {
+    const block = renderDriveNotes([own], []);
+    expect(block).toContain('synced both ways within seconds');
+    expect(block).toContain('(conflict <date> <time>)');
+    expect(block).not.toContain('These folders are live');
+    const live = renderDriveNotes([{ ...own, live: true }], []);
+    expect(live).toContain('These folders are live');
+    expect(live).toContain('the last write wins');
+    expect(live).not.toContain('(conflict <date> <time>)');
+    expect(live).not.toContain('synced both ways');
+  });
 });

@@ -1,5 +1,7 @@
 import { expect } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { runDatabaseSql } from "../database";
 import { installBrowserSessionDirect } from "../session-auth";
 import { expectSettingsLayout } from "../settings-layout";
 import { dismissOnboarding, selectAccountForUi } from "../ui";
@@ -210,6 +212,48 @@ function defineSessionParity(desktop: boolean): void {
         await expectSettingsLayout(page, 1, "minimum window");
         await page.screenshot({ path: test.info().outputPath("settings-minimum-window.png"), scale: "css" });
       } finally {
+        await dispose();
+      }
+    });
+
+    test("the default sidebar opens Review in one click, with what waits on you", async ({
+      page,
+      baseURL,
+      desktopApp,
+    }) => {
+      // Change requests were one tap away in the mobile drawer and had no
+      // sidebar row on web and desktop with `chat` off (2026-11).
+      test.setTimeout(180_000);
+      await resize(page, desktopApp, 1440, 900);
+      const databaseUrl = desktopDatabaseUrl();
+      await pinMacPlatform(page);
+      const { session, user, accounts, project, dispose } = await provisionDesktopScene({
+        databaseUrl,
+        emailPrefix: "e2e-desktop-review",
+        name: "Desktop review row",
+      });
+      const crId = randomUUID();
+      try {
+        await runDatabaseSql(
+          `INSERT INTO kortix.change_requests
+             (cr_id, account_id, project_id, number, title, base_ref, head_ref, created_by)
+           VALUES ($1::uuid, $2::uuid, $3::uuid, 1, 'Desktop parity change', 'main', 'e2e-desktop-review', $4::uuid)`,
+          [crId, accounts[0].account_id, project.id, user.id],
+          databaseUrl,
+        );
+        await installBrowserSessionDirect(page, session, `${baseURL}/workspaces/${project.id}`, authOptions);
+        await selectAccountForUi(page, accounts[0].account_id);
+        await page.goto(`${baseURL}/workspaces/${project.id}`);
+        await dismissOnboarding(page);
+        const review = page.getByRole("link", { name: /^Review/ });
+        await expect(review).toHaveCount(1, { timeout: 60_000 });
+        await expect(review).toHaveText(/^Review\s*1$/, { timeout: 60_000 });
+        await review.click();
+        await expect(page).toHaveURL(new RegExp(`/workspaces/${project.id}/review`));
+        await expect(review).toHaveAttribute("data-active", "true");
+        await expect(page.getByText("Desktop parity change")).toBeVisible({ timeout: 60_000 });
+      } finally {
+        await runDatabaseSql("DELETE FROM kortix.change_requests WHERE cr_id = $1::uuid", [crId], databaseUrl).catch(() => {});
         await dispose();
       }
     });

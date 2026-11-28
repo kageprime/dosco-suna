@@ -3,6 +3,7 @@
 import {
   PROJECT_WIDE_SPACE,
   type Artifact,
+  type ArtifactFolder,
   type ManifestSpace,
 } from '@kortix/sdk';
 import { prefetchArtifact, useArtifactMutations } from '@kortix/sdk/react';
@@ -27,6 +28,7 @@ import { errorToast, successToast } from '@kortix/ui/toast';
 import {
   ArrowSquareOutIcon,
   DotsThreeIcon,
+  FolderIcon,
   PushPinIcon,
   PushPinSlashIcon,
   ShareNetworkIcon,
@@ -45,7 +47,23 @@ import {
   artifactHref,
   relativeTime,
 } from './artifact-meta';
+import { FolderTreeRadioItems, ROOT_FOLDER } from './artifact-folder-tree';
 import { ShareArtifactDialog } from './share-artifact-dialog';
+
+/** The drag payload of a card: its id and current folder, read by a folder drop target. */
+const ARTIFACT_DRAG_TYPE = 'application/x-kortix-artifact';
+type ArtifactDragPayload = { artifactId: string; folderId: string | null };
+
+export function readArtifactDrag(event: React.DragEvent): ArtifactDragPayload | null {
+  try {
+    const raw = event.dataTransfer.getData(ARTIFACT_DRAG_TYPE);
+    return raw ? (JSON.parse(raw) as ArtifactDragPayload) : null;
+  } catch {
+    return null;
+  }
+}
+
+export const isArtifactDrag = (event: React.DragEvent) => event.dataTransfer.types.includes(ARTIFACT_DRAG_TYPE);
 
 /**
  * The grid's column width as `--card-w` on the grid: a card the tab or search
@@ -101,7 +119,9 @@ export const ArtifactCard = memo(function ArtifactCard({
   space,
   current,
   spaces,
+  folders = [],
 }: {
+  folders?: ArtifactFolder[];
   projectId: string;
   artifact: Artifact;
   hidden?: boolean;
@@ -117,12 +137,25 @@ export const ArtifactCard = memo(function ArtifactCard({
   const mutations = useArtifactMutations(projectId);
   const [sharing, setSharing] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const draggable = artifact.can_manage && !hidden && folders.length > 0;
   const VisIcon = VISIBILITY_ICON[artifact.visibility];
   const href = artifactHref(projectId, artifact.artifact_id);
   const queryClient = useQueryClient();
   const warm = () => void prefetchArtifact(queryClient, projectId, artifact.artifact_id).catch(() => {});
   // Grouping only. A space keeps the owning agent; Project-wide clears both,
   // or the agent's own space would still claim the artifact.
+  const moveToFolder = (next: string | null) => {
+    if (next === (artifact.folder_id ?? null)) return;
+    const name = next ? folders.find((f) => f.folder_id === next)?.name : t('title');
+    mutations.update.mutate(
+      { artifactId: artifact.artifact_id, folder_id: next },
+      {
+        onSuccess: () => successToast(name ? t('movedToFolder', { name }) : t('moved')),
+        onError: () => errorToast(t('moveFailed')),
+      },
+    );
+  };
   const moveTo = (target: string | null) =>
     mutations.update.mutate(
       { artifactId: artifact.artifact_id, space: target, ...(target === null ? { agent: null } : {}) },
@@ -135,9 +168,26 @@ export const ArtifactCard = memo(function ArtifactCard({
     // its frame would lose its layout, and a different width would make showing it again resize
     // the frame; both paint the page half done for a frame.
     <div
-      className={hidden ? `${CARD} pointer-events-none fixed top-0 left-0 -z-10 w-(--card-w) opacity-0` : `${CARD} relative`}
+      className={
+        hidden
+          ? `${CARD} pointer-events-none fixed top-0 left-0 -z-10 w-(--card-w) opacity-0`
+          : `${CARD} relative transition-opacity ${dragging ? 'opacity-40' : ''}`
+      }
       inert={hidden}
       aria-hidden={hidden || undefined}
+      // Drag a card onto a folder (or the Artifacts crumb) to file it there.
+      draggable={draggable}
+      onDragStart={
+        draggable
+          ? (event) => {
+              const payload: ArtifactDragPayload = { artifactId: artifact.artifact_id, folderId: artifact.folder_id ?? null };
+              event.dataTransfer.setData(ARTIFACT_DRAG_TYPE, JSON.stringify(payload));
+              event.dataTransfer.effectAllowed = 'move';
+              setDragging(true);
+            }
+          : undefined
+      }
+      onDragEnd={draggable ? () => setDragging(false) : undefined}
     >
       <div className={CARD_PREVIEW}>
         {artifact.view_url ? (
@@ -155,6 +205,8 @@ export const ArtifactCard = memo(function ArtifactCard({
           {/* The whole card is this link (its ::after covers the card); the actions sit above it. */}
           <Link
             href={href}
+            // The card drags, not the link's URL.
+            draggable={false}
             className="truncate text-sm font-medium outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring"
             // Warm the viewer's reads before the click lands.
             onPointerEnter={warm}
@@ -198,6 +250,18 @@ export const ArtifactCard = memo(function ArtifactCard({
                 <DropdownMenuItem onSelect={() => setSharing(true)}>
                   <ShareNetworkIcon /> {t('share')}
                 </DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <FolderIcon /> {t('moveToFolder')}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="max-h-[var(--radix-dropdown-menu-content-available-height)] max-w-64 overflow-y-auto">
+                    <FolderTreeRadioItems
+                      folders={folders}
+                      value={artifact.folder_id ?? ROOT_FOLDER}
+                      onValueChange={moveToFolder}
+                    />
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
                 {spaces.length ? (
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger>

@@ -20,6 +20,9 @@ let createdBoxes = 0;
 let failReadyFor = new Set<string>();
 /** One-shot 40P01 victims the metering fake throws (a deadlock after the row insert committed). */
 let meterFailures = 0;
+let createFails = false;
+let execFails = false;
+const runtimeInputs: StartAppRuntimeInput[] = [];
 
 const realHosting = await import('./hosting');
 mock.module('./hosting', () => ({
@@ -30,16 +33,23 @@ mock.module('./hosting', () => ({
   // The inherited methods resolve providers through the mocked getProvider below.
   AppHostingProvider: class extends realHosting.AppHostingProvider {
     override async createRuntime(input: StartAppRuntimeInput): Promise<AppRuntimeHandle> {
+      runtimeInputs.push(input);
+      if (createFails) throw new Error('provider create failed');
       createdBoxes += 1;
       const externalId = `box-${createdBoxes}`;
       const mounts = Object.entries(input.volumes ?? {}).map(([path, spec]) => `${path}=${spec.volume}`);
       calls.push(`create ${externalId}${mounts.length ? ` mount ${mounts.join(',')}` : ''}`);
-      return { externalId, baseUrl: '', metadata: {}, provider: input.provider, runtimeId: input.runtimeId, controlTokenHash: `hash-${input.runtimeId}` };
+      return { externalId, baseUrl: '', metadata: { providerMarker: 'handle' }, provider: input.provider, runtimeId: input.runtimeId, controlTokenHash: `hash-${input.runtimeId}` };
     }
     override async waitUntilReady(_provider: string, externalId: string): Promise<AppdStatus> {
       calls.push(`ready? ${externalId}`);
       if (failReadyFor.has(externalId)) throw new Error('kortix-appd failed: exit 1');
       return { status: 'running', ready: true };
+    }
+    override async exec(_provider: StartAppRuntimeInput['provider'], externalId: string, command: string[], timeoutMs: number) {
+      calls.push(`exec ${externalId} ${command.join(' ')} timeout=${timeoutMs}`);
+      if (execFails) throw new Error('release exec failed');
+      return { exitCode: 7, stdout: 'out', stderr: 'err' };
     }
     override async stop(_provider: string, externalId: string) { calls.push(`stop ${externalId}`); }
     override async start(_provider: string, externalId: string) { calls.push(`start ${externalId}`); }
@@ -167,6 +177,9 @@ withDb('machines and volumes — real PostgreSQL', () => {
     createdBoxes = 0;
     failReadyFor = new Set();
     meterFailures = 0;
+    createFails = false;
+    execFails = false;
+    runtimeInputs.length = 0;
     await cleanup();
   });
   afterEach(cleanup);
@@ -293,6 +306,92 @@ withDb('machines and volumes — real PostgreSQL', () => {
       group: 'app', machineId: live!.machineId!,
     })).rejects.toThrow(/insert into "kortix"\."app_runtimes"/);
     expect(calls).toContain('remove box-2');
+  });
+
+  test('release-command insert failure removes its box and preserves the database error', async () => {
+    await seedApp();
+    const app = await appRow();
+    const deployment = await release(1, stateless);
+    // An absent deployment violates the real FK only after the provider created the box.
+    await db.delete(appDeployments).where(eq(appDeployments.deploymentId, deployment.deploymentId));
+    await expect(machines.runReleaseCommand({
+      hosting: new AppHostingProvider(), app, deployment, config: stateless,
+      env: { env: {}, secretIdentifiers: [], environmentKeys: [] }, command: 'exit 7',
+    })).rejects.toThrow(/insert into "kortix"\."app_runtimes"/);
+    expect(calls).toEqual(['create box-1', 'remove box-1']);
+    expect(await liveInstances(deployment.deploymentId)).toEqual([]);
+  });
+
+  test('release command keeps its running identity and metadata distinct, then tears down after exec', async () => {
+    await seedApp();
+    const app = await appRow();
+    const deployment = await release(1, stateless);
+    const result = await machines.runReleaseCommand({
+      hosting: new AppHostingProvider(), app, deployment, config: stateless,
+      env: { env: { RELEASE_VALUE: 'different' }, secretIdentifiers: ['SECRET'], environmentKeys: ['RELEASE_VALUE'] },
+      command: 'exit 7', timeoutMs: 4321,
+    });
+    expect(result).toEqual({ exitCode: 7, output: 'out\nerr' });
+    const [row] = await db.select().from(appRuntimes).where(eq(appRuntimes.deploymentId, deployment.deploymentId));
+    expect(row).toMatchObject({ machineId: row?.runtimeId, processGroup: '_release', volumeId: null, idleDeadlineAt: null });
+    expect(row?.metadata).toEqual({ providerMarker: 'handle', machine: { cpuCores: 1, memoryGb: 2, diskGb: 10 }, role: 'release_command' });
+    expect(runtimeInputs[0]).toMatchObject({ envVars: { RELEASE_VALUE: 'different' } });
+    expect(runtimeInputs[0]?.volumes).toBeUndefined();
+    expect(calls).toContain('exec box-1 sh -c exit 7 timeout=4321');
+    expect(calls).toContain('remove box-1');
+  });
+
+  for (const failure of ['exec', 'meter'] as const) {
+    test(`release-command ${failure} failure tears down its inserted runtime`, async () => {
+      await seedApp();
+      const app = await appRow();
+      const deployment = await release(1, stateless);
+      execFails = failure === 'exec';
+      meterFailures = failure === 'meter' ? 1 : 0;
+      await expect(machines.runReleaseCommand({
+        hosting: new AppHostingProvider(), app, deployment, config: stateless,
+        env: { env: {}, secretIdentifiers: [], environmentKeys: [] }, command: 'false',
+      })).rejects.toThrow(failure === 'exec' ? 'release exec failed' : 'deadlock detected');
+      expect(calls).toContain('remove box-1');
+      expect(await liveInstances(deployment.deploymentId)).toEqual([]);
+    });
+  }
+
+  test('normal creation retains a starting row when post-insert metering fails', async () => {
+    await seedApp();
+    const app = await appRow();
+    const deployment = await release(1, stateful);
+    meterFailures = 1;
+    const machineId = '00000000-0000-4000-a000-00000000f106';
+    await expect(machines.createInstance({
+      hosting: new AppHostingProvider(), app, deployment, config: stateful,
+      env: { env: { NORMAL_VALUE: 'normal' }, secretIdentifiers: ['SECRET'], environmentKeys: ['NORMAL_VALUE'] },
+      group: 'app', machineId,
+    })).rejects.toThrow('deadlock detected');
+    const [row] = await liveInstances(deployment.deploymentId);
+    expect(row).toMatchObject({ status: 'starting', machineId, processGroup: 'app' });
+    expect(row?.volumeId).toBeString();
+    expect(row?.idleDeadlineAt).toBeInstanceOf(Date);
+    expect(row?.metadata).toEqual({ providerMarker: 'handle', machine: { cpuCores: 1, memoryGb: 2, diskGb: 10 }, secretIdentifiers: ['SECRET'], environmentKeys: ['NORMAL_VALUE'] });
+    expect(runtimeInputs[0]).toMatchObject({ envVars: { NORMAL_VALUE: 'normal', KORTIX_MACHINE_ID: machineId, KORTIX_PROCESS_GROUP: 'app' } });
+    expect(calls).not.toContain('remove box-1');
+    const [volume] = await db.select().from(appVolumes).where(eq(appVolumes.appId, APP_ID));
+    expect(volume?.attachedRuntimeId).toBe(row?.runtimeId);
+  });
+
+  test('normal provider creation failure releases the acquired volume without inserting a row', async () => {
+    await seedApp();
+    const app = await appRow();
+    const deployment = await release(1, stateful);
+    createFails = true;
+    await expect(machines.createInstance({
+      hosting: new AppHostingProvider(), app, deployment, config: stateful,
+      env: { env: {}, secretIdentifiers: [], environmentKeys: [] }, group: 'app',
+      machineId: '00000000-0000-4000-a000-00000000f107',
+    })).rejects.toThrow('provider create failed');
+    expect(await liveInstances(deployment.deploymentId)).toEqual([]);
+    const [volume] = await db.select().from(appVolumes).where(eq(appVolumes.appId, APP_ID));
+    expect(volume?.attachedRuntimeId).toBeNull();
   });
 
   test('scale reconcile: up creates machines (a mounted group gets one new volume each), down destroys the newest and keeps their volumes', async () => {

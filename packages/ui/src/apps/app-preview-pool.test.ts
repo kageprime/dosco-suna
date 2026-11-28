@@ -150,6 +150,8 @@ test('Refresh loads the App again from a fresh URL; load events drive the status
   const frame = frames().find((node) => node.dataset.frameKey === 'b:1')!;
   frame.listeners.get('load')!();
   pool.reloadFrame('b:1', 'https://b.example.test/?__kortix_access=fresh');
+  // Same key, no remount: the preview's pending cycle starts again (useSlowPreview).
+  expect(pool.frameStatus('b:1')).toBe('loading');
   expect(frame.src).toContain('access=fresh');
   expect(frame.loads).toBe(2);
 });

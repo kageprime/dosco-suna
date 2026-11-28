@@ -58,7 +58,7 @@ import {
 import { StatusDot } from '../../primitives/status';
 import { SettingsSectionHeader } from '../../primitives/settings-section-header';
 import { Switch } from '../../primitives/switch';
-import { AGENT_MODE_LABEL, AGENT_MODES } from '../sections/view/agent-editor-catalog';
+import { agentPromotes, AGENT_MODE_LABEL, AGENT_MODES } from '../sections/view/agent-editor-catalog';
 import { EditorSection, EditorSectionStyleProvider, SettingRow } from '../sections/view/agent-editor-primitives';
 import {
   type AgentConfigSectionKey,
@@ -442,7 +442,13 @@ function OverviewSettings({
           {editor ? (
             <Select
               value={behavior.mode ?? INHERIT}
-              onValueChange={(v) => editor.setOc('mode', v === INHERIT ? undefined : (v as (typeof AGENT_MODES)[number]))}
+              onValueChange={(v) => {
+                const next = v === INHERIT ? undefined : (v as (typeof AGENT_MODES)[number]);
+                editor.setOc('mode', next);
+                // The select is the promote control: promoting a subagent (KRTX-4810) also
+                // clears "Show in pickers", so the promoted agent lands in the pickers.
+                if (agentPromotes(behavior.mode, next)) editor.setOc('hidden', undefined);
+              }}
             >
               <SelectTrigger aria-label={t('whoStarts')} size="sm" className="w-full">
                 <SelectValue />

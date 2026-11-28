@@ -5,7 +5,7 @@
  * flag, does no I/O, and returns either the parsed write input or the exact
  * response the route must send. The checks that need the database — the
  * network-boundary destination conflict, the existing-row lookup behind
- * value-required, the secrets_egress gate and the identifier-key conflict —
+ * value-required and the identifier-key conflict —
  * stay in the route handler (routes/secrets.ts), which runs them in the same
  * order after this resolver returns ok.
  *
@@ -26,7 +26,7 @@ import { CODEX_AUTH_JSON_SECRET_NAME, isTeamsInstallSecretName, normalizeString 
  * like an exact connector URL. Not a refusal of the agent as such.
  */
 export const SECRET_DELIVERY_NEEDS_PERSON =
-  "A secret's delivery policy decides which hosts may receive its value, so a person approves it: an owner, admin or manager sets it in Customize → Secrets. An agent session may create a plain runtime secret or a connector-scoped one.";
+  "A secret's delivery policy decides which hosts may receive its value, so a person approves it: an owner, admin or manager opens the secret in Customize → Secrets, sets \"Can your code read this value?\" to \"Enforce at the network\" and lists its approved hosts, or runs `kortix secrets delivery <IDENTIFIER> enforced --allow-host <host>`. An agent session may create a plain runtime secret or a connector-scoped one.";
 
 export type SecretWriteInput = {
   name: string;

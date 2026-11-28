@@ -34,7 +34,7 @@ PROD = "apps/api/.env.prod"
 # any non-space, non-slash, non-@ character, quotes included.
 DSN_RE = re.compile(r"^[a-z][a-z0-9+.-]*://[^/@\s]+@", re.IGNORECASE)
 
-# Every host under the production apex IS the production stack (supa., gateway., prod-fe-ecs.,
+# Every host under the production apex IS the production stack (supa., gateway., api.,
 # ...), whatever the label. These are their own environments despite the apex, and a local
 # *.kortix.internal name is neither.
 PROD_APEX = "kortix.com"

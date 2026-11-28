@@ -46,7 +46,12 @@ function cliCommands(): Set<string> {
 
 function featureFlagKeys(): Set<string> {
   const registry = readRepo('apps/api/src/feature-flags/registry.ts');
-  return new Set([...registry.matchAll(/^\s*key:\s*'([a-z][a-z0-9_]*)',/gm)].map((m) => m[1]));
+  const keys = new Set([...registry.matchAll(/^\s*key:\s*'([a-z][a-z0-9_]*)',/gm)].map((m) => m[1]));
+  // `chrome` graduated on 2026-11-24 and is no project flag. kortix-chrome keeps
+  // `kortix-feature-flag: chrome` as the platform switch KORTIX_CHROME_ENABLED
+  // (apps/api/src/skills/index.ts `offered`): a self-hosted server has no skill.
+  keys.add('chrome');
+  return keys;
 }
 
 interface CodeBlock {

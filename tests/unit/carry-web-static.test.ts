@@ -51,6 +51,11 @@ describe('carry-web-static', () => {
     expect(readFileSync(join(next, 'chunks/shared.js'), 'utf8')).toBe('current');
     expect(out).toContain('cannot read missing');
     expect(out).toContain('2 builds');
+
+    // Repeated carries must not overwrite the current build or duplicate files.
+    const repeated = carry(next, 5, ['previous']);
+    expect(readFileSync(join(next, 'chunks/shared.js'), 'utf8')).toBe('current');
+    expect(repeated).toContain('0 carried');
   });
 
   it('drops the files of builds older than the newest <keep> builds', () => {

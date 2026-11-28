@@ -178,4 +178,12 @@ describe('deliverableKindLabel (W3)', () => {
     expect(deliverableKindLabel({ name: 'index.html', kind: 'file' })).toBe('Web page');
     expect(deliverableKindLabel({ name: 'main.ts', kind: 'file' })).toBe('File');
   });
+
+  test('names an audio file Audio, and ranks it with video', () => {
+    const videoRank = outputRank({ name: 'clip.mp4', kind: 'file', shown: false });
+    for (const name of ['song.mp3', 'take.WAV', 'memo.m4a', 'loop.ogg']) {
+      expect(deliverableKindLabel({ name, kind: 'file' })).toBe('Audio');
+      expect(outputRank({ name, kind: 'file', shown: false })).toBe(videoRank);
+    }
+  });
 });

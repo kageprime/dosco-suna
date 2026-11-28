@@ -48,7 +48,7 @@ export function TurnWorkAccordion({
   contentId?: string;
 }) {
   return (
-    <div className={cn('flex items-center', open && 'border-border/60 border-b pb-2')}>
+    <div className={cn('flex items-center', open && 'border-border border-b pb-2')}>
       <button
         type="button"
         aria-expanded={open}

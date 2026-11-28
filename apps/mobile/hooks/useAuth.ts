@@ -6,7 +6,6 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import { Platform, AppState, AppStateStatus } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { shouldUseRevenueCat } from '@/lib/billing/provider';
 import {
   clearWebRegistrationHandoff,
   consumeAuthCallbackState,
@@ -40,7 +39,6 @@ import { useComposerDraftStore } from '@/stores/composer-draft-store';
 import { useSessionFilterStore } from '@/stores/session-filter-store';
 import { useSessionTreeStore } from '@/stores/session-tree-store';
 
-import { useTracking } from '@/contexts/TrackingContext';
 import type {
   AuthState,
   SignInCredentials,
@@ -86,17 +84,6 @@ WebBrowser.maybeCompleteAuthSession();
  */
 const AUTH_RESTORE_DEADLINE_MS = 8_000;
 const AUTH_RESTORE_TIMED_OUT = Symbol('auth-restore-timed-out');
-
-/**
- * RevenueCat's module constructs a native event emitter on import, so it is
- * required only when billing uses it.
- */
-function initializeRevenueCat(
-  ...args: Parameters<typeof import('@/lib/billing/revenuecat').initializeRevenueCat>
-) {
-  const revenueCat: typeof import('@/lib/billing/revenuecat') = require('@/lib/billing/revenuecat');
-  return revenueCat.initializeRevenueCat(...args);
-}
 
 /** The raw session supabase-js persisted, or null when absent or unreadable. */
 async function readStoredSessionRaw(): Promise<string | null> {
@@ -183,7 +170,6 @@ function nextAuthState(prev: UserState, session: Session | null): UserState {
 
 export function useAuth() {
   const queryClient = useQueryClient();
-  const { canTrack } = useTracking();
   const [authState, setAuthState] = useState<UserState>({
     user: null,
     isLoading: true,
@@ -194,8 +180,6 @@ export function useAuth() {
   const [error, setError] = useState<AuthError | null>(null);
   const [oauthRejection, setOauthRejection] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const initializedUserIdRef = useRef<string | null>(null);
-  const initializedCanTrackRef = useRef<boolean | null>(null);
   const oauthSessionActiveRef = useRef<boolean>(false);
   // True once a real auth answer (restore or auth event) has set the state, so
   // the stalled-restore fallback never overwrites it.
@@ -221,23 +205,6 @@ export function useAuth() {
 
       setAuthState((prev) => nextAuthState(prev, session));
       void applyProfileLocale(session?.user);
-
-      if (session?.user && shouldUseRevenueCat()) {
-        // Only initialize if user changed or canTrack changed from false to true
-        const shouldInitialize =
-          initializedUserIdRef.current !== session.user.id ||
-          (canTrack && initializedCanTrackRef.current !== canTrack);
-
-        if (shouldInitialize) {
-          try {
-            await initializeRevenueCat(session.user.id, session.user.email, canTrack);
-            initializedUserIdRef.current = session.user.id;
-            initializedCanTrackRef.current = canTrack;
-          } catch (error) {
-            log.warn('⚠️ Failed to initialize RevenueCat:', error);
-          }
-        }
-      }
     };
 
     // The restore stalled or failed: decide from the session on disk. A stored
@@ -271,7 +238,7 @@ export function useAuth() {
     };
   }, []); // Only run once on mount
 
-  // Handle auth state changes and canTrack changes
+  // Handle auth state changes
   useEffect(() => {
     const {
       data: { subscription },
@@ -316,52 +283,11 @@ export function useAuth() {
         authResolvedRef.current = true;
         setAuthState((prev) => nextAuthState(prev, session));
         void applyProfileLocale(session?.user);
-
-        if (session?.user && shouldUseRevenueCat() && _event === 'SIGNED_IN') {
-          // Only initialize if user changed or canTrack changed from false to true
-          const shouldInitialize =
-            initializedUserIdRef.current !== session.user.id ||
-            (canTrack && initializedCanTrackRef.current !== canTrack);
-
-          if (shouldInitialize) {
-            try {
-              await initializeRevenueCat(session.user.id, session.user.email, canTrack);
-              initializedUserIdRef.current = session.user.id;
-              initializedCanTrackRef.current = canTrack;
-            } catch (error) {
-              log.warn('⚠️ Failed to initialize RevenueCat:', error);
-            }
-          }
-        } else if (_event === 'SIGNED_OUT') {
-          initializedUserIdRef.current = null;
-          initializedCanTrackRef.current = null;
-        }
       }
     );
 
     return () => subscription.unsubscribe();
-  }, [canTrack]); // Only depend on canTrack, not trackingLoading
-
-  // Handle canTrack changes for already-initialized RevenueCat
-  useEffect(() => {
-    if (!authState.user || !shouldUseRevenueCat() || !canTrack) {
-      return;
-    }
-
-    // If RevenueCat was initialized with canTrack=false but now it's true, update it
-    if (
-      initializedUserIdRef.current === authState.user.id &&
-      initializedCanTrackRef.current !== canTrack
-    ) {
-      initializeRevenueCat(authState.user.id, authState.user.email, canTrack)
-        .then(() => {
-          initializedCanTrackRef.current = canTrack;
-        })
-        .catch((error) => {
-          log.warn('⚠️ Failed to update RevenueCat tracking:', error);
-        });
-    }
-  }, [canTrack, authState.user]); // Update when canTrack or user changes
+  }, []);
 
   const signIn = useCallback(
     async ({ email, password }: SignInCredentials) => {
@@ -1037,16 +963,6 @@ export function useAuth() {
       // query client clear below would otherwise schedule one more write.
       await queryCachePersistence.release();
       await releaseSavedCopies();
-
-      if (shouldUseRevenueCat()) {
-        try {
-          const { logoutRevenueCat } = require('@/lib/billing/revenuecat');
-          await logoutRevenueCat();
-          log.log('✅ RevenueCat logout completed - subscription detached from device');
-        } catch (rcError) {
-          log.warn('⚠️  RevenueCat logout failed (non-critical):', rcError);
-        }
-      }
 
       // Delete this device's push token row while the auth token still works.
       // Bounded (3 s) and never throws: sign-out does not wait on it failing.

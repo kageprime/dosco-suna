@@ -187,6 +187,11 @@ gh pr view <pr> --json body --jq .body | grep -cE '\]\(\./output/'              
 - Self-merge when the change is verified (`AGENTS.md` → "Default delivery", rule 5): the
   local checks passed and the PR is mergeable. Do not wait for the user's approval, and do
   not wait for a CI check: none runs. `gh pr merge <pr> --squash`.
+- Right before the merge, run `scripts/check-strix-review.sh <pr>`. Strix posts a security
+  review about a minute after a PR opens. Exit 2: no finished review yet, so wait and run
+  it again. Exit 1: the review lists findings to fix before merging. Fix each one, push,
+  re-run the review from its link, and check again. A review of an older commit passes
+  with a warning; re-run it after a push that changes security-relevant code.
 - A PR that adds a file under `packages/db/migrations/`: run
   `sh scripts/check-migration-order.sh --pr <pr>` right before `gh pr merge`. It fetches
   `origin/dev` and the PR head, and exits 1 when a new migration sorts at or before dev's

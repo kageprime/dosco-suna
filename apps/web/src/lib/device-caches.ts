@@ -130,11 +130,8 @@ export function adoptDeviceCaches(userId: string): void {
     const copies = copyStorage ? createSavedCopyStore({ storage: copyStorage, userId }) : null;
     const opensOn = sessionInUrl();
     if (copyStorage && copies && opensOn) {
-      const v1Key = copies.keyFor(opensOn.projectId, opensOn.sessionId);
-      copyStorage.prefetch(v1Key);
-      // A project with the `session_log` flag on keeps the session-log page instead, under
-      // `<namespace>.log:` (the SDK's `createSavedCopyStore`, #10305).
-      copyStorage.prefetch(v1Key.replace(/^([^:]+):/, '$1.log:'));
+      // The session-log page the device kept (`<namespace>.log:<user>:<project>/<session>`).
+      copyStorage.prefetch(copies.keyFor(opensOn.projectId, opensOn.sessionId));
     }
     setSavedCopyStore(copies);
 

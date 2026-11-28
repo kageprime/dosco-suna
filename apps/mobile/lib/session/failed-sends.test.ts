@@ -1,7 +1,19 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 
+import { SESSION_LOG_MINOR, SESSION_LOG_SCHEMA, sessionLogTurns, type SessionLogMessage, type SessionLogThread } from '@kortix/sdk';
+
 import { localUriOf } from './optimistic-parts';
-import { sendIdsFor, useFailedSendStore, withFailed, withoutFailed, failedSendMessages } from './failed-sends';
+import {
+  failedSendMessages,
+  sendIdsFor,
+  serverHeldSendIds,
+  threadWithFailedSends,
+  unsentFailedSends,
+  useFailedSendStore,
+  withFailed,
+  withoutFailed,
+  type FailedSend,
+} from './failed-sends';
 
 const send = { text: 'hello', options: { agent: 'kortix' } };
 
@@ -94,5 +106,103 @@ describe('failedSendMessages', () => {
 
   test('no failed send, no message', () => {
     expect(failedSendMessages('ses_1', {})).toEqual([]);
+  });
+});
+
+// A thread as the session log serves it: synthetic ids, server times in ms.
+function logMessage(id: string, role: 'user' | 'assistant', atMs: number, seq: number, replyTo?: string): SessionLogMessage {
+  return {
+    schema: SESSION_LOG_SCHEMA, v: SESSION_LOG_MINOR, message_id: id, thread_id: 'ses_1', seq, role, kind: 'turn',
+    status: 'complete', in_context: true, origin: role === 'user' ? 'prompt' : 'model', model: null, usage: null,
+    finish: null, error: null, created_at: new Date(atMs).toISOString(), completed_at: null,
+    producer: { harness: 'pi', harness_version: '', adapter_version: '1' },
+    ...(replyTo ? { reply_to: replyTo } : {}),
+    blocks: [{ type: 'text', id: `${id}_t`, text: id }],
+  } as SessionLogMessage;
+}
+
+function logThread(messages: SessionLogMessage[]): SessionLogThread {
+  return {
+    schema: SESSION_LOG_SCHEMA, v: SESSION_LOG_MINOR, thread_id: 'ses_1', parent_thread_id: null, spawned_by: null,
+    agent: null, title: null, created_at: new Date(0).toISOString(), messages,
+  } as SessionLogThread;
+}
+
+// Two answered turns: "first" at 10 s, "third" at 30 s.
+const twoTurns = () =>
+  logThread([
+    logMessage('msg_first', 'user', 10_000, 2),
+    logMessage('msg_first_reply', 'assistant', 11_000, 3, 'msg_first'),
+    logMessage('msg_third', 'user', 30_000, 5),
+    logMessage('msg_third_reply', 'assistant', 31_000, 6, 'msg_third'),
+  ]);
+
+const failedAt = (atMs: number, extra: Partial<FailedSend> = {}): FailedSend => ({
+  text: 'not sent',
+  options: {},
+  failedAtMs: atMs,
+  ...extra,
+});
+
+describe('threadWithFailedSends', () => {
+  test('a failed send stays where the user sent it, not under every later turn', () => {
+    const thread = threadWithFailedSends(twoTurns(), { msg_second: failedAt(20_000) });
+    const turns = sessionLogTurns(thread, { busy: false });
+    expect(turns.map((t) => t.user.message_id)).toEqual(['msg_first', 'msg_second', 'msg_third']);
+  });
+
+  test('a failed send keeps no reply of the turn before it', () => {
+    const thread = threadWithFailedSends(twoTurns(), { msg_second: failedAt(20_000) });
+    const turns = sessionLogTurns(thread, { busy: false });
+    expect(turns.map((t) => t.assistant.map((m) => m.message_id))).toEqual([['msg_first_reply'], [], ['msg_third_reply']]);
+  });
+
+  test('a failed send after the last turn is the last turn', () => {
+    const thread = threadWithFailedSends(twoTurns(), { msg_last: failedAt(40_000) });
+    expect(sessionLogTurns(thread, { busy: false }).map((t) => t.user.message_id)).toEqual(['msg_first', 'msg_third', 'msg_last']);
+  });
+
+  test('two failed sends keep their order, each between its neighbours', () => {
+    const thread = threadWithFailedSends(twoTurns(), { msg_b: failedAt(35_000), msg_a: failedAt(5_000) });
+    expect(sessionLogTurns(thread, { busy: false }).map((t) => t.user.message_id)).toEqual(['msg_a', 'msg_first', 'msg_third', 'msg_b']);
+  });
+
+  test("a failed copy takes the seq of the message before it, so the thread's seq never falls", () => {
+    const thread = threadWithFailedSends(twoTurns(), { msg_second: failedAt(20_000), msg_a: failedAt(5_000) });
+    const seqs = thread.messages.map((m) => m.seq);
+    expect(seqs).toEqual([...seqs].sort((a, b) => a - b));
+    expect(Math.max(...seqs)).toBe(6);
+  });
+
+  test('no failed send keeps the same thread object', () => {
+    const thread = twoTurns();
+    expect(threadWithFailedSends(thread, {})).toBe(thread);
+  });
+});
+
+describe('serverHeldSendIds and unsentFailedSends', () => {
+  const failed = {
+    msg_answered: failedAt(20_000, { clientMessageId: 'c_answered', messageId: 'msg_answered' }),
+    msg_queued: failedAt(21_000, { clientMessageId: 'c_queued', messageId: 'msg_queued' }),
+    msg_sent: failedAt(22_000, { clientMessageId: 'c_sent', messageId: 'msg_sent' }),
+    msg_reminted: failedAt(23_000, { clientMessageId: 'c_reminted', messageId: 'msg_reminted' }),
+    msg_lost: failedAt(24_000, { clientMessageId: 'c_lost', messageId: 'msg_lost' }),
+  };
+
+  test('a send the server holds is not "Not sent": its log message, inbox row or sent entry proves it arrived', () => {
+    const held = serverHeldSendIds({
+      // The request reached the server and only its answer was lost: the log holds the message.
+      messages: [logMessage('msg_answered', 'user', 20_000, 7)],
+      // Still in the inbox (queued, delivering, or failed on the server: "Up next" shows it).
+      prompts: [{ client_message_id: 'c_queued', message_id: 'msg_queued_server' }],
+      // Accepted by the runtime, not in the log yet; one re-minted, listed under its wire id.
+      sent: [{ message_id: 'msg_sent' }, { message_id: 'msg_new_id', wire_message_id: 'msg_reminted' }],
+    });
+    expect(Object.keys(unsentFailedSends(failed, held))).toEqual(['msg_lost']);
+  });
+
+  test('nothing held keeps every failed send, as the same object', () => {
+    const none = serverHeldSendIds({ messages: [], prompts: [], sent: [] });
+    expect(unsentFailedSends(failed, none)).toBe(failed);
   });
 });

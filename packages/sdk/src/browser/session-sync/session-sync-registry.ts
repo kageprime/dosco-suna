@@ -10,11 +10,12 @@ import {
 } from '../../core/session-sync/session-sync-controller';
 import { getCurrentRuntimeSandboxId, getCurrentRuntimeUrl } from '../../core/session/current-runtime';
 import { useSyncStore } from '../stores/sync-store';
+import { compareStrings } from '../stores/sync-store/binary';
 import { getSessionLogPage } from '../../core/rest/projects-client/sessions';
 import { EMPTY_SESSION_LOG_STATE, applySessionLogPage, type SessionLogState } from '../../core/session-log/store';
 import { loadSessionLogPage, readSessionLogAnswer } from '../../core/session-log/source';
 import { sessionLogRowsFor, sessionLogThreadIdOf } from '../../core/session-log/v1-view';
-import { parseKortixSessionScope } from './server-transcript-mirror';
+import { parseKortixSessionScope } from './session-scope';
 
 interface MessagesResponse {
   data?: Array<{ info: Message; parts: Part[] }>;
@@ -95,11 +96,6 @@ function findExistingSessionEntry(
     match = entry;
   }
   return match;
-}
-
-/** Lexicographic compare, as upstream's `cmp` (`server-session.ts:28`). */
-function cmp(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /**
@@ -204,9 +200,9 @@ export async function readSessionMessagePage(
         info: item.info,
         parts: (Array.isArray(item.parts) ? item.parts : [])
           .filter((part) => !!part?.id)
-          .sort((a, b) => cmp(a.id, b.id)),
+          .sort((a, b) => compareStrings(a.id, b.id)),
       }))
-      .sort((a, b) => cmp(messageKey(a.info), messageKey(b.info))),
+      .sort((a, b) => compareStrings(messageKey(a.info), messageKey(b.info))),
     nextCursor: result.response?.headers.get('x-next-cursor') || undefined,
   };
 }
@@ -419,8 +415,8 @@ export async function loadSessionRuntimeStatus(
   return result.data[sessionId] ?? ({ type: 'idle' } as SessionStatus);
 }
 
-/** @deprecated Reads the runtime's v1 messages. Use `loadSessionExportMessages` (the session log first) or `getSessionLogPage`. Removed in the next major. */
-export function loadSessionTranscriptMessages(
+/** Every message the runtime holds for `sessionId`, oldest first: the export's read while the computer runs. */
+function loadRuntimeHistory(
   sessionId: string,
 ): Promise<SessionSyncPage['messages']> {
   return loadCompleteSessionHistory((request) =>
@@ -484,7 +480,7 @@ export async function loadSessionExportMessages(
   if (saved && log) return loadSessionLogExportRows(saved.projectId, saved.sessionId, sessionId, log);
   let live: SessionSyncPage['messages'] = [];
   try {
-    live = await loadSessionTranscriptMessages(sessionId);
+    live = await loadRuntimeHistory(sessionId);
   } catch (error) {
     if (!saved) throw error;
   }

@@ -235,7 +235,7 @@ describe('buildMinimalAccountState — credit row dedupe + concurrency (measured
     const state = await buildMinimalAccountState('acct-1');
     expect(state.plan_comp).toEqual({ until, source: 'workspace_split' });
     expect(state.credits.expires_at).toBe(until);
-    expect(state.tier.monthly_credits).toBe(300);
+    expect(state.tier.monthly_credits).toBe(330); // $300 + its 10% volume bonus
     expect(state.plan?.family).toBe('credits');
   });
 
@@ -266,7 +266,7 @@ describe('buildMinimalAccountState — credit row dedupe + concurrency (measured
     expect(state.credits.can_run).toBe(false);
     expect(state.has_active_subscription).toBe(true);
     expect(state.plan?.monthly_usd).toBe(100);
-    expect(state.tier.monthly_credits).toBe(100);
+    expect(state.tier.monthly_credits).toBe(105); // the billed $100 + its 5% volume bonus
   });
 
   test('a credits account whose subscription lapsed and whose wallet is drained is out_of_credits, not no_subscription', async () => {
@@ -451,8 +451,9 @@ describe('buildMinimalAccountState — plan changes', () => {
     expect(state.subscription.has_scheduled_change).toBe(true);
     expect(state.subscription.scheduled_change).toEqual({
       type: 'downgrade',
-      current_tier: { name: 'credits', display_name: 'Credits', monthly_credits: 500_000, monthly_usd: 5000 },
-      target_tier: { name: 'credits', display_name: 'Credits', monthly_credits: 300_000, monthly_usd: 3000 },
+      // Credits include each amount's volume bonus: +25% at both $5,000 and $3,000.
+      current_tier: { name: 'credits', display_name: 'Credits', monthly_credits: 625_000, monthly_usd: 5000 },
+      target_tier: { name: 'credits', display_name: 'Credits', monthly_credits: 375_000, monthly_usd: 3000 },
       effective_date: '2026-11-14T00:00:00.000Z',
     });
   });

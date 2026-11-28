@@ -146,7 +146,7 @@ export function tabRoute(path: string, projectId: string): TabRoute | null {
  * connector, one eval job) belongs to that section's tab. Every other page
  * belongs to its area (Goals and one goal, Apps and one App), one tab each.
  */
-export function tabGroup(route: TabRoute): string {
+function tabGroup(route: TabRoute): string {
   switch (route.kind) {
     case 'home':
       return HOME_GROUP;

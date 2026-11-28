@@ -380,7 +380,8 @@ code on `workspaces` at the Auth stage.
 | Session token (`KORTIX_TOKEN`, `session_id` set) | `account_tokens` | W and the session | W, own-session sinks | the launcher (inherited) or `grant ∩ ceiling` (governed), minus HUMAN_ONLY |
 | Service account key (`kortix_sa_`) | `service_accounts` | its account | its account's workspace (`resolvePrincipal`) | its assigned roles |
 | OAuth token, bound (`kortix_oat_`, `bound_workspace_id = W`) | `oauth_access_tokens` | W, chosen on consent | W only (fence, as a workspace key) | the approving person |
-| OAuth token, unbound (`bound_workspace_id IS NULL`, every token before 2026-11-06) | `oauth_access_tokens` | the person | every workspace of the person | the approving person |
+| OAuth token, unbound (`bound_workspace_id IS NULL`: the consent chose All my workspaces, or every token before 2026-11-06) | `oauth_access_tokens` | the person | every workspace of the person; may create a workspace (2026-11-23) | the approving person |
+| App viewer token (`kortix_oat_`, client with `app_id`) | `oauth_access_tokens` | the person, unbound | every workspace of the person, `viewer_token_scope: api` only; never creates a workspace | the App acting for its viewer |
 | Gateway key (`kortix_gw_`) | `gateway_api_keys` | W | the LLM gateway inference routes of W | W |
 | SCIM token (`kortix_scim_`) | `scim_tokens` | the account | `/scim/v2/accounts/<id>` | the directory |
 
@@ -433,7 +434,11 @@ the Kortix browser extension, whose surfaces are person routes). `POST /authoriz
 and writes `bound_workspace_id` on the code; the code exchange and every refresh copy it onto the
 access and refresh tokens (migrations `…153450000`, `…153460000`). `applyOAuthAccessTokenPrincipal`
 runs the fence for a bound token and sets `tokenProjectId`; the preview proxy and Chrome socket
-refuse it outside W. A consent without `workspace_id` stays unbound (older web, rollout).
+refuse it outside W. A consent without `workspace_id` stays unbound: the consent screen's All my
+workspaces choice (the picker's default when the app asks for `kortix`, 2026-11-23) and older web. A bound token's
+fence refusal appends `OAUTH_BOUND_REMEDY` (`middleware/auth-oauth.ts`): reconnect and choose All my
+workspaces. `newWorkspaceCallerDenial` counts an unbound consent token as a person (it creates
+workspaces and lists across accounts); an App viewer token (`oauthAppId` set) never.
 
 **Decision order for one request.**
 

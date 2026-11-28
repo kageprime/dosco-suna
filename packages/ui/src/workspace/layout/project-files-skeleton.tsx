@@ -21,7 +21,7 @@ export function ProjectFilesSkeleton() {
           second toolbar row to placehold any more: the path strip below it
           only renders once you are inside a folder, and this boundary always
           paints at the root. */}
-      <div className="border-border/60 flex h-11 shrink-0 items-center gap-2 border-b px-2">
+      <div className="border-border flex h-11 shrink-0 items-center gap-2 border-b px-2">
         <Skeleton className="size-7 rounded-md" />
         <Skeleton className="h-4 w-16 rounded" />
         <div className="ml-auto flex items-center gap-1.5">

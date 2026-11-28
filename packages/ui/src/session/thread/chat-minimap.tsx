@@ -234,7 +234,12 @@ export function ChatMinimap({ turns, scrollRef, contentRef }: ChatMinimapProps) 
               onPointerEnter={() => focusRow(row)}
               onFocus={() => focusRow(row)}
               onBlur={() => focusRow(null)}
-              onClick={() => handleJump(item.id)}
+              // The jump shows the message itself, so its preview closes: a preview left
+              // over the transcript hid the very text the reader jumped to.
+              onClick={() => {
+                handleJump(item.id);
+                focusRow(null);
+              }}
             >
               <span
                 aria-hidden

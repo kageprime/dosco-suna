@@ -147,7 +147,7 @@ describe('an errored task dispatch renders as a dispatch row, not a dead error c
     expect(html).toContain('The agent stopped before it finished.');
   });
 
-  test('an errored task without a child id keeps the generic error card', () => {
+  test('an errored task without a child id is an agent row that says why', () => {
     const orphan = {
       ...FAILED_TASK,
       state: {
@@ -158,9 +158,54 @@ describe('an errored task dispatch renders as a dispatch row, not a dead error c
     } satisfies ToolPart;
     const html = renderPanel(orphan);
     expect(html).not.toContain('Open full view');
-    // The generic card's own trigger: humanized tool name + "failed".
-    expect(html).toContain('>Task</span>');
-    expect(html).toContain('title="failed"');
+    // The agent row, never the generic "Task failed" card: the reason is on the row.
+    expect(html).toContain('data-slot="agent-chip"');
+    expect(html).toContain('Didn’t start');
+    expect(html).not.toContain('title="failed"');
+  });
+
+  test('a failed named colleague shows its name, not "Agent failed"', () => {
+    const named = {
+      ...FAILED_TASK,
+      tool: 'agent',
+      state: {
+        ...FAILED_TASK.state,
+        input: { name: 'market-scout', session: 'same', prompt: 'Size the demand.', agent: { instructions: 'x', description: 'Demand researcher' } },
+        metadata: {},
+        error: 'A name makes a subagent addressable in its own session: omit session, or omit name.',
+      },
+    } as unknown as ToolPart;
+    const html = renderPanel(named);
+    expect(html).toContain('market-scout');
+    expect(html).toContain('Didn’t start');
+    // The model-facing error stays out of the closed row; the fold has it under Details.
+    expect(html).not.toContain('A name makes a subagent addressable');
+    expect(html).not.toContain('>Agent</span>');
+    const open = renderPanel(named, { defaultOpen: true });
+    expect(open).toContain('couldn’t start this colleague');
+  });
+
+  test('an inline agent spec is named by its role, never "Inline"', () => {
+    const inline = {
+      ...FAILED_TASK,
+      tool: 'agent',
+      state: {
+        status: 'completed',
+        input: { description: 'Size the demand', prompt: 'Size the demand.', session: 'same', agent: { instructions: 'x', description: 'Demand researcher' } },
+        metadata: {},
+        output: 'done',
+      },
+    } as unknown as ToolPart;
+    const html = renderPanel(inline);
+    expect(html).toContain('Demand researcher');
+    expect(html).not.toContain('>Inline<');
+  });
+
+  test('a policy refusal reads as blocked, with who can unblock it', () => {
+    const denied = { ...THROWN, tool: 'workflow', state: { status: 'error', input: {}, error: 'The project policy denies this workflow call.' } } as unknown as ToolPart;
+    const html = renderPanel(denied);
+    expect(html).toContain('Blocked by this workspace’s policy. Ask a workspace admin to allow it.');
+    expect(html).not.toContain('failed ·');
   });
 
   test('an errored bash call keeps the generic error card (no child thread)', () => {
@@ -186,7 +231,8 @@ describe('ToolPartRenderer forwards the open props to every branch', () => {
     // Closed — and a real control, not the dead row a dropped prop produced.
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('role="button"');
-    expect(html).not.toContain('ENOENT: no such file or directory');
+    // The closed row names the reason in one line; the full error is in the fold.
+    expect(html).toContain('failed · ENOENT: no such file or directory');
   });
 
   test('an unregistered (MCP) tool opens with defaultOpen — GenericTool gets the prop', () => {

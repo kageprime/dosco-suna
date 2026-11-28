@@ -70,7 +70,7 @@ module "network" {
   name               = local.name
   cidr               = "10.24.0.0/16" # distinct from staging (10.20), dev-use2 (10.14), prod (10.20 eu-west-2 — different region, no collision)
   az_count           = 2
-  single_nat_gateway = false # a NAT per AZ, like prod: one NAT is one egress failure domain
+  single_nat_gateway = true # staging: one NAT. Only the gateway egresses through it, and staging needs no AZ redundancy.
   tags               = local.tags
 }
 
@@ -187,11 +187,11 @@ module "api" {
 
   # Same capacity type, health check, insights and scaling policy as prod: no
   # Spot. Spot reclaims killed in-flight requests and agent turns during the
-  # v0.13.57 release gate (GOLD-1, RUN-7, CFG-11/12). Two numbers differ from
-  # prod on purpose: the task count (`api_task_count`, bounded by the staging
-  # database's 120 connections) and 2 vCPU per task, sized for the release
-  # gate's concurrent load.
-  task_cpu                   = 2048
+  # v0.13.57 release gate (GOLD-1, RUN-7, CFG-11/12). Prod's task size. The
+  # floor (`api_task_count`) is lower than prod's: 6 × 2 vCPU averaged 1–2 %
+  # CPU even during the release gate (2026-11-10 to 11-24), and the CPU and
+  # request policies scale it out to 8 when a gate needs more.
+  task_cpu                   = 1024
   task_memory                = 4096
   desired_count              = var.api_task_count
   min_capacity               = var.api_task_count
@@ -237,12 +237,13 @@ module "gateway" {
 
   alb_ingress_cidrs = local.cloudflare_ip_ranges
 
-  # Prod's gateway shape: on-demand (the LLM path), HA floor of 3. The gateway
-  # holds no database connections, so prod's counts fit staging too.
+  # Prod's gateway task shape, on-demand (the LLM path). Floor of 1: 3 tasks
+  # averaged 0 % CPU and 4 % memory (2026-11-10 to 11-24); the policies scale
+  # it out when a release gate needs more.
   task_cpu                   = 1024
   task_memory                = 2048
-  desired_count              = 3
-  min_capacity               = 3
+  desired_count              = 1
+  min_capacity               = 1
   max_capacity               = 20
   use_fargate_spot           = false
   force_new_deployment       = true

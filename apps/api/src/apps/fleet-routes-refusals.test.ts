@@ -34,7 +34,9 @@ class AppVolumeError extends Error {
 }
 
 const machines: unknown[] = [];
-const volumes = { destroyThrows: null as AppVolumeError | null };
+const volumes: { createThrows: AppVolumeError | null; createInput: unknown; destroyThrows: AppVolumeError | null } = {
+  createThrows: null, createInput: null, destroyThrows: null,
+};
 /** The same shapes the real wake classes carry (KRTX-4730: the timeout is a class). */
 class AppWakeInProgressError extends Error {
   constructor() {
@@ -62,7 +64,11 @@ mock.module('./fleet', () => ({
 }));
 mock.module('./volumes', () => ({
   AppVolumeError,
-  createAppVolume: async () => ({}),
+  createAppVolume: async (input: unknown) => {
+    volumes.createInput = input;
+    if (volumes.createThrows) throw volumes.createThrows;
+    return {};
+  },
   createVolumeSnapshot: async () => ({}),
   destroyVolume: async () => {
     if (volumes.destroyThrows) throw volumes.destroyThrows;
@@ -86,6 +92,8 @@ const APP_ROW = { appId: APP_ID, accountId: '00000000-0000-4000-8000-00000000000
 describe('App fleet routes: HTTP refusals', () => {
   afterEach(() => {
     fleet.startThrows = null;
+    volumes.createThrows = null;
+    volumes.createInput = null;
   });
 
   test('a machine route 404s for an App the caller cannot see', async () => {
@@ -102,6 +110,20 @@ describe('App fleet routes: HTTP refusals', () => {
     const res = await app.request(`/${WORKSPACE_ID}/apps/${APP_ID}/machines`);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ machines: [{ machine_id: 'm1' }] });
+  });
+
+  test('volume creation maps retention refusals and forwards each boundary input', async () => {
+    gate.visible = APP_ROW;
+    for (const retentionDays of [0, 61]) {
+      volumes.createThrows = new AppVolumeError(400, 'volume_retention_invalid', 'snapshot_retention_days must be 1 to 60.');
+      const res = await app.request(`/${WORKSPACE_ID}/apps/${APP_ID}/volumes`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'data', size_gb: 10, snapshot_retention_days: retentionDays }),
+      });
+      expect(volumes.createInput).toEqual({ appId: APP_ID, accountId: APP_ROW.accountId, name: 'data', sizeGb: 10, group: undefined, retentionDays });
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: 'snapshot_retention_days must be 1 to 60.', code: 'volume_retention_invalid' });
+    }
   });
 
   test('a volume destroy refused by the store maps to its documented answer', async () => {

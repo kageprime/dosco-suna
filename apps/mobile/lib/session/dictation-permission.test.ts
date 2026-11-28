@@ -18,8 +18,10 @@ describe('microphone permission', () => {
     expect(appJson.android.blockedPermissions ?? []).not.toContain('android.permission.RECORD_AUDIO');
   });
 
-  test('iOS explains the microphone and speech recognition', () => {
+  // Dictation records audio and the API transcribes it (#13043): the app runs no
+  // on-device speech recognition, so it asks for no speech recognition permission.
+  test('iOS explains the microphone and asks for no speech recognition', () => {
     expect(appJson.ios.infoPlist.NSMicrophoneUsageDescription).toBeTruthy();
-    expect(appJson.ios.infoPlist.NSSpeechRecognitionUsageDescription).toBeTruthy();
+    expect(appJson.ios.infoPlist.NSSpeechRecognitionUsageDescription).toBeUndefined();
   });
 });

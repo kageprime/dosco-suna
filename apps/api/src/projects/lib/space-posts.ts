@@ -229,7 +229,7 @@ export type PostOutcome =
   | { status: 201 | 403 | 404 | 409 | 429 | 503; body: Record<string, unknown> }
   | { createError: SessionCreateError };
 
-const notFound = { status: 404 as const, body: { error: 'Space not found', code: 'space_not_found' } };
+const notFound = { status: 404 as const, body: { error: 'Channel not found', code: 'space_not_found' } };
 
 /**
  * One agent post, for the person the calling session works for (see the
@@ -282,7 +282,7 @@ export async function postIntoSpace(input: {
 
   if (input.threadId) {
     const target = isUuid(input.threadId) ? await topLevelThreadIn(projectId, space.spaceId, input.threadId) : null;
-    if (!target) return { status: 404, body: { error: 'No thread with that id in this space', code: 'thread_not_found' } };
+    if (!target) return { status: 404, body: { error: 'No thread with that id in this channel', code: 'thread_not_found' } };
     try {
       const outcome = await sendPeerMessage({
         sender,

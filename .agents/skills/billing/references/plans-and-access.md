@@ -45,16 +45,62 @@ it is not a fleet-wide quota and does not retry failed money operations.
 
 | | Free | Credits |
 |---|---|---|
-| Price | $0 | $50–$50,000 a month (25 ladder tiers; sales above it) |
-| Usage | 500 credits a month | Monthly credits, 1-month rollover, top-ups |
+| Price | $0 | $50–$10,000 a month (16 ladder tiers; sales above it) |
+| Usage | 500 credits a month | Monthly credits with the volume bonus, 1-month rollover, top-ups |
 | Features | Every self-serve feature except managed models; credit purchases | Same as Free, plus Kortix-managed models |
 | Limits | free model rate budget | paid model rate budget |
 
 No plan caps workspaces. A workspace holds one project; a person may create
 any number of workspaces on Free, and only the first gets the free credits.
 
+Dictation (composer speech-to-text, `POST /v1/workspaces/:id/dictation`) is
+on every plan, Free included, although it runs a Kortix-managed Whisper: it
+is an input method, not a model choice (decision 2026-11-24). It costs
+`DICTATION_CREDITS_PER_MINUTE` (1 credit a minute, billed per second) from
+the wallet, a silent clip included, and it passes the same wallet gate
+and project budgets as model usage. Its ledger rows read "Dictation".
+
 `credit_accounts.tier` is the billing plan: `free` or `credits` (legacy keys
 resolve to `credits`). Stripe owns it. `tier='enterprise'` no longer exists.
+
+### Plan volume bonus (2026-11-27)
+
+A bigger monthly amount buys more credits per dollar: the plan is the volume
+discount and the upgrade path. Self-serve Credits sells no one-off top-ups or
+auto top-up (`plan-catalog.ts`, `canPurchaseCredits: false` since 2026-11-09);
+Enterprise and an `entitlement_overrides.canPurchaseCredits` account buy them
+at the flat 100 credits per dollar, with no bonus.
+
+| Monthly amount | Bonus | Example |
+|---|---|---|
+| $50–$99 | 0% | $50 → 5,000 credits |
+| $100–$199 | +5% | $100 → 10,500 |
+| $200–$499 | +10% | $200 → 22,000 |
+| $500–$999 | +15% | $500 → 57,500 |
+| $1,000–$2,999 | +20% | $1,000 → 120,000 |
+| $3,000–$7,499 | +25% | $3,000 → 375,000 |
+| $7,500–$10,000 | +30% | $10,000 → 1,300,000 |
+
+- One rule: `planCreditsUsd(monthlyUsd)` in `billing/services/tiers.ts`
+  (`PLAN_BONUS_STEPS`), mirrored by `monthlyCreditsForUsd` in
+  `packages/ui/src/internal/billing/compute-pricing.ts`.
+- `credit_accounts.plan_monthly_usd` and the Stripe quantity stay the amount
+  BILLED. The bonus is applied only where credits are granted or shown:
+  activation, renewal, subscription recovery, the yearly rotation, a split-off
+  comp, `tier.monthly_credits`, `scheduled_change.*.monthly_credits` and
+  `GET /billing/tier-configurations`.
+- A raise is granted per proration line at that line's own rate, so the grant
+  is exactly the remaining share of (new credits − old credits)
+  (`proration-grants.ts`).
+- The rollover cap is last month's credits, bonus included.
+- Store (RevenueCat) products grant their listed amount, no bonus: the store
+  keeps its own cut.
+- An amount above $10,000 bought before the cut keeps its subscription and
+  its bill; its bonus is the top step (+30%). `POST /billing/plan` refuses a new one.
+- Top-ups carried a +1–5% bonus until 2026-11-27 (ledger kind `topup_bonus`,
+  key `<payment>:bonus`). A refund or dispute of such a payment still takes
+  back its share of the bonus row the payment actually got
+  (`refund-clawback.ts`, `ledgerEventAmount`).
 
 ### Free credits: once per person
 
@@ -139,11 +185,11 @@ sourceAccountId, newAccountId})` after each move
   marker clears.
 - `applyStripeSync` never writes a non-paid tier over an active comp, and
   `comp_plan_until` is admin-owned (operator path only).
-- Store purchases name the workspace: the mobile app sets the RevenueCat
-  subscriber attribute `kortix_workspace_id` before `purchasePackage` and the
-  paywall (empty = deleted); `resolveRevenueCatAccountId` credits that
-  workspace when the buyer is a member, else the buyer's default account. A
-  renewal follows the account that holds the store subscription.
+- Store purchases: the mobile app has no in-app purchase and no RevenueCat
+  SDK (removed in 1.6.58). Existing RevenueCat subscriptions still reach the
+  webhook; `resolveRevenueCatAccountId` credits the `kortix_workspace_id`
+  attribute's workspace when the buyer is a member, else the buyer's default
+  account. A renewal follows the account that holds the store subscription.
 - Cost views across a move: a project-scope read takes a row billed to another
   account only through one of the project's own sessions (marked billed
   elsewhere); account money views stay by `account_id`.

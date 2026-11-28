@@ -13,9 +13,18 @@ mock.module('../../shared/stripe', () => ({
   }),
 }));
 
+// Bonus rows a payment's grant wrote, by event key. Top-ups bought before
+// 2026-11-27 carry one; a new top-up has none.
+let bonusRows: Record<string, number> = {};
+mock.module('../repositories/ledger-keys', () => ({
+  ledgerEventAmount: async (event: string) => bonusRows[event] ?? 0,
+  ledgerRequestKeyExists: async () => false,
+}));
+
 const { handleChargeRefunded, handleDisputeClosed, handleDisputeCreated } = await import('./refund-clawback');
 
 const creditPackSession = {
+  id: 'cs_1',
   mode: 'payment',
   metadata: { type: 'credit_purchase', account_id: 'acct-synthetic' },
 };
@@ -24,24 +33,33 @@ beforeEach(() => {
   fake.restore();
   paymentIntent = { metadata: {} };
   sessions = [];
+  bonusRows = {};
 });
 
 describe('Stripe refund and dispute clawback', () => {
-  test('a $500 credit pack refunded in full takes -$500 from the wallet, keyed on the cumulative refund', async () => {
+  test('a $500 credit pack with no bonus row refunded in full takes exactly -$500, keyed on the cumulative refund', async () => {
     sessions = [creditPackSession];
     await handleChargeRefunded({ id: 'ch_1', payment_intent: 'pi_1', amount: 50_000, amount_refunded: 50_000 } as never);
     expect(fake.calls.grant).toHaveLength(1);
     expect(fake.calls.grant[0]).toMatchObject({
       accountId: 'acct-synthetic',
-      amount: -520, // $500 + its 4% top-up bonus
+      amount: -500,
       kind: 'admin_debit',
       expiring: false,
       key: { event: 'refund:ch_1:50000' },
     });
   });
 
+  test('a pre-change $500 pack that got a $20 bonus row gives the bonus back too', async () => {
+    sessions = [creditPackSession];
+    bonusRows = { 'cs_1:bonus': 20 };
+    await handleChargeRefunded({ id: 'ch_1', payment_intent: 'pi_1', amount: 50_000, amount_refunded: 50_000 } as never);
+    expect(fake.calls.grant[0]).toMatchObject({ amount: -520 });
+  });
+
   test('a second partial refund takes only the increment (previous_attributes), under its own key', async () => {
     sessions = [creditPackSession];
+    bonusRows = { 'cs_1:bonus': 20 };
     await handleChargeRefunded(
       { id: 'ch_1', payment_intent: 'pi_1', amount: 50_000, amount_refunded: 30_000 } as never,
       { amount_refunded: 12_500 },
@@ -52,6 +70,7 @@ describe('Stripe refund and dispute clawback', () => {
 
   test('an auto-topup charge resolves through the PaymentIntent metadata', async () => {
     paymentIntent = { metadata: { type: 'auto_topup', account_id: 'acct-topup' } };
+    bonusRows = { 'cs_1:bonus': 20 }; // another payment's bonus never counts
     await handleChargeRefunded({ id: 'ch_2', payment_intent: 'pi_2', amount: 2_500, amount_refunded: 2_500 } as never);
     expect(fake.calls.grant[0]).toMatchObject({ accountId: 'acct-topup', amount: -25 });
   });
@@ -70,6 +89,7 @@ describe('Stripe refund and dispute clawback', () => {
 
   test('a dispute takes the disputed amount; a won dispute gives it back', async () => {
     sessions = [creditPackSession];
+    bonusRows = { 'cs_1:bonus': 2 };
     await handleDisputeCreated({ id: 'dp_1', payment_intent: 'pi_1', amount: 10_000 } as never);
     expect(fake.calls.grant[0]).toMatchObject({ amount: -102, key: { event: 'dispute:dp_1' } }); // $100 + 2% bonus
 

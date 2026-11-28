@@ -34,7 +34,7 @@ export function MenuCard({
       ref={cardRef}
       style={style}
       className={cn(
-        'bg-popover text-popover-foreground overflow-hidden rounded-md border shadow-md',
+        'bg-popover text-popover-foreground overflow-hidden rounded-md border shadow-xs',
         className,
       )}
     >

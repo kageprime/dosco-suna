@@ -37,7 +37,8 @@ const RANK_BY_EXT: Record<string, number> = {
 };
 
 const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif', 'heic', 'bmp']);
-const MEDIA_EXT = new Set(['mp4', 'mov', 'webm', 'avi', 'mkv', 'mp3', 'wav', 'm4a', 'ogg']);
+const AUDIO_EXT = new Set(['mp3', 'wav', 'm4a', 'ogg']);
+const MEDIA_EXT = new Set(['mp4', 'mov', 'webm', 'avi', 'mkv', ...AUDIO_EXT]);
 
 const RANK_IMAGE = 6;
 const RANK_MEDIA = 7;
@@ -86,7 +87,7 @@ export function deliverableKindLabel(output: Pick<OutputItem, 'name' | 'kind'>):
   if (ext === 'docx' || ext === 'doc') return 'Document';
   if (ext === 'pptx' || ext === 'ppt' || ext === 'key') return 'Slides';
   if (ext === 'html' || ext === 'htm') return 'Web page';
-  if (MEDIA_EXT.has(ext)) return 'Video';
+  if (MEDIA_EXT.has(ext)) return AUDIO_EXT.has(ext) ? 'Audio' : 'Video';
   return 'File';
 }
 

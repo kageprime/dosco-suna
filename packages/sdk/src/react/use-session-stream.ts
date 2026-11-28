@@ -56,7 +56,7 @@ import {
 import { sessionWorkState, type ProjectSession } from '../core/rest/projects-client/sessions';
 import { invalidateWorkspaceProviderQueries } from './provider-refresh';
 import { qk } from './query-keys';
-import { updateCachedWorkspaceSessions } from './session-cache-write';
+import { applyToCachedSessionShape, updateCachedWorkspaceSessions } from './session-cache-write';
 import type { SessionTurnObservation } from './use-session-working';
 
 /** `sessionStreamConnected` as a hook. Re-renders when that answer moves. */
@@ -286,10 +286,6 @@ function patchCachedSessionWorking(
   });
 }
 
-function readTitle(row: Record<string, unknown>): string | null {
-  return typeof row.name === 'string' ? row.name : null;
-}
-
 /** Put a server title on every cached row of this session. No request. */
 export function patchCachedSessionTitle(
   queryClient: QueryClient,
@@ -297,49 +293,27 @@ export function patchCachedSessionTitle(
   sessionId: string,
   title: string,
 ): void {
-  const patchRow = (row: unknown): unknown => {
+  const patchRow = <T,>(row: T): T => {
     if (!row || typeof row !== 'object') return row;
-    const record = row as Record<string, unknown>;
-    const id = typeof record.session_id === 'string' ? record.session_id : record.sessionId;
+    const id = 'session_id' in row && typeof row.session_id === 'string' ? row.session_id : 'sessionId' in row ? row.sessionId : undefined;
     if (id !== sessionId) return row;
     // A user's own name for the session is the title; never overwrite it.
-    if (typeof record.custom_name === 'string' && record.custom_name.trim()) return row;
-    return readTitle(record) === title ? row : { ...record, name: title };
+    if ('custom_name' in row && typeof row.custom_name === 'string' && row.custom_name.trim()) return row;
+    return 'name' in row && row.name === title ? row : { ...row, name: title };
   };
-  const patch = (data: unknown): unknown => {
-    if (Array.isArray(data)) {
-      let changed = false;
-      const next = data.map((row) => {
-        const patched = patchRow(row);
-        if (patched !== row) changed = true;
-        return patched;
-      });
-      return changed ? next : data;
-    }
-    if (data && typeof data === 'object' && Array.isArray((data as { pages?: unknown }).pages)) {
-      const paged = data as { pages: Array<{ items?: unknown[] }> };
-      let changed = false;
-      const pages = paged.pages.map((page) => {
-        if (!Array.isArray(page?.items)) return page;
-        const items = page.items.map((row) => {
-          const patched = patchRow(row);
-          if (patched !== row) changed = true;
-          return patched;
-        });
-        return changed ? { ...page, items } : page;
-      });
-      return changed ? { ...paged, pages } : data;
-    }
-    return patchRow(data);
+  const update = (rows: ProjectSession[]): ProjectSession[] => {
+    if (!Array.isArray(rows)) return rows;
+    const next = rows.map(patchRow);
+    return next.some((row, i) => row !== rows[i]) ? next : rows;
   };
+  updateCachedWorkspaceSessions(queryClient, projectId, update);
+  // Compatibility only: nested entries and legacy sessionId-only detail rows were
+  // title targets before the canonical session-key filter existed. Do not widen it.
   for (const [key, data] of queryClient.getQueriesData({ queryKey: qk.project.sessionsScope(projectId) })) {
-    const next = patch(data);
+    const shaped = applyToCachedSessionShape(data, update);
+    const next = shaped === data ? patchRow(data) : shaped;
     if (next !== data) queryClient.setQueryData(key, next);
   }
-  const detailKey = qk.project.session(projectId, sessionId);
-  const detail = queryClient.getQueryData(detailKey);
-  const nextDetail = patch(detail);
-  if (nextDetail !== detail) queryClient.setQueryData(detailKey, nextDetail);
 }
 
 /** Feed the connection store from the server's frames. Exported for tests. */

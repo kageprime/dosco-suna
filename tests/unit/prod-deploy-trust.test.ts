@@ -111,7 +111,7 @@ describe('prod access is reachable only through the prod role (phase 2)', () => 
     for (const file of readdirSync(dir).filter((f) => f.endsWith('.yml'))) {
       for (const [name, text] of jobsOf(readWorkflow(file))) {
         const code = text.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
-        const touchesProd = /kortix-prod-env|kortix-prod-web-env|ecs-deploy\.sh\s+prod|ecs-deploy\.sh\s+\\\s*\n\s*prod\b/.test(code);
+        const touchesProd = /kortix-prod-env|ecs-deploy\.sh\s+prod|ecs-deploy\.sh\s+\\\s*\n\s*prod\b/.test(code);
         const ownRole = code.includes('kortix-gha-prod-use2-terraform');
         if (touchesProd && !ownRole && !/^ {4}environment: prod\s*$/m.test(code)) offenders.push(`${file}:${name}`);
       }

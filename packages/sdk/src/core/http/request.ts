@@ -1,4 +1,5 @@
 import { abortable, abortableDelay, createAbortError } from './abort';
+import { isAbortError } from './abort-error';
 import type { ApiClientOptions, ApiResponse } from './api-client';
 import { ApiError, AuthError } from './api/errors';
 import { platformConfig } from './config';
@@ -40,11 +41,6 @@ const isRetryableOnTransportFailure = (method?: string): boolean =>
   isIdempotentMethod(method) || (method ?? 'GET').toUpperCase() === 'DELETE';
 
 const TRANSIENT_READ_RETRIES = 2;
-
-const isAbortError = (error: unknown): boolean =>
-  (error as { name?: string } | null)?.name === 'AbortError' ||
-  (error as { name?: string } | null)?.name === 'AbortSignal' ||
-  (error instanceof Error && error.message.includes('aborted'));
 
 export async function makeRequest<T = any>(
   url: string,

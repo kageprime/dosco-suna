@@ -50,9 +50,18 @@ export function SettingsReturnTracker({ projectId }: { projectId: string }) {
 export function SidebarDrill({
   projectId,
   onNavigate,
+  hideBack = false,
+  drilledOverride,
+  instant = false,
   children,
 }: {
+  /** The swap has no slide or fade (the icon rail: its buttons pick the list, so there is no drill to show). */
+  instant?: boolean;
   projectId: string;
+  /** Set: show this layer whatever the route says (the icon rail's hover, `sidebar_rail`). */
+  drilledOverride?: boolean;
+  /** The settings layer has no Back row (the icon rail is the way out). */
+  hideBack?: boolean;
   /** Called after a click in the settings nav (mobile closes the sheet). */
   onNavigate: () => void;
   children: ReactNode;
@@ -70,7 +79,7 @@ export function SidebarDrill({
   // in this sidebar (a desktop tab switch, a closed tab, browser Back), and
   // the settings nav stayed over a page outside settings.
   if (intent && intent.at !== pathname) setIntent(null);
-  const drilled = intent && intent.at === pathname ? intent.drilled : isProjectAdminPath(pathname);
+  const drilled = drilledOverride ?? (intent && intent.at === pathname ? intent.drilled : isProjectAdminPath(pathname));
   const drillOnClick = (to: boolean) => (event: MouseEvent<HTMLDivElement>) => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     const link = (event.target as HTMLElement).closest('a[href]');
@@ -127,6 +136,7 @@ export function SidebarDrill({
         className={cn(
           'flex h-full min-h-0 flex-col space-y-2 transition-[translate,opacity] ease-default will-change-[translate,opacity] data-instant:transition-none',
           drilled ? 'pointer-events-none opacity-0 duration-normal motion-safe:-translate-x-6' : 'duration-moderate',
+          instant && 'transition-none motion-safe:translate-x-0',
         )}
       >
         {children}
@@ -138,9 +148,10 @@ export function SidebarDrill({
         className={cn(
           'absolute inset-0 transition-[translate,opacity] ease-default will-change-[translate,opacity] data-instant:transition-none',
           drilled ? 'duration-moderate' : 'pointer-events-none opacity-0 duration-normal motion-safe:translate-x-6',
+          instant && 'transition-none motion-safe:translate-x-0',
         )}
       >
-        <WorkspaceSettingsSidebarNav projectId={projectId} shown={drilled} onNavigate={onNavigate} />
+        <WorkspaceSettingsSidebarNav projectId={projectId} shown={drilled} onNavigate={onNavigate} hideBack={hideBack} />
       </div>
     </>
   );

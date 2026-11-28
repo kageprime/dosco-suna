@@ -22,7 +22,7 @@ import { platformSettings, sessionSandboxes } from '@kortix/db';
 import { and, eq } from 'drizzle-orm';
 import { logger } from '../../lib/logger';
 import { db } from '../../shared/db';
-import { platinumJson, platinumRegionControlPlane } from '../../shared/platinum';
+import { platinumHomeOrigin, platinumJson, platinumRegionControlPlane } from '../../shared/platinum';
 import { platinumUsRegion } from '../../shared/platinum-region';
 import type { SettleInput } from '../wallet';
 import { settleAndCheckAutoTopup } from './wallet-debits';
@@ -72,9 +72,11 @@ export const residentialProxyChargeDeps: ResidentialProxyChargeDeps = {
   feeds() {
     const region = platinumUsRegion();
     const origin = region ? platinumRegionControlPlane(region) : null;
+    // A PLATINUM_API_URL that already is the region's control plane reads it as home.
+    const away = region && origin && origin !== platinumHomeOrigin();
     return [
       { cursorKey: RESIDENTIAL_PROXY_CURSOR_KEY },
-      ...(region && origin ? [{ cursorKey: `${RESIDENTIAL_PROXY_CURSOR_KEY}.${region}`, origin }] : []),
+      ...(away ? [{ cursorKey: `${RESIDENTIAL_PROXY_CURSOR_KEY}.${region}`, origin }] : []),
     ];
   },
   async page(feed, cursor) {

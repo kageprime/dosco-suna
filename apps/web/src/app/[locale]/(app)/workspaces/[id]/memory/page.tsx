@@ -15,7 +15,7 @@ import { CompanyMemoryPage } from '@kortix/ui/workspace';
 export default function ProjectMemoryPage() {
   const { id } = useParams<{ id: string }>();
   const t = useTranslations('spaces.memory.company');
-  const tFlag = useTranslations('settings.featureFlags.flags.chat');
+  const tFlag = useTranslations('settings.featureFlags.flags.channels');
   const channels = useFeatureFlag(id, 'chat');
 
   if (channels.isLoading) return null;
@@ -23,7 +23,7 @@ export default function ProjectMemoryPage() {
     return (
       <div className="mx-auto w-full max-w-3xl p-4">
         <FeatureGateScreen
-          featureKey="chat"
+          featureKey="channels"
           featureName={tFlag('name')}
           description={t('gateDescription')}
         />

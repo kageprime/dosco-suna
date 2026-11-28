@@ -31,7 +31,7 @@ export interface SessionModelSelection extends RuntimeLocal {
  * durable session an intentional pick is saved to. Without it a pick stays local.
  */
 export function useSessionModelSelection(
-  options: UseRuntimeLocalOptions & { projectSessionId?: string },
+  options: UseRuntimeLocalOptions & { projectSessionId?: string; onModelChanged?: (pickedAtMs: number) => void },
 ): SessionModelSelection {
   const projectId = useKortixRouteWorkspaceId();
   const defaults = useModelDefaults(projectId);
@@ -47,12 +47,13 @@ export function useSessionModelSelection(
     scope: { id: `session-model:${projectId}:${options.projectSessionId}` },
     // The pick carries its own session and setter: a save that finishes after the
     // thread navigated applies to the session it was picked in, never the new one.
-    mutationFn: async (pick: { projectId: string; projectSessionId: string; model: ModelKey; apply: RuntimeLocal['model']['set'] }) => {
+    mutationFn: async (pick: { projectId: string; projectSessionId: string; model: ModelKey; apply: RuntimeLocal['model']['set']; onChanged?: (pickedAtMs: number) => void; pickedAtMs: number }) => {
       const result = await setWorkspaceSessionModel(pick.projectId, pick.projectSessionId, modelKeyToWire(pick.model));
       if (result.push_failed) throw new Error(result.detail ?? 'The running session did not accept the model');
     },
     onSuccess: (_result, pick) => {
       pick.apply(pick.model, { recent: true });
+      pick.onChanged?.(pick.pickedAtMs);
       void queryClient.invalidateQueries({ queryKey: qk.project.sessionsScope(pick.projectId) });
     },
     onError: (error) => {
@@ -66,7 +67,7 @@ export function useSessionModelSelection(
       ...base.model,
       set: (model, pickOptions) => {
         if (model && projectId && options.projectSessionId && pickOptions?.recent && !pickOptions.autoSeed) {
-          persist.mutate({ projectId, projectSessionId: options.projectSessionId, model, apply: base.model.set });
+          persist.mutate({ projectId, projectSessionId: options.projectSessionId, model, apply: base.model.set, onChanged: options.onModelChanged, pickedAtMs: Date.now() });
         } else {
           base.model.set(model, pickOptions);
         }

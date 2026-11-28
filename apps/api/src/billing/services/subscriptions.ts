@@ -1,21 +1,19 @@
 import { createHostedCheckout } from './hosted-checkout';
 import { getStripe } from '../../shared/stripe';
-import {
-  getCreditAccount,
-  updateCreditAccount,
-} from '../repositories/credit-accounts';
+import { getCreditAccount } from '../repositories/credit-accounts';
 import { getCustomerByAccountId, upsertCustomer, deleteCustomerByStripeId } from '../repositories/customers';
 import { BillingError, SubscriptionError } from '../../errors';
 import {
   PLAN_MAX_MONTHLY_USD,
   PLAN_MIN_MONTHLY_USD,
-  monthlyCreditsForSubscription,
+  monthlyUsdForSubscription,
   planForSubscription,
   resolveCreditsPriceId,
 } from './tiers';
 import { isDeadSubscriptionStatus } from './billing-state';
 import { applyStripeSync } from './account-write-owner';
 import { grantForPaidProrationInvoice } from './proration-grants';
+import { withAccountLock } from './webhook-concurrency';
 import Stripe from 'stripe';
 import { config } from '../../config';
 
@@ -104,7 +102,7 @@ async function planChangeContext(accountId: string, priceId: string) {
   const livePaid = live && !isDeadSubscriptionStatus(live.status) && planForSubscription(live) === 'credits'
     ? live
     : null;
-  const billedUsd = livePaid ? monthlyCreditsForSubscription(livePaid) : 0;
+  const billedUsd = livePaid ? monthlyUsdForSubscription(livePaid) : 0;
   const onCreditsPrice = livePaid?.items.data.length === 1 && livePaid.items.data[0].price?.id === priceId;
   const inEffectUsd = onCreditsPrice ? inEffectMonthlyUsd(account, billedUsd) : billedUsd;
   return { account, stripe, live, livePaid, billedUsd, onCreditsPrice, inEffectUsd };
@@ -273,7 +271,7 @@ export async function setPlan(params: {
     change: 'raised' as const,
     monthly_usd: monthlyUsd,
     charged_usd: (invoice.amount_paid ?? 0) / 100,
-    credits_added: grant.kind === 'raise' ? grant.netCents : 0,
+    credits_added: grant.kind === 'raise' ? Math.round(grant.credits * 100) : 0,
   };
 }
 
@@ -492,10 +490,10 @@ export async function syncSubscription(accountId: string) {
     throw new BillingError('Subscription not found in the current Stripe account', 404);
   });
 
-  await updateCreditAccount(accountId, {
-    stripeSubscriptionStatus: subscription.status,
-    billingCycleAnchor: new Date(subscription.billing_cycle_anchor * 1000).toISOString(),
-  });
+  // The same write the customer.subscription.updated webhook makes, so the
+  // plan follows a portal change without waiting for that webhook.
+  const { syncSubscriptionState } = await import('./webhooks');
+  await withAccountLock(accountId, () => syncSubscriptionState(accountId, subscription));
 
   return { success: true, message: 'Subscription synced' };
 }

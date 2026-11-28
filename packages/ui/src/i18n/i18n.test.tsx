@@ -26,6 +26,12 @@ describe('@kortix/ui/i18n without a host', () => {
     expect(html(<Probe ns="secrets" run={(t) => t('agentAccess', { agents: t('noAgents') })} />)).toBe('en|Agents: No agents');
   });
 
+  test('describes workspace cache ownership without host translations', () => {
+    expect(html(<Probe ns="settings.featureFlags.flags.platinum_cache" run={(t) => t('description')} />)).toBe(
+      "en|New sessions start with /workspace restored from this workspace&#x27;s saved cache on Platinum: a prepared checkout with its node_modules and pnpm store, in about a second instead of minutes of setup. A workspace admin saves a prepared session as the cache. Off, every session starts with an empty /workspace.",
+    );
+  });
+
   test('renders desktop controls from the bundled catalog', () => {
     expect(html(<Probe ns="sessionDesktop" run={(t) => `${t('title')}|${t('takeOver')}|${t('escape')}`} />)).toBe('en|Desktop|Take over|Esc');
   });

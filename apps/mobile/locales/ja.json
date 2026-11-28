@@ -1392,6 +1392,12 @@
     "saving": "保存中…",
     "openError": "このアーティファクトを開けません",
     "more": "アーティファクトの操作",
-    "unavailable": "このワークスペースではアーティファクトを利用できません"
+    "unavailable": "このワークスペースではアーティファクトを利用できません",
+    "moveToFolder": "フォルダーに移動",
+    "folderRoot": "フォルダーなし",
+    "movedToFolder": "{{name}} に移動しました",
+    "moveFailed": "成果物を移動できませんでした",
+    "emptyFolder": "このフォルダにアーティファクトはありません",
+    "emptyUnfiled": "フォルダー未分類のアーティファクトはありません"
   }
 }

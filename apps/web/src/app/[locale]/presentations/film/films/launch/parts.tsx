@@ -89,7 +89,7 @@ export function Window({
   return (
     <div
       className={cn(
-        'bg-popover border-border overflow-hidden rounded-2xl border shadow-2xl',
+        'bg-popover border-border overflow-hidden rounded-2xl border shadow-md',
         className,
       )}
       style={style}
@@ -135,7 +135,7 @@ export function Cursor({
         transform: `translate3d(${x}px, ${y}px, 0) scale(${down ? 0.88 : 1})`,
       }}
     >
-      <AppleCursor className="size-8 drop-shadow-lg" />
+      <AppleCursor className="size-8 drop-shadow-md" />
     </div>
   );
 }
@@ -202,7 +202,7 @@ export function Screen({
   return (
     <div
       className={cn(
-        'border-border bg-background relative overflow-hidden rounded-2xl border shadow-2xl',
+        'border-border bg-background relative overflow-hidden rounded-2xl border shadow-md',
         className,
       )}
       style={{ width: w, height: h, ...style }}

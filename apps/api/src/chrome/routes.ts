@@ -11,8 +11,6 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import type { Context, MiddlewareHandler } from 'hono';
 import { config } from '../config';
-import { projectFeatureFlagEnabled } from '../feature-flags/for-project';
-import { featureDisabledBody } from '../feature-flags/gate';
 import { auth, errors, json, makeOpenApiApp } from '../openapi';
 import { isSessionSandboxCredential } from '../middleware/session-sandbox-credential';
 import { isUuid } from '../shared/validate';
@@ -149,10 +147,6 @@ export function registerChromeRoutes(): void {
     async (c) => {
       const session = sandboxSession(c);
       if (!session) return c.json({ error: 'browser attach requires a session sandbox token' }, 403) as never;
-      // Release stays open when the flag is off, so a session can always let go.
-      if (!(await projectFeatureFlagEnabled(session.projectId, 'chrome'))) {
-        return c.json(featureDisabledBody('chrome'), 403) as never;
-      }
       const body = c.req.valid('json');
       try {
         const result = await attachChrome({ ...session, chrome: body.chrome, ticket: body.ticket, ask: body.ask });

@@ -77,6 +77,8 @@ export interface GatewayHooks {
   claudeCredentials?: ClaudeCodeHooks['claudeCredentials'];
   /** Anthropic refused a Claude account's token (401): mark it for reconnection. */
   claudeRefused?: ClaudeCodeHooks['claudeRefused'];
+  /** Anthropic forbade a Claude account (403): store its reason and skip the account for a while. */
+  claudeForbidden?: ClaudeCodeHooks['claudeForbidden'];
   // Resolves (or throws) once the account's billing state is checked. May
   // return a `holdUsd` when it took an atomic admission hold against the
   // wallet — the handler attaches it to the principal so settle() can

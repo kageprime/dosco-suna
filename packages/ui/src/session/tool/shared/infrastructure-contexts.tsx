@@ -109,6 +109,9 @@ export const InTranscriptTurnContext = createContext(false);
 
 export const ToolDurationContext = createContext<number | undefined>(undefined);
 
+/** When the call started (ISO), for rows that show a time. */
+export const ToolStartedAtContext = createContext<string | undefined>(undefined);
+
 /**
  * True in a read-only session view (the sub-session modal): a tool card shows
  * what happened and offers no fix (connect a model, reconnect ChatGPT).

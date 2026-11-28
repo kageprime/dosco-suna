@@ -3,8 +3,8 @@
  * its own.
  *
  * THE PROBLEM. Opening a session made 6 serial control-plane round trips before
- * the first honest frame — the session row, `/turn`, `/prompts`,
- * `/transcript?shape=sync`, `/detail`, `/model-defaults` — and then kept making
+ * the first honest frame — the session row, `/turn`, `/prompts`, the saved
+ * transcript, `/detail`, `/model-defaults` — and then kept making
  * them, because the hooks that need those facts each own their own query. On a
  * real deployment that is 0.3-2.3 s per read at the median (measured over 20
  * session opens, 2026-08-26), and the last one cannot start until the first
@@ -28,9 +28,9 @@
  * re-read the transcript and the model catalogue every 15 s for the life of the
  * tab. Starting is the open path's decision; claiming is everyone else's.
  *
- * THE TRANSCRIPT LEG is not read: an open asks for the pointer only
- * (`transcript: 0`). The session log's first page (`GET …/log`) is the saved
- * history, and no client reads the v1 window (P8.3).
+ * THE TRANSCRIPT LEG is the pointer only (`getSessionOpenBundle` asks
+ * `transcript=0`). The session log's first page (`GET …/log`) is the saved
+ * history.
  *
  * EVERY LEG IS TRI-STATE. `known: false` projects to `null`, which sends the
  * consumer to its endpoint. It must never project to the NEGATIVE answer — an
@@ -83,10 +83,6 @@ export function resetSessionOpenBundles(): void {
 }
 
 export interface OpenSessionBundleOptions {
-  /** v1 transcript messages to ask for. Default `0`: the POINTER only. An
-   *  open reads the session log (`GET …/log`), so no host reads the
-   *  snapshot's v1 window. */
-  transcript?: number;
   /** Injected clock, for tests. */
   now?: () => number;
 }
@@ -114,9 +110,7 @@ export function openSessionBundle(
   const entry: BundleEntry = {
     startedAtMs: nowMs,
     settledAtMs: null,
-    promise: getSessionOpenBundle(projectId, sessionId, {
-      transcript: options.transcript ?? 0,
-    }).catch(() => null),
+    promise: getSessionOpenBundle(projectId, sessionId).catch(() => null),
   };
   entry.promise = entry.promise.then((bundle) => {
     entry.settledAtMs = now();

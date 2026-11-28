@@ -12,7 +12,7 @@ Yes, Kortix is open source and free to self-host. The cloud version is metered b
 
 ## The software is free to keep
 
-Kortix is open source. Read it, fork it, audit it ([Kortix on GitHub](https://github.com/kortix-ai/CompanyOS)). Self-hosting carries no fee to Kortix. `kortix self-host init` and `kortix self-host start` install a Docker Compose stack on a Linux server you control. Billing is off by default: no credits, no plan limits and no managed models ([self-hosting docs](https://kortix.com/docs/host)). You still pay the companies that supply the metal and the tokens. Sessions run on Platinum, the reference compute provider, and each workspace adds its own model key in the app. Those two bills exist on any host, including ours.
+Kortix is open source. Read it, fork it, audit it ([Kortix on GitHub](https://github.com/kortix-ai/CompanyOS)). Self-hosting carries no fee to Kortix. `kortix self-host init` and `kortix self-host start` install a Docker Compose stack on a Linux server you control. Billing is off by default: no credits, no plan limits and no managed models ([self-hosting docs](https://kortix.com/docs/host)). You still pay the companies that supply the metal and the tokens. Sessions run on [Platinum](https://www.platinum.dev), the reference compute provider, and each workspace adds its own model key in the app. Those two bills exist on any host, including ours.
 
 ## What the Free plan includes
 
@@ -20,9 +20,9 @@ The cloud Free plan is $0 and asks for no card. It includes 500 credits a month 
 
 ## Credits buy work, not headcount
 
-The paid plan is Credits. $50 buys 5,000 credits a month at 100 credits per dollar. A larger monthly amount buys more credits at that rate, never a cheaper credit ([plans and credits](https://kortix.com/pricing), checked October 2026). One wallet serves the whole account. Members are unlimited and adding one does not change the bill.
+The paid plan is Credits. $50 buys 5,000 credits a month at 100 credits per dollar. A larger monthly amount buys more credits per dollar, from +5% at $100 a month to +30% from $7,500 ([plans and credits](https://kortix.com/pricing), checked November 2026). One wallet serves the whole account. Members are unlimited and adding one does not change the bill.
 
-Unused plan credits roll over for one month, and top-ups never expire. A quiet month is not a loss. The paid plan also lifts model rate limits and adds email support.
+Unused plan credits roll over for one month. A quiet month is not a loss. The paid plan also lifts model rate limits and adds email support.
 
 ## What the meter counts
 
@@ -54,7 +54,7 @@ The trade is operational. You own upgrades, backups, TLS and the database. `kort
 
 ## When the credits run out
 
-At zero, agents pause and triggers stop starting sessions. Starting a session or sending a prompt returns `402` with `insufficient_credits`, and Kortix stops the account's running Apps ([plans and credits](https://kortix.com/docs/credits)). On Free, the fix is to wait for the next monthly grant or move to Credits. On a paid plan, add credits or turn on auto top-up. With auto top-up off, owners get one email per UTC day while the balance stays empty. The non-expiring balance can go below zero for work that finished, and the next credits cover the difference.
+At zero, agents pause and triggers stop starting sessions. Starting a session or sending a prompt returns `402` with `insufficient_credits`, and Kortix stops the account's running Apps ([plans and credits](https://kortix.com/docs/credits)). On Free, the fix is to wait for the next monthly grant or move to Credits. On a paid plan, raise the monthly tier: the new credits land at once. Owners get one email per UTC day while the balance stays empty. The non-expiring balance can go below zero for work that finished, and the next credits cover the difference.
 
 ## How to choose a starting point
 

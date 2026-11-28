@@ -49,6 +49,8 @@ const buttonVariants = cva(
         xl: cn('h-12 rounded-md px-6 sm:h-11', Platform.select({ web: 'has-[>svg]:px-4' })),
         icon: 'h-10 w-10 sm:h-9 sm:w-9',
         'icon-lg': 'h-11 w-11',
+        /** The round 56pt actions of the Review deck. */
+        'icon-xl': 'h-14 w-14',
         'icon-md': 'h-9 w-9',
         'icon-sm': 'h-7 w-7',
       },
@@ -88,6 +90,7 @@ const buttonTextVariants = cva(
         xl: 'text-base font-medium',
         icon: '',
         'icon-lg': '',
+        'icon-xl': '',
         'icon-md': '',
         'icon-sm': '',
       },

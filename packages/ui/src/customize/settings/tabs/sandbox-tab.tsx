@@ -224,7 +224,7 @@ export function TemplateRuntimeFooter({
   const observedAt = latestObservedAt(coverage);
 
   return (
-    <div className="border-border/60 bg-muted/25 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t px-4 py-2.5">
+    <div className="border-border bg-muted/25 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t px-4 py-2.5">
       <span className="text-muted-foreground shrink-0 text-xs">{runtimeLabel}</span>
       <div className="flex flex-wrap items-center gap-1.5">
         {available.map((item) => (
@@ -401,7 +401,7 @@ function TemplateCard({
             three numbers repeated down every card, so proportional digits make
             the columns wander between cards. Matches `snapshots-tab.tsx`, the
             other half of this split, which pins its timestamps the same way. */}
-        <dl className="border-border/60 grid grid-cols-2 gap-x-4 gap-y-4 border-t px-4 py-4 tabular-nums sm:grid-cols-3">
+        <dl className="border-border grid grid-cols-2 gap-x-4 gap-y-4 border-t px-4 py-4 tabular-nums sm:grid-cols-3">
           <FactCell icon={CpuIcon} label={t('facts.processor')} value={`${template.cpu} vCPU`} />
           <FactCell
             icon={MemoryIcon}
