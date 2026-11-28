@@ -547,6 +547,16 @@
         "path": "apps/api/src/secrets/provider-key-selection.ts",
         "text": "return expectedSecretResourceName(providerId) ?? null;"
       }
+    },
+    {
+      "id": "SYNC-02",
+      "name": "Upstream sync keeps every workspace package the API image installs",
+      "status": "behavior-locked",
+      "surface": "packages/minimatch-compat/package.json",
+      "check": {
+        "type": "file-exists",
+        "path": "packages/minimatch-compat/package.json"
+      }
     }
   ],
   "frozenTrees": {
